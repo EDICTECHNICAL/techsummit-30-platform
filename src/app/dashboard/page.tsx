@@ -135,33 +135,30 @@ export default function DashboardPage() {
       <section className="mt-6">
         <h2 className="text-lg font-semibold">Competition Portals</h2>
         <div className="mt-3 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <Link
-            href="/quiz"
-            className="group rounded-lg border border-border p-4 hover:bg-accent"
-          >
-            <h4 className="font-medium">Quiz Portal</h4>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Start or resume the 30-minute quiz when active.
-            </p>
-          </Link>
-          <Link
-            href="/voting"
-            className="group rounded-lg border border-border p-4 hover:bg-accent"
-          >
-            <h4 className="font-medium">Voting Arena</h4>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Leaders vote. Convert tokens to votes.
-            </p>
-          </Link>
-          <Link
-            href="/final"
-            className="group rounded-lg border border-border p-4 hover:bg-accent"
-          >
-            <h4 className="font-medium">Finals Stage</h4>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Peer ratings (3–10) and judges' scores.
-            </p>
-          </Link>
+          {user ? (
+            <>
+              <Link href="/quiz" className="group rounded-lg border border-border p-4 hover:bg-accent">
+                <h4 className="font-medium">Quiz Portal</h4>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Start or resume the 30-minute quiz when active.
+                </p>
+              </Link>
+              <Link href="/voting" className="group rounded-lg border border-border p-4 hover:bg-accent">
+                <h4 className="font-medium">Voting Arena</h4>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Leaders vote. Convert tokens to votes.
+                </p>
+              </Link>
+              <Link href="/final" className="group rounded-lg border border-border p-4 hover:bg-accent">
+                <h4 className="font-medium">Finals Stage</h4>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Peer ratings (3–10) and judges' scores.
+                </p>
+              </Link>
+            </>
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">Please log in to view competition links.</p>
+          )}
         </div>
       </section>
 

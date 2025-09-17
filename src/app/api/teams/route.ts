@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '../../../db/index';
-import { teams, teamMembers, user } from '../../../db/schema';
+import { teams, user } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 // GET handler - List all teams with members
@@ -17,50 +17,27 @@ export async function GET(request: NextRequest) {
         name: teams.name,
         college: teams.college,
         createdAt: teams.createdAt,
-        memberName: user.name,
-  // memberEmail removed, no email field in user table
-        memberRole: teamMembers.role,
-        userId: user.id,
+        leaderId: teams.leaderId,
       })
       .from(teams)
-      .leftJoin(teamMembers, eq(teams.id, teamMembers.teamId))
-      .leftJoin(user, eq(teamMembers.userId, user.id))
       .limit(limit)
       .offset(offset);
 
-    // Group by team and structure response
-    const teamMap = new Map();
-    
-    for (const row of teamsWithMembers) {
-      if (!teamMap.has(row.id)) {
-        teamMap.set(row.id, {
-          id: row.id,
-          name: row.name,
-          college: row.college,
-          createdAt: row.createdAt,
-          members: [],
-          memberCount: 0,
-          leader: null,
-        });
-      }
-      
-      const team = teamMap.get(row.id);
-      if (row.memberName) {
-        const member = {
-          name: row.memberName,
-          role: row.memberRole,
-          userId: row.userId,
-        };
-        team.members.push(member);
-        team.memberCount++;
-        if (row.memberRole === 'LEADER') {
-          team.leader = member;
-        }
-      }
-    }
-
-    const result = Array.from(teamMap.values());
-    return NextResponse.json(result);
+    // Structure response with leader info only
+    const teamsWithLeader = await Promise.all(teamsWithMembers.map(async (team) => {
+      // Fetch leader user info
+      const leader = team.leaderId
+        ? await db.select().from(user).where(eq(user.id, team.leaderId)).limit(1)
+        : [];
+      return {
+        id: team.id,
+        name: team.name,
+        college: team.college,
+        createdAt: team.createdAt,
+        leader: leader[0] ? { userId: leader[0].id, name: leader[0].name, username: leader[0].username } : null,
+      };
+    }));
+    return NextResponse.json(teamsWithLeader);
   } catch (error) {
     console.error('GET teams error:', error);
     return NextResponse.json({ error: 'Internal server error: ' + error }, { status: 500 });
@@ -87,8 +64,8 @@ export async function POST(request: NextRequest) {
     // Check if user is already a team leader
     const existingLeadership = await db
       .select()
-      .from(teamMembers)
-      .where(and(eq(teamMembers.userId, session.user.id), eq(teamMembers.role, 'LEADER')))
+      .from(teams)
+      .where(eq(teams.leaderId, session.user.id))
       .limit(1);
 
     if (existingLeadership.length > 0) {
@@ -98,31 +75,16 @@ export async function POST(request: NextRequest) {
       }, { status: 409 });
     }
 
-    // Use transaction for multi-table operations
-    const result = await db.transaction(async (tx) => {
-      // Create team
-      const newTeam = await tx.insert(teams).values([
-        {
-          name: name.trim(),
-          college: college.trim(),
-        }
-      ]).returning();
+    // Create team with user as leader
+    const newTeam = await db.insert(teams).values([
+      {
+        name: name.trim(),
+        college: college.trim(),
+        leaderId: session.user.id,
+      }
+    ]).returning();
 
-      // Add creator as team leader
-      await tx.insert(teamMembers).values([
-        {
-          teamId: newTeam[0].id,
-          userId: session.user.id,
-          role: 'LEADER',
-        }
-      ]);
-
-      // userRoles table removed. Team leader is created in teamMembers only.
-
-      return newTeam[0];
-    });
-
-    return NextResponse.json(result, { status: 201 });
+    return NextResponse.json(newTeam[0], { status: 201 });
   } catch (error) {
     console.error('POST teams error:', error);
     // Handle unique constraint violations
