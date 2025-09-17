@@ -3,12 +3,12 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { authClient } from "@/lib/auth-client";
+import { supabase } from "@/lib/auth-client";
 
 export default function SignInPage() {
   const router = useRouter();
   const sp = useSearchParams();
-  const [email, setEmail] = useState("");
+  const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -19,14 +19,19 @@ export default function SignInPage() {
     setLoading(true);
     setError(null);
     try {
-      const { error } = await authClient.signIn.email({
-        email, password, rememberMe, callbackURL: "/dashboard"
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ username, password })
       });
-      if (error?.code) {
-        setError("Invalid email or password");
+      const result = await res.json();
+      if (!result.success) {
+        setError(result.error || "Invalid username or password");
         setLoading(false);
         return;
       }
+      // Store user object in localStorage for dashboard
+      localStorage.setItem("user", JSON.stringify(result.user));
       router.push("/dashboard");
     } catch (err: any) {
       setError(err?.message || "Login failed");
@@ -46,14 +51,14 @@ export default function SignInPage() {
         )}
         <form className="mt-6 space-y-4" onSubmit={onSubmit}>
           <div>
-            <label className="text-sm text-muted-foreground">Email</label>
+            <label className="text-sm text-muted-foreground">Username</label>
             <input
-              type="email"
+              type="text"
               required
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
               className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 outline-none focus:ring-2"
-              placeholder="you@example.com"
+              placeholder="Your username"
             />
           </div>
           <div>

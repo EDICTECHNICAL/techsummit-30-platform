@@ -8,14 +8,6 @@ export default function HomePage() {
     <div className="min-h-screen bg-background text-foreground">
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <Image
-          src="https://images.unsplash.com/photo-1518779578993-ec3579fee39f?q=80&w=1974&auto=format&fit=crop"
-          alt="Tech innovation background"
-          width={2400}
-          height={1200}
-          priority
-          className="absolute inset-0 h-full w-full object-cover opacity-20"
-        />
         <div className="relative mx-auto max-w-6xl px-6 py-20 sm:py-28">
           <div className="flex flex-col items-start gap-6">
             <span className="inline-flex items-center rounded-full bg-accent px-3 py-1 text-xs font-medium text-accent-foreground ring-1 ring-border">Entrepreneurship Club • College Event</span>
