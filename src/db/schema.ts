@@ -49,13 +49,6 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
 });
 
-// User roles mapping
-export const userRoles = pgTable('user_roles', {
-  id: serial('id').primaryKey(),
-  userId: varchar('user_id', { length: 36 }).notNull().references(() => user.id, { onDelete: 'cascade' }),
-  role: text('role').notNull(), // 'ADMIN' | 'LEADER' | 'MEMBER'
-  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow()
-});
 
 // Teams
 export const teams = pgTable('teams', {
@@ -72,17 +65,14 @@ export const teamMembers = pgTable('team_members', {
   teamId: integer('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
   userId: varchar('user_id', { length: 36 }).notNull().references(() => user.id, { onDelete: 'cascade' }),
   role: text('role').notNull(), // 'LEADER' | 'MEMBER'
-  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow()
-});
+  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
+}, (table) => ({
+  leaderUnique: {
+    unique: [table.teamId, table.role],
+    where: (row) => row.role === 'LEADER',
+  },
+}));
 
-// Team invites
-export const teamInvites = pgTable('team_invites', {
-  id: serial('id').primaryKey(),
-  teamId: integer('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
-  email: text('email').notNull(),
-  status: text('status').notNull().default('PENDING'), // 'PENDING' | 'ACCEPTED' | 'DECLINED'
-  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow()
-});
 
 // Rounds
 export const rounds = pgTable('rounds', {

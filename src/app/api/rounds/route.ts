@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { rounds, userRoles } from '@/db/schema';
+import { rounds } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 // GET handler - List all rounds
@@ -30,22 +30,7 @@ export async function PATCH(request: NextRequest) {
       }, { status: 401 });
     }
 
-    // Verify user is admin
-    const isAdmin = await db
-      .select()
-      .from(userRoles)
-      .where(and(
-        eq(userRoles.userId, session.user.id),
-        eq(userRoles.role, 'ADMIN')
-      ))
-      .limit(1);
-
-    if (isAdmin.length === 0) {
-      return NextResponse.json({ 
-        error: 'Admin access required', 
-        code: 'ADMIN_REQUIRED' 
-      }, { status: 403 });
-    }
+    // TODO: Add admin check if needed. UserRoles table removed.
 
     const { roundId, status, startsAt, endsAt } = await request.json();
     

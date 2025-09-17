@@ -72,7 +72,6 @@ export default function QuizPage() {
 
   if (isPending) return <div className="p-6">Loading...</div>;
   if (!session?.user) return <div className="p-6">Please sign in.</div>;
-  if (!isLeader) return <div className="p-6">Only the team leader can access the quiz portal. Your leader will answer on behalf of your team.</div>;
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6">

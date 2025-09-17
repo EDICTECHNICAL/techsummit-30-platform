@@ -28,9 +28,7 @@ export default function DashboardPage() {
 
   const [teams, setTeams] = useState<any[]>([]);
   const [myTeam, setMyTeam] = useState<any | null>(null);
-  const [invites, setInvites] = useState<any[]>([]);
   const [form, setForm] = useState({ name: "", college: "" });
-  const [inviteEmail, setInviteEmail] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
@@ -60,20 +58,10 @@ export default function DashboardPage() {
     }
   };
 
-  const loadInvites = async () => {
-    try {
-      const res = await fetch("/api/team-invites", { headers: bearer() as any });
-      const data = await res.json();
-      if (Array.isArray(data)) setInvites(data);
-    } catch {
-      // ignore silently
-    }
-  };
 
   useEffect(() => {
     if (user) {
       loadTeams();
-      loadInvites();
     }
   }, [user]);
 
@@ -99,73 +87,8 @@ export default function DashboardPage() {
     }
   };
 
-  const sendInvite = async () => {
-    if (!myTeam?.id) {
-      setError("No team found");
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/team-invites", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(bearer() as any) },
-        body: JSON.stringify({ teamId: myTeam.id, email: inviteEmail }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed to send invite");
-      setMsg(`Invite sent to ${data.email}`);
-      setInviteEmail("");
-      await loadInvites();
-    } catch (e: any) {
-      setError(e?.message || "Failed to send invite");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const acceptInvite = async (inviteId: number) => {
-    setLoading(true);
-    setError(null);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/team-invites/accept", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(bearer() as any) },
-        body: JSON.stringify({ inviteId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed to accept invite");
-      setMsg("Invite accepted. You joined a team.");
-      await Promise.all([loadTeams(), loadInvites()]);
-    } catch (e: any) {
-      setError(e?.message || "Failed to accept invite");
-    } finally {
-      setLoading(false);
-    }
-  };
 
-  const declineInvite = async (inviteId: number) => {
-    setLoading(true);
-    setError(null);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/team-invites/decline", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(bearer() as any) },
-        body: JSON.stringify({ inviteId }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed to decline invite");
-      setMsg("Invite declined.");
-      await loadInvites();
-    } catch (e: any) {
-      setError(e?.message || "Failed to decline invite");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   if (isPending) return <div className="flex items-center justify-center min-h-screen bg-background text-foreground"><CircleLoader size={64} color={theme === "dark" ? "#fff" : "#2563eb"} /></div>;
   if (!user)
@@ -274,20 +197,6 @@ export default function DashboardPage() {
               <div className="mt-4 rounded-md border border-border p-3">
                 <h3 className="font-medium text-sm">Invite Member</h3>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
-                  <input
-                    type="email"
-                    value={inviteEmail}
-                    onChange={(e) => setInviteEmail(e.target.value)}
-                    placeholder="member@email.com"
-                    className="w-64 rounded-md border border-input bg-background px-3 py-2 text-sm"
-                  />
-                  <button
-                    disabled={loading || !inviteEmail}
-                    onClick={sendInvite}
-                    className="rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-                  >
-                    Send Invite
-                  </button>
                 </div>
               </div>
             )}
@@ -338,51 +247,6 @@ export default function DashboardPage() {
         </section>
       )}
 
-      {/* Invites for me */}
-      <section className="mt-10">
-        <h2 className="text-lg font-semibold">My Invites</h2>
-        {invites.length === 0 ? (
-          <p className="mt-2 text-sm text-muted-foreground">No invites yet.</p>
-        ) : (
-          <div className="mt-3 grid gap-3 sm:max-w-xl">
-            {invites.map((inv) => (
-              <div
-                key={inv.id}
-                className="flex items-center justify-between rounded-md border border-border bg-card p-3 text-sm"
-              >
-                <div>
-                  <p>
-                    Team: <span className="font-medium">{inv.teamName}</span>
-                  </p>
-                  <p className="text-muted-foreground">Status: {inv.status}</p>
-                </div>
-                {inv.status === "PENDING" ? (
-                  <div className="flex items-center gap-2">
-                    <button
-                      disabled={loading}
-                      onClick={() => acceptInvite(inv.id)}
-                      className="rounded-md bg-primary px-3 py-1 text-primary-foreground"
-                    >
-                      Accept
-                    </button>
-                    <button
-                      disabled={loading}
-                      onClick={() => declineInvite(inv.id)}
-                      className="rounded-md border border-border px-3 py-1"
-                    >
-                      Decline
-                    </button>
-                  </div>
-                ) : (
-                  <span className="text-xs text-muted-foreground">
-                    {inv.status}
-                  </span>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </section>
 
       <section className="mt-10">
         <Link href="/scoreboard" className="text-sm underline">

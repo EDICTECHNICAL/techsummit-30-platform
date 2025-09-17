@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '../../../db/index';
-import { teams, teamMembers, userRoles, user } from '../../../db/schema';
+import { teams, teamMembers, user } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
 
 // GET handler - List all teams with members
@@ -116,21 +116,7 @@ export async function POST(request: NextRequest) {
         }
       ]);
 
-      // Ensure user has LEADER role in user_roles
-      const existingRole = await tx
-        .select()
-        .from(userRoles)
-        .where(and(eq(userRoles.userId, session.user.id), eq(userRoles.role, 'LEADER')))
-        .limit(1);
-
-      if (existingRole.length === 0) {
-        await tx.insert(userRoles).values([
-          {
-            userId: session.user.id,
-            role: 'LEADER',
-          }
-        ]);
-      }
+      // userRoles table removed. Team leader is created in teamMembers only.
 
       return newTeam[0];
     });
