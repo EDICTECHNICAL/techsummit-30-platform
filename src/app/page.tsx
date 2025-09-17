@@ -55,6 +55,22 @@ export default function HomePage() {
       {/* Quick Links - Only show competition portals if signed in */}
       <section className="mx-auto max-w-6xl px-6 pb-16">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+          {!isSignedIn && (
+            <>
+              <Link href="/sign-up" className="group rounded-lg border border-border p-6 hover:bg-accent">
+                <h4 className="font-semibold">Register Your Team</h4>
+                <p className="mt-2 text-sm text-muted-foreground">Sign up to participate in the event.</p>
+              </Link>
+              <Link href="/sign-in" className="group rounded-lg border border-border p-6 hover:bg-accent">
+                <h4 className="font-semibold">Sign In</h4>
+                <p className="mt-2 text-sm text-muted-foreground">Access your dashboard and competition portals.</p>
+              </Link>
+              <Link href="/scoreboard" className="group rounded-lg border border-border p-6 hover:bg-accent">
+                <h4 className="font-semibold">View Scoreboard</h4>
+                <p className="mt-2 text-sm text-muted-foreground">See team rankings and scores.</p>
+              </Link>
+            </>
+          )}
           {isSignedIn && (
             <>
               <Link href="/quiz" className="group rounded-lg border border-border p-6 hover:bg-accent">
