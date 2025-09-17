@@ -1,20 +1,28 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 
 export default function AdminPage() {
-  const { data: session, isPending } = useSession();
   const [rounds, setRounds] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isAdmin = useMemo(() => session?.user?.roles?.includes?.("ADMIN") ?? false, [session]);
+  // Check for admin session cookie
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isAdmin = document.cookie.includes("admin-auth=true");
+      if (!isAdmin) {
+        window.location.href = "/admin/login";
+      }
+    }
+  }, []);
 
   const fetchRounds = async () => {
     try {
       setError(null);
-      const res = await fetch("/api/rounds", { headers: { "Authorization": `Bearer ${localStorage.getItem("bearer_token")}` }});
+      const res = await fetch("/api/rounds");
       const data = await res.json();
       setRounds(Array.isArray(data) ? data : []);
     } catch (e: any) {
@@ -31,8 +39,7 @@ export default function AdminPage() {
       const res = await fetch("/api/rounds", {
         method: "PATCH",
         headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${localStorage.getItem("bearer_token")}`
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ roundId, status })
       });
@@ -47,10 +54,6 @@ export default function AdminPage() {
       setLoading(false);
     }
   };
-
-  if (isPending) return <div className="p-6">Loading...</div>;
-  if (!session?.user) return <div className="p-6">Please sign in.</div>;
-  if (!isAdmin) return <div className="p-6">Admin access required.</div>;
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
@@ -80,14 +83,14 @@ export default function AdminPage() {
       <section className="mt-10">
         <h2 className="text-lg font-semibold">APIs</h2>
         <div className="mt-3 grid gap-4 sm:max-w-lg">
-          <a href="/api/rounds" className="group rounded-lg border border-border p-4 hover:bg-accent">
+          <Link href="/api/rounds" className="group rounded-lg border border-border p-4 hover:bg-accent">
             <h4 className="font-medium">API: Rounds</h4>
             <p className="mt-1 text-sm text-muted-foreground">Inspect current round states (JSON).</p>
-          </a>
-          <a href="/api/questions" className="group rounded-lg border border-border p-4 hover:bg-accent">
+          </Link>
+          <Link href="/api/questions" className="group rounded-lg border border-border p-4 hover:bg-accent">
             <h4 className="font-medium">API: Questions</h4>
             <p className="mt-1 text-sm text-muted-foreground">Preview the 15 quiz questions with options.</p>
-          </a>
+          </Link>
         </div>
       </section>
     </div>

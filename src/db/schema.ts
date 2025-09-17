@@ -1,3 +1,11 @@
+// Admins table for dedicated admin management
+export const admins = pgTable("admins", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  username: text("username").notNull().unique(),
+  password: text("password").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
+});
 import { pgTable, integer, text, varchar, timestamp, boolean, json, serial } from 'drizzle-orm/pg-core';
 
 
@@ -7,8 +15,8 @@ export const user = pgTable("user", {
   id: varchar("id", { length: 36 }).primaryKey(),
   username: text("username").notNull().unique(),
   name: text("name").notNull(),
-  password: text("password"),
-  image: text("image"),
+  password: text("password").notNull(),
+  isAdmin: boolean("is_admin").notNull().default(false),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
 });
@@ -17,11 +25,9 @@ export const session = pgTable("session", {
   id: varchar("id", { length: 36 }).primaryKey(),
   expiresAt: timestamp("expires_at", { withTimezone: false }).notNull(),
   token: text("token").notNull().unique(),
+  userId: varchar("user_id", { length: 36 }).notNull().references(() => user.id, { onDelete: "cascade" }),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
-  ipAddress: text("ip_address"),
-  userAgent: text("user_agent"),
-  userId: varchar("user_id", { length: 36 }).notNull().references(() => user.id, { onDelete: "cascade" }),
 });
 
 export const account = pgTable("account", {
@@ -31,11 +37,6 @@ export const account = pgTable("account", {
   userId: varchar("user_id", { length: 36 }).notNull().references(() => user.id, { onDelete: "cascade" }),
   accessToken: text("access_token"),
   refreshToken: text("refresh_token"),
-  idToken: text("id_token"),
-  accessTokenExpiresAt: timestamp("access_token_expires_at", { withTimezone: false }),
-  refreshTokenExpiresAt: timestamp("refresh_token_expires_at", { withTimezone: false }),
-  scope: text("scope"),
-  password: text("password"),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
 });
@@ -55,23 +56,11 @@ export const teams = pgTable('teams', {
   id: serial('id').primaryKey(),
   name: text('name').notNull().unique(),
   college: text('college').notNull(),
+  leaderId: varchar('leader_id', { length: 36 }).notNull().references(() => user.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow()
 });
 
-// Team members with roles
-export const teamMembers = pgTable('team_members', {
-  id: serial('id').primaryKey(),
-  teamId: integer('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
-  userId: varchar('user_id', { length: 36 }).notNull().references(() => user.id, { onDelete: 'cascade' }),
-  role: text('role').notNull(), // 'LEADER' | 'MEMBER'
-  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
-}, (table) => ({
-  leaderUnique: {
-    unique: [table.teamId, table.role],
-    where: (row) => row.role === 'LEADER',
-  },
-}));
 
 
 // Rounds

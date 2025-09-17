@@ -1,36 +1,63 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+
+# TechSummit-30 Platform
+
+A modern, business-style hackathon platform built with Next.js, Drizzle ORM, Supabase, and Tailwind CSS. This project supports leader-only teams, custom authentication, admin console, and SQL-based seeding for easy deployment on Supabase.
+
+## Features
+- Custom username/password authentication
+- Leader-only team management (no teamMembers table)
+- Admin console with dedicated admin table
+- Quiz, voting, and final rounds
+- Glassy, scrollable dashboard UI with theme switch
+- SQL-based schema and seed data for Supabase
+
+## Tech Stack
+- Next.js
+- Drizzle ORM
+- Supabase PostgreSQL
+- Tailwind CSS
+- Node.js
 
 ## Getting Started
+1. **Clone the repository:**
+	```sh
+	git clone https://github.com/pawanshettyy/techsummit-30-platform.git
+	cd techsummit-30-platform
+	```
+2. **Install dependencies:**
+	```sh
+	npm install --legacy-peer-deps
+	```
+3. **Configure environment:**
+	- Set up your Supabase project and get the `DATABASE_URL`.
+	- Create a `.env.local` file and add:
+	  ```env
+	  DATABASE_URL=your_supabase_database_url
+	  ```
+4. **Set up the database:**
+	- Use the provided SQL schema and seed scripts in the Supabase SQL editor to create tables and seed initial data.
 
-First, run the development server:
+## SQL Seeding
+- All seed data is provided as SQL scripts for direct use in Supabase.
+- See the `/src/db/seeds/` directory for sample data and conversion scripts.
 
-```bash
+## Running Locally
+```sh
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## Folder Structure
+- `src/app/` - Next.js app routes and pages
+- `src/components/` - UI components
+- `src/db/schema.ts` - Drizzle ORM schema
+- `src/db/seeds/` - Seed scripts (convert to SQL for Supabase)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Admin Accounts
+- See the SQL seed script for sample admin accounts.
+- Change passwords and usernames as needed for production.
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+## Contributing
+Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+## License
+MIT

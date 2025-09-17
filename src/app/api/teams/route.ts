@@ -70,8 +70,9 @@ export async function GET(request: NextRequest) {
 // POST handler - Create new team
 export async function POST(request: NextRequest) {
   try {
-    // TODO: Replace with real authentication logic
-    const session = { user: { id: 'test-user-id' } };
+  // TODO: Replace with real authentication logic
+  // Use a valid user ID from your seed data for testing
+  const session = { user: { id: 'user_02h4kyu3f0a8z4c2d8e7f6g9s2' } }; // e.g. Alice Johnson
 
     const { name, college } = await request.json();
     
