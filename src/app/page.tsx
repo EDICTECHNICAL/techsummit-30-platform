@@ -2,8 +2,11 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useSession } from "@/lib/auth-client";
 
 export default function HomePage() {
+  const { data: session, isPending } = useSession();
+  const isSignedIn = !!session?.user;
   return (
     <div className="min-h-screen bg-background text-foreground">
       {/* Hero */}
@@ -49,21 +52,25 @@ export default function HomePage() {
         </div>
       </section>
 
-      {/* Quick Links */}
+      {/* Quick Links - Only show competition portals if signed in */}
       <section className="mx-auto max-w-6xl px-6 pb-16">
         <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-          <Link href="/quiz" className="group rounded-lg border border-border p-6 hover:bg-accent">
-            <h4 className="font-semibold">Quiz Portal</h4>
-            <p className="mt-2 text-sm text-muted-foreground">Leaders can start the 30-minute quiz when Round 1 is active.</p>
-          </Link>
-          <Link href="/voting" className="group rounded-lg border border-border p-6 hover:bg-accent">
-            <h4 className="font-semibold">Voting Arena</h4>
-            <p className="mt-2 text-sm text-muted-foreground">Cast votes post-pitches. Max 3 downvotes per team. Convert tokens → votes.</p>
-          </Link>
-          <Link href="/final" className="group rounded-lg border border-border p-6 hover:bg-accent">
-            <h4 className="font-semibold">Finals Stage</h4>
-            <p className="mt-2 text-sm text-muted-foreground">Rate peers (3–10) and track judge scores during Round 3.</p>
-          </Link>
+          {isSignedIn && (
+            <>
+              <Link href="/quiz" className="group rounded-lg border border-border p-6 hover:bg-accent">
+                <h4 className="font-semibold">Quiz Portal</h4>
+                <p className="mt-2 text-sm text-muted-foreground">Leaders can start the 30-minute quiz when Round 1 is active.</p>
+              </Link>
+              <Link href="/voting" className="group rounded-lg border border-border p-6 hover:bg-accent">
+                <h4 className="font-semibold">Voting Arena</h4>
+                <p className="mt-2 text-sm text-muted-foreground">Cast votes post-pitches. Max 3 downvotes per team. Convert tokens → votes.</p>
+              </Link>
+              <Link href="/final" className="group rounded-lg border border-border p-6 hover:bg-accent">
+                <h4 className="font-semibold">Finals Stage</h4>
+                <p className="mt-2 text-sm text-muted-foreground">Rate peers (3–10) and track judge scores during Round 3.</p>
+              </Link>
+            </>
+          )}
           <Link href="/admin" className="group rounded-lg border border-border p-6 hover:bg-accent">
             <h4 className="font-semibold">Admin Console</h4>
             <p className="mt-2 text-sm text-muted-foreground">Control round status, manage questions, and oversee the event.</p>

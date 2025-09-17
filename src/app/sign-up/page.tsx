@@ -10,6 +10,8 @@ export default function SignUpPage() {
   const [name, setName] = useState("");
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
+  const [teamName, setTeamName] = useState("");
+  const [college, setCollege] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -21,7 +23,7 @@ export default function SignUpPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, name })
+        body: JSON.stringify({ username, password, name, teamName, college })
       });
       const result = await res.json();
       if (!result.success) {
@@ -75,6 +77,28 @@ export default function SignUpPage() {
               onChange={(e) => setPassword(e.target.value)}
               className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 outline-none focus:ring-2"
               placeholder="Create a password"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground">Team Name</label>
+            <input
+              type="text"
+              required
+              value={teamName}
+              onChange={(e) => setTeamName(e.target.value)}
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 outline-none focus:ring-2"
+              placeholder="Your team name"
+            />
+          </div>
+          <div>
+            <label className="text-sm text-muted-foreground">College</label>
+            <input
+              type="text"
+              required
+              value={college}
+              onChange={(e) => setCollege(e.target.value)}
+              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 outline-none focus:ring-2"
+              placeholder="Your college name"
             />
           </div>
           <button

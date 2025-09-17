@@ -208,44 +208,7 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* Create Team */}
-      {!myTeam && (
-        <section className="mt-8">
-          <h2 className="text-lg font-semibold">Register Your Team</h2>
-          <p className="text-sm text-muted-foreground">
-            Create a new team. You will be set as the leader.
-          </p>
-          <div className="mt-3 grid gap-3 sm:max-w-lg">
-            <div>
-              <label className="text-sm">Team Name</label>
-              <input
-                value={form.name}
-                onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))}
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2"
-                placeholder="e.g., InnovateTech Solutions"
-              />
-            </div>
-            <div>
-              <label className="text-sm">College</label>
-              <input
-                value={form.college}
-                onChange={(e) =>
-                  setForm((f) => ({ ...f, college: e.target.value }))
-                }
-                className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2"
-                placeholder="Your college name"
-              />
-            </div>
-            <button
-              disabled={loading || !form.name || !form.college}
-              onClick={createTeam}
-              className="inline-flex w-fit items-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
-            >
-              {loading ? "Creating..." : "Create Team"}
-            </button>
-          </div>
-        </section>
-      )}
+  {/* ...other dashboard content... */}
 
 
       <section className="mt-10">
