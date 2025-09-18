@@ -4,6 +4,16 @@ import { rounds } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { requireAdmin, authenticateRequest } from '@/lib/auth-middleware';
 
+// Helper function to check admin authentication (both JWT and cookie-based)
+function checkAdminAuth(req: NextRequest): boolean {
+  // Check cookie-based admin auth first
+  const cookieHeader = req.headers.get("cookie") || "";
+  if (cookieHeader.includes("admin-auth=true")) {
+    return true;
+  }
+  return false;
+}
+
 // GET handler - List all rounds (public endpoint)
 export async function GET(request: NextRequest) {
   try {
@@ -64,7 +74,19 @@ export async function GET(request: NextRequest) {
 // PATCH handler - Update round status (Admin only)
 export async function PATCH(request: NextRequest) {
   try {
-    const authUser = await requireAdmin(request);
+    // Check admin authentication (cookie-based or JWT-based)
+    const hasAdminAuth = checkAdminAuth(request);
+    if (!hasAdminAuth) {
+      // Fall back to JWT-based authentication
+      try {
+        await requireAdmin(request);
+      } catch (error) {
+        return NextResponse.json({ 
+          error: 'Admin access required', 
+          code: 'ADMIN_REQUIRED' 
+        }, { status: 403 });
+      }
+    }
 
     const { roundId, status, startsAt, endsAt } = await request.json();
     
@@ -206,7 +228,19 @@ export async function PATCH(request: NextRequest) {
 // POST handler - Create new round (Admin only)
 export async function POST(request: NextRequest) {
   try {
-    const authUser = await requireAdmin(request);
+    // Check admin authentication (cookie-based or JWT-based)
+    const hasAdminAuth = checkAdminAuth(request);
+    if (!hasAdminAuth) {
+      // Fall back to JWT-based authentication
+      try {
+        await requireAdmin(request);
+      } catch (error) {
+        return NextResponse.json({ 
+          error: 'Admin access required', 
+          code: 'ADMIN_REQUIRED' 
+        }, { status: 403 });
+      }
+    }
 
     const { name, day, description, startsAt, endsAt } = await request.json();
     

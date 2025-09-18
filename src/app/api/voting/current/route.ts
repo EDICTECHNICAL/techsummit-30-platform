@@ -1,6 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { requireAdmin } from '@/lib/auth-middleware';
 
+// Helper function to check admin authentication (both JWT and cookie-based)
+function checkAdminAuth(req: NextRequest): boolean {
+  // Check cookie-based admin auth first
+  const cookieHeader = req.headers.get("cookie") || "";
+  if (cookieHeader.includes("admin-auth=true")) {
+    return true;
+  }
+  return false;
+}
+
 // In-memory state for demo (replace with DB in production)
 type VotingTeam = { id: string | number; name: string } | null;
 let votingState: {
@@ -29,8 +39,19 @@ export async function GET(request: NextRequest) {
 // POST handler - Set current pitching team (Admin only)
 export async function POST(request: NextRequest) {
   try {
-    // Admin authentication required
-    const authUser = await requireAdmin(request);
+    // Check admin authentication (cookie-based or JWT-based)
+    const hasAdminAuth = checkAdminAuth(request);
+    if (!hasAdminAuth) {
+      // Fall back to JWT-based authentication
+      try {
+        await requireAdmin(request);
+      } catch (error) {
+        return NextResponse.json({ 
+          error: 'Admin access required', 
+          code: 'ADMIN_REQUIRED' 
+        }, { status: 403 });
+      }
+    }
 
     const { teamId, teamName } = await request.json();
     let name = teamName;
@@ -89,8 +110,19 @@ export async function POST(request: NextRequest) {
 // PATCH handler - Update voting state (Admin only)
 export async function PATCH(request: NextRequest) {
   try {
-    // Admin authentication required
-    const authUser = await requireAdmin(request);
+    // Check admin authentication (cookie-based or JWT-based)
+    const hasAdminAuth = checkAdminAuth(request);
+    if (!hasAdminAuth) {
+      // Fall back to JWT-based authentication
+      try {
+        await requireAdmin(request);
+      } catch (error) {
+        return NextResponse.json({ 
+          error: 'Admin access required', 
+          code: 'ADMIN_REQUIRED' 
+        }, { status: 403 });
+      }
+    }
 
     const { votingActive, allPitchesCompleted } = await request.json();
     
