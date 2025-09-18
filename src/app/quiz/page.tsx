@@ -52,16 +52,16 @@ const QuizHeader: React.FC<{ timeLeft: number; isFullscreen: boolean; onToggleFu
   isFullscreen, 
   onToggleFullscreen 
 }) => (
-  <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-lg border border-border bg-card">
+  <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-lg border border-border bg-white">
     <div className="flex items-center gap-4">
       <button
-        className="rounded-md border border-border px-3 py-2 text-sm hover:bg-accent transition-colors"
+        className="rounded-md border border-border px-3 py-2 text-sm text-black hover:bg-gray-50 transition-colors"
         onClick={onToggleFullscreen}
       >
         {isFullscreen ? "Exit Fullscreen" : "Go Fullscreen"}
       </button>
     </div>
-    <div className={`rounded-md border px-4 py-2 text-sm font-medium ${timeLeft <= 300 ? "border-red-500 bg-red-500/10 text-red-600" : "border-border bg-background"}`}>
+    <div className={`rounded-md border px-4 py-2 text-sm font-medium ${timeLeft <= 300 ? "border-red-500 bg-red-500/10 text-red-600" : "border-border bg-white text-black"}`}>
       Time Left: {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
     </div>
   </div>
@@ -75,17 +75,17 @@ const QuestionNavigation: React.FC<{
   onQuestionSelect: (index: number) => void;
 }> = ({ questions, currentQ, answers, onQuestionSelect }) => (
   <div className="flex flex-col gap-2 min-w-[120px]">
-    <h3 className="text-sm font-medium text-muted-foreground mb-2">Questions</h3>
+    <h3 className="text-sm font-medium text-gray-600 mb-2">Questions</h3>
     <div className="grid gap-2">
       {questions.map((q, idx) => (
         <button
           key={q.id}
           className={`rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 ${
             currentQ === idx
-              ? "bg-primary text-primary-foreground"
+              ? "bg-primary text-white"
               : answers[q.id]
               ? "bg-green-100 text-green-800 border border-green-300"
-              : "bg-card border border-border hover:bg-accent"
+              : "bg-white border border-border hover:bg-gray-50 text-black"
           }`}
           onClick={() => onQuestionSelect(idx)}
         >
@@ -102,12 +102,12 @@ const QuestionContent: React.FC<{
   answer: number | undefined;
   onAnswerChange: (optionId: number) => void;
 }> = ({ question, answer, onAnswerChange }) => (
-  <div className="rounded-lg border border-border bg-card p-6">
+  <div className="rounded-lg border border-border bg-white p-6">
     <div className="mb-4">
-      <h2 className="text-lg font-semibold mb-2">
+      <h2 className="text-lg font-semibold mb-2 text-black">
         Q{question.order}. {question.text}
       </h2>
-      <p className="text-sm text-muted-foreground">
+      <p className="text-sm text-gray-600">
         Select one option. Each choice affects your token allocation.
       </p>
     </div>
@@ -118,8 +118,8 @@ const QuestionContent: React.FC<{
         .map((option) => (
           <label 
             key={option.id} 
-            className={`flex cursor-pointer items-start gap-4 rounded-md border p-4 transition-colors hover:bg-accent ${
-              answer === option.id ? "border-primary bg-primary/5" : "border-border"
+            className={`flex cursor-pointer items-start gap-4 rounded-md border p-4 transition-colors hover:bg-gray-50 ${
+              answer === option.id ? "border-primary bg-primary/5" : "border-border bg-white"
             }`}
           >
             <input
@@ -130,13 +130,7 @@ const QuestionContent: React.FC<{
               className="mt-1 h-4 w-4 text-primary"
             />
             <div className="flex-1">
-              <p className="text-sm font-medium mb-2">{option.text}</p>
-              <div className="grid grid-cols-2 gap-2 text-xs text-muted-foreground">
-                <div>Marketing: {option.tokenDeltaMarketing > 0 ? '+' : ''}{option.tokenDeltaMarketing}</div>
-                <div>Capital: {option.tokenDeltaCapital > 0 ? '+' : ''}{option.tokenDeltaCapital}</div>
-                <div>Team: {option.tokenDeltaTeam > 0 ? '+' : ''}{option.tokenDeltaTeam}</div>
-                <div>Strategy: {option.tokenDeltaStrategy > 0 ? '+' : ''}{option.tokenDeltaStrategy}</div>
-              </div>
+              <p className="text-sm font-medium mb-2 text-black">{option.text}</p>
             </div>
           </label>
         ))}
@@ -177,9 +171,9 @@ const QuizComponent: React.FC<{
 
   if (questions.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card p-8 text-center">
-        <h3 className="text-lg font-medium mb-2">Loading Quiz...</h3>
-        <p className="text-muted-foreground">Please wait while we load the questions.</p>
+      <div className="rounded-lg border border-border bg-white p-8 text-center">
+        <h3 className="text-lg font-medium mb-2 text-black">Loading Quiz...</h3>
+        <p className="text-gray-600">Please wait while we load the questions.</p>
       </div>
     );
   }
@@ -204,19 +198,19 @@ const QuizComponent: React.FC<{
           {/* Navigation Controls */}
           <div className="flex items-center justify-between">
             <button
-              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50 transition-colors"
+              className="rounded-md border border-border px-4 py-2 text-sm text-black hover:bg-gray-50 disabled:opacity-50 transition-colors"
               onClick={() => onCurrentQChange(Math.max(0, currentQ - 1))}
               disabled={currentQ === 0}
             >
               Previous
             </button>
             
-            <span className="text-sm text-muted-foreground">
+            <span className="text-sm text-gray-600">
               Question {currentQ + 1} of {questions.length} • {answeredCount}/15 answered
             </span>
             
             <button
-              className="rounded-md border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-50 transition-colors"
+              className="rounded-md border border-border px-4 py-2 text-sm text-black hover:bg-gray-50 disabled:opacity-50 transition-colors"
               onClick={() => onCurrentQChange(Math.min(questions.length - 1, currentQ + 1))}
               disabled={currentQ === questions.length - 1}
             >
@@ -257,7 +251,7 @@ const QuizComponent: React.FC<{
             <button
               onClick={onSubmit}
               disabled={submitting || answeredCount !== 15 || !quizActive || timeLeft <= 0}
-              className="inline-flex items-center rounded-md bg-primary px-8 py-3 font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+              className="inline-flex items-center rounded-md bg-primary px-8 py-3 font-medium text-white hover:opacity-90 disabled:opacity-50 transition-opacity"
             >
               {submitting ? (
                 <>
@@ -286,44 +280,44 @@ const QuizResults: React.FC<{ result: QuizResult; onReturnToDashboard: () => voi
   result, 
   onReturnToDashboard 
 }) => (
-  <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
+  <div className="min-h-screen bg-gray-50 text-black flex items-center justify-center p-6">
     <div className="max-w-lg w-full">
-      <div className="rounded-lg border border-border bg-card p-8 text-center">
+      <div className="rounded-lg border border-border bg-white p-8 text-center">
         <div className="mb-6">
           <div className="inline-flex items-center rounded-full bg-green-100 px-3 py-1 text-sm font-medium text-green-800 mb-4">
             Quiz Completed
           </div>
-          <h2 className="text-3xl font-bold mb-2">
+          <h2 className="text-3xl font-bold mb-2 text-black">
             Score: {result.calculatedScore}/60
           </h2>
-          <p className="text-muted-foreground">
+          <p className="text-gray-600">
             Your quiz has been submitted successfully!
           </p>
         </div>
         
         <div className="space-y-4 mb-6">
-          <h3 className="text-lg font-medium">Token Distribution</h3>
+          <h3 className="text-lg font-medium text-black">Token Distribution</h3>
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="bg-blue-50 p-3 rounded">
-              <div className="font-medium">Marketing</div>
+              <div className="font-medium text-black">Marketing</div>
               <div className="text-2xl font-bold text-blue-600">
                 {result.tokens.marketing}
               </div>
             </div>
             <div className="bg-green-50 p-3 rounded">
-              <div className="font-medium">Capital</div>
+              <div className="font-medium text-black">Capital</div>
               <div className="text-2xl font-bold text-green-600">
                 {result.tokens.capital}
               </div>
             </div>
             <div className="bg-purple-50 p-3 rounded">
-              <div className="font-medium">Team</div>
+              <div className="font-medium text-black">Team</div>
               <div className="text-2xl font-bold text-purple-600">
                 {result.tokens.team}
               </div>
             </div>
             <div className="bg-orange-50 p-3 rounded">
-              <div className="font-medium">Strategy</div>
+              <div className="font-medium text-black">Strategy</div>
               <div className="text-2xl font-bold text-orange-600">
                 {result.tokens.strategy}
               </div>
@@ -332,7 +326,7 @@ const QuizResults: React.FC<{ result: QuizResult; onReturnToDashboard: () => voi
         </div>
         
         <button
-          className="w-full rounded-md bg-primary px-4 py-3 font-medium text-primary-foreground hover:opacity-90 transition-opacity"
+          className="w-full rounded-md bg-primary px-4 py-3 font-medium text-white hover:opacity-90 transition-opacity"
           onClick={onReturnToDashboard}
         >
           Return to Dashboard
@@ -351,14 +345,14 @@ export default function QuizPage() {
         <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
           <h2 className="text-2xl font-bold mb-4 text-black">Quiz Rules</h2>
           <ul className="list-disc ml-6 mb-4 text-sm text-black">
-            <li>15 questions, 30 minutes total time.</li>
-            <li>Each option affects your team's token allocation.</li>
-            <li>Once started, the timer cannot be paused.</li>
-            <li>If you close the browser, the timer will resume from where you left off.</li>
-            <li>Submit before time runs out. Auto-submit on timeout.</li>
+            <li className="text-black">15 questions, 30 minutes total time.</li>
+            <li className="text-black">Each option affects your team's token allocation.</li>
+            <li className="text-black">Once started, the timer cannot be paused.</li>
+            <li className="text-black">If you close the browser, the timer will resume from where you left off.</li>
+            <li className="text-black">Submit before time runs out. Auto-submit on timeout.</li>
           </ul>
           <button
-            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:opacity-90"
+            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-white hover:opacity-90"
             onClick={onClose}
           >
             I Understand, Start Quiz
@@ -566,11 +560,11 @@ export default function QuizPage() {
   // Loading state
   if (isPending) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <div className="max-w-lg w-full rounded-lg border border-border bg-card p-8 text-center">
+      <div className="min-h-screen bg-gray-50 text-black flex items-center justify-center">
+        <div className="max-w-lg w-full rounded-lg border border-border bg-white p-8 text-center">
           <div className="animate-spin mx-auto h-8 w-8 border-4 border-primary border-t-transparent rounded-full mb-4" />
-          <h2 className="text-xl font-semibold mb-2">Loading...</h2>
-          <p className="text-muted-foreground">Please wait while we load your quiz.</p>
+          <h2 className="text-xl font-semibold mb-2 text-black">Loading...</h2>
+          <p className="text-gray-600">Please wait while we load your quiz.</p>
         </div>
       </div>
     );
@@ -579,22 +573,22 @@ export default function QuizPage() {
   // Not signed in
   if (!user) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
-        <div className="max-w-lg w-full rounded-lg border border-border bg-card p-8 text-center">
-          <h2 className="text-2xl font-bold mb-4">Please Sign In</h2>
-          <p className="text-muted-foreground mb-6">
+      <div className="min-h-screen bg-gray-50 text-black flex items-center justify-center p-6">
+        <div className="max-w-lg w-full rounded-lg border border-border bg-white p-8 text-center">
+          <h2 className="text-2xl font-bold mb-4 text-black">Please Sign In</h2>
+          <p className="text-gray-600 mb-6">
             You need to be signed in to access the quiz portal.
           </p>
           <div className="space-y-3">
             <Link
               href="/sign-in"
-              className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+              className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
             >
               Sign In
             </Link>
             <Link
               href="/sign-up"
-              className="inline-flex w-full items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-accent"
+              className="inline-flex w-full items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium text-black hover:bg-gray-50"
             >
               Create Account
             </Link>
@@ -614,28 +608,28 @@ export default function QuizPage() {
 
   // Main quiz interface
   return (
-    <div className="min-h-screen bg-background text-foreground" ref={quizRef}>
+    <div className="min-h-screen bg-gray-50 text-black" ref={quizRef}>
       {/* Rules Modal */}
       <RulesModal open={showRules} onClose={() => setShowRules(false)} />
 
       {/* Header */}
-      <div className="border-b border-border bg-card">
+      <div className="border-b border-border bg-white">
         <div className="mx-auto max-w-6xl px-6 py-6">
           <div className="flex items-center justify-between">
             <div>
               <div className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-2">
                 Round 1 • Quiz Portal
               </div>
-              <h1 className="text-3xl font-bold tracking-tight">
+              <h1 className="text-3xl font-bold tracking-tight text-black">
                 Techpreneur Summit 3.0 Quiz
               </h1>
-              <p className="text-muted-foreground mt-1">
+              <p className="text-gray-600 mt-1">
                 15 questions • 30 minutes • Token trade-offs per option
               </p>
             </div>
             <div className="text-right">
-              <p className="font-medium">{user.name}</p>
-              <p className="text-sm text-muted-foreground">
+              <p className="font-medium text-black">{user.name}</p>
+              <p className="text-sm text-gray-600">
                 Team: {user.team?.name}
               </p>
             </div>

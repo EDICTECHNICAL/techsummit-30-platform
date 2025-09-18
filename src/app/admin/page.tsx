@@ -19,6 +19,16 @@ export default function AdminPage() {
   const [activeTab, setActiveTab] = useState<'rounds' | 'voting' | 'teams' | 'users' | 'quiz' | 'analytics' | 'system'>('rounds');
   const [quizSettings, setQuizSettings] = useState<any>({});
   const [systemStatus, setSystemStatus] = useState<any>({});
+  const [showQuestionForm, setShowQuestionForm] = useState(false);
+  const [editingQuestion, setEditingQuestion] = useState<any>(null);
+  const [questionFormData, setQuestionFormData] = useState({
+    text: '',
+    maxTokenPerQuestion: 4,
+    options: [
+      { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 },
+      { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 }
+    ]
+  });
 
   // Check for admin session cookie
   useEffect(() => {
@@ -45,7 +55,7 @@ export default function AdminPage() {
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      const [roundsRes, teamsRes, usersRes, questionsRes, votingRes, pitchRes, statsRes, quizRes, systemRes] = await Promise.all([
+      const [roundsRes, teamsRes, usersRes, questionsRes, votingRes, pitchRes, statsRes, quizRes, systemRes, adminQuestionsRes] = await Promise.all([
         fetch("/api/rounds"),
         fetch("/api/teams"),
         fetch("/api/admin/users"),
@@ -54,7 +64,8 @@ export default function AdminPage() {
         fetch("/api/final/pitches/current"),
         fetch("/api/admin/stats"),
         fetch("/api/admin/quiz-settings"),
-        fetch("/api/admin/system-status")
+        fetch("/api/admin/system-status"),
+        fetch("/api/admin/questions")
       ]);
 
       if (roundsRes.ok) {
@@ -75,6 +86,11 @@ export default function AdminPage() {
       if (questionsRes.ok) {
         const questionsData = await questionsRes.json();
         setQuestions(Array.isArray(questionsData) ? questionsData : []);
+      }
+
+      if (adminQuestionsRes.ok) {
+        const adminQuestionsData = await adminQuestionsRes.json();
+        setQuestions(Array.isArray(adminQuestionsData) ? adminQuestionsData : []);
       }
 
       if (votingRes.ok) {
@@ -276,6 +292,122 @@ export default function AdminPage() {
     }
   };
 
+  // Question management functions
+  const openQuestionForm = (question: any = null) => {
+    if (question) {
+      setEditingQuestion(question);
+      setQuestionFormData({
+        text: question.text,
+        maxTokenPerQuestion: question.maxTokenPerQuestion,
+        options: question.options.length > 0 ? question.options : [
+          { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 },
+          { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 }
+        ]
+      });
+    } else {
+      setEditingQuestion(null);
+      setQuestionFormData({
+        text: '',
+        maxTokenPerQuestion: 4,
+        options: [
+          { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 },
+          { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 }
+        ]
+      });
+    }
+    setShowQuestionForm(true);
+  };
+
+  const closeQuestionForm = () => {
+    setShowQuestionForm(false);
+    setEditingQuestion(null);
+  };
+
+  const addOption = () => {
+    setQuestionFormData(prev => ({
+      ...prev,
+      options: [...prev.options, { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 }]
+    }));
+  };
+
+  const removeOption = (index: number) => {
+    if (questionFormData.options.length <= 2) {
+      setError("At least 2 options are required");
+      return;
+    }
+    setQuestionFormData(prev => ({
+      ...prev,
+      options: prev.options.filter((_, i) => i !== index)
+    }));
+  };
+
+  const updateOption = (index: number, field: string, value: any) => {
+    setQuestionFormData(prev => ({
+      ...prev,
+      options: prev.options.map((option, i) => 
+        i === index ? { ...option, [field]: value } : option
+      )
+    }));
+  };
+
+  const saveQuestion = async () => {
+    try {
+      if (!questionFormData.text.trim()) {
+        setError("Question text is required");
+        return;
+      }
+
+      if (questionFormData.options.some(opt => !opt.text.trim())) {
+        setError("All options must have text");
+        return;
+      }
+
+      const method = editingQuestion ? "PATCH" : "POST";
+      const body: any = {
+        text: questionFormData.text,
+        maxTokenPerQuestion: questionFormData.maxTokenPerQuestion,
+        questionOptions: questionFormData.options
+      };
+
+      if (editingQuestion) {
+        body.questionId = editingQuestion.id;
+      }
+
+      const res = await fetch("/api/admin/questions", {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to save question");
+      }
+
+      await fetchAllData();
+      setSuccess(editingQuestion ? "Question updated successfully" : "Question created successfully");
+      closeQuestionForm();
+    } catch (err: any) {
+      setError(err.message || "Failed to save question");
+    }
+  };
+
+  const deleteQuestion = async (questionId: number) => {
+    if (!confirm("Are you sure you want to delete this question? This action cannot be undone.")) return;
+    try {
+      const res = await fetch("/api/admin/questions", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ questionId })
+      });
+      if (!res.ok) throw new Error("Failed to delete question");
+      await fetchAllData();
+      setSuccess("Question deleted successfully");
+    } catch (err) {
+      setError("Failed to delete question");
+    }
+  };
+
   // System management functions
   const clearAllCache = async () => {
     try {
@@ -446,24 +578,24 @@ export default function AdminPage() {
         return (
           <div className="space-y-6">
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="font-semibold mb-4">Quiz Settings</h3>
+              <h3 className="font-semibold mb-4 text-black">Quiz Settings</h3>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm mb-2">Time Limit (minutes)</label>
+                  <label className="block text-sm mb-2 text-black">Time Limit (minutes)</label>
                   <input 
                     type="number" 
                     value={quizSettings.timeLimit || 30}
                     onChange={e => setQuizSettings({...quizSettings, timeLimit: Number(e.target.value)})}
-                    className="w-full rounded-md border px-3 py-2 bg-background"
+                    className="w-full rounded-md border px-3 py-2 bg-white text-black"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm mb-2">Total Questions</label>
+                  <label className="block text-sm mb-2 text-black">Total Questions</label>
                   <input 
                     type="number" 
                     value={questions.length}
                     readOnly
-                    className="w-full rounded-md border px-3 py-2 bg-background opacity-50"
+                    className="w-full rounded-md border px-3 py-2 bg-gray-100 text-black opacity-75"
                   />
                 </div>
               </div>
@@ -484,26 +616,225 @@ export default function AdminPage() {
             </div>
 
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="font-semibold mb-4">Quiz Statistics</h3>
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="font-semibold text-black">Question Management</h3>
+                <button 
+                  onClick={() => openQuestionForm()}
+                  disabled={questions.length >= 15}
+                  className="rounded-md bg-green-600 px-4 py-2 text-white disabled:opacity-50"
+                >
+                  Add Question ({questions.length}/15)
+                </button>
+              </div>
+              
+              <div className="space-y-4">
+                {questions.map((question, index) => (
+                  <div key={question.id} className="border border-border rounded-lg p-4 bg-white">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <h4 className="font-medium text-black">Q{index + 1}: {question.text}</h4>
+                        <p className="text-sm text-gray-600 mt-1">
+                          Max tokens: {question.maxTokenPerQuestion} • Options: {question.options?.length || 0}
+                        </p>
+                        {question.options && question.options.length > 0 && (
+                          <div className="mt-2 grid gap-1">
+                            {question.options.map((option: any, optIndex: number) => (
+                              <div key={optIndex} className="text-sm bg-gray-100 px-2 py-1 rounded text-black">
+                                {String.fromCharCode(65 + optIndex)}. {option.text}
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                      <div className="flex gap-2">
+                        <button 
+                          onClick={() => openQuestionForm(question)}
+                          className="px-3 py-1 text-sm bg-blue-100 text-blue-800 rounded"
+                        >
+                          Edit
+                        </button>
+                        <button 
+                          onClick={() => deleteQuestion(question.id)}
+                          className="px-3 py-1 text-sm bg-red-100 text-red-800 rounded"
+                        >
+                          Delete
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                
+                {questions.length === 0 && (
+                  <div className="text-center py-8 text-gray-600">
+                    No questions added yet. Click "Add Question" to get started.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-6">
+              <h3 className="font-semibold mb-4 text-black">Quiz Statistics</h3>
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{stats.quizAttempts || 0}</div>
-                  <div className="text-sm text-muted-foreground">Quiz Attempts</div>
+                  <div className="text-2xl font-bold text-black">{stats.quizAttempts || 0}</div>
+                  <div className="text-sm text-gray-600">Quiz Attempts</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{stats.completedQuizzes || 0}</div>
-                  <div className="text-sm text-muted-foreground">Completed</div>
+                  <div className="text-2xl font-bold text-black">{stats.completedQuizzes || 0}</div>
+                  <div className="text-sm text-gray-600">Completed</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{stats.averageScore || 0}%</div>
-                  <div className="text-sm text-muted-foreground">Average Score</div>
+                  <div className="text-2xl font-bold text-black">{stats.averageScore || 0}%</div>
+                  <div className="text-sm text-gray-600">Average Score</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{stats.highestScore || 0}%</div>
-                  <div className="text-sm text-muted-foreground">Highest Score</div>
+                  <div className="text-2xl font-bold text-black">{stats.highestScore || 0}%</div>
+                  <div className="text-sm text-gray-600">Highest Score</div>
                 </div>
               </div>
             </div>
+
+            {/* Question Form Modal */}
+            {showQuestionForm && (
+              <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto text-black">
+                  <h3 className="text-lg font-semibold mb-4 text-black">
+                    {editingQuestion ? 'Edit Question' : 'Add New Question'}
+                  </h3>
+                  
+                  <div className="space-y-4">
+                    <div>
+                      <label className="block text-sm mb-2 text-black">Question Text</label>
+                      <textarea 
+                        value={questionFormData.text}
+                        onChange={e => setQuestionFormData(prev => ({...prev, text: e.target.value}))}
+                        className="w-full rounded-md border px-3 py-2 bg-white text-black"
+                        rows={3}
+                        placeholder="Enter the quiz question..."
+                      />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm mb-2 text-black">Max Tokens Per Question</label>
+                      <input 
+                        type="number" 
+                        value={questionFormData.maxTokenPerQuestion}
+                        onChange={e => setQuestionFormData(prev => ({...prev, maxTokenPerQuestion: Number(e.target.value)}))}
+                        className="w-full rounded-md border px-3 py-2 bg-white text-black"
+                        min="1"
+                        max="10"
+                      />
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="block text-sm text-black">Options</label>
+                        <button 
+                          onClick={addOption}
+                          className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded"
+                        >
+                          Add Option
+                        </button>
+                      </div>
+                      
+                      <div className="space-y-3">
+                        {questionFormData.options.map((option, index) => (
+                          <div key={index} className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                            <div className="flex justify-between items-center mb-2">
+                              <span className="font-medium text-black">Option {String.fromCharCode(65 + index)}</span>
+                              {questionFormData.options.length > 2 && (
+                                <button 
+                                  onClick={() => removeOption(index)}
+                                  className="px-2 py-1 text-sm bg-red-100 text-red-800 rounded"
+                                >
+                                  Remove
+                                </button>
+                              )}
+                            </div>
+                            
+                            <div className="grid gap-3">
+                              <div>
+                                <label className="block text-xs mb-1 text-black">Option Text</label>
+                                <input 
+                                  type="text"
+                                  value={option.text}
+                                  onChange={e => updateOption(index, 'text', e.target.value)}
+                                  className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
+                                  placeholder="Enter option text..."
+                                />
+                              </div>
+                              
+                              <div className="grid grid-cols-5 gap-2">
+                                <div>
+                                  <label className="block text-xs mb-1 text-black">Marketing</label>
+                                  <input 
+                                    type="number"
+                                    value={option.tokenDeltaMarketing}
+                                    onChange={e => updateOption(index, 'tokenDeltaMarketing', Number(e.target.value))}
+                                    className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs mb-1 text-black">Capital</label>
+                                  <input 
+                                    type="number"
+                                    value={option.tokenDeltaCapital}
+                                    onChange={e => updateOption(index, 'tokenDeltaCapital', Number(e.target.value))}
+                                    className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs mb-1 text-black">Team</label>
+                                  <input 
+                                    type="number"
+                                    value={option.tokenDeltaTeam}
+                                    onChange={e => updateOption(index, 'tokenDeltaTeam', Number(e.target.value))}
+                                    className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs mb-1 text-black">Strategy</label>
+                                  <input 
+                                    type="number"
+                                    value={option.tokenDeltaStrategy}
+                                    onChange={e => updateOption(index, 'tokenDeltaStrategy', Number(e.target.value))}
+                                    className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
+                                  />
+                                </div>
+                                <div>
+                                  <label className="block text-xs mb-1 text-black">Score</label>
+                                  <input 
+                                    type="number"
+                                    value={option.totalScoreDelta}
+                                    onChange={e => updateOption(index, 'totalScoreDelta', Number(e.target.value))}
+                                    className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
+                                  />
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex gap-2 mt-6">
+                    <button 
+                      onClick={saveQuestion}
+                      className="px-4 py-2 bg-blue-600 text-white rounded-md"
+                    >
+                      {editingQuestion ? 'Update Question' : 'Create Question'}
+                    </button>
+                    <button 
+                      onClick={closeQuestionForm}
+                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         );
 
