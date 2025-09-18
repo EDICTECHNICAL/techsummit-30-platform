@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { requireAdmin } from '@/lib/auth-middleware';
 
 // Helper function to check admin authentication (both JWT and cookie-based)
 function checkAdminAuth(req: NextRequest): boolean {
@@ -26,6 +25,7 @@ let votingState: {
 // GET handler - Get current voting state (public endpoint)
 export async function GET(request: NextRequest) {
   try {
+    console.log('GET /api/voting/current - returning state:', votingState);
     return NextResponse.json(votingState);
   } catch (error) {
     console.error('GET voting current error:', error);
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
     if (!hasAdminAuth) {
       // Fall back to JWT-based authentication
       try {
+        const { requireAdmin } = await import('@/lib/auth-middleware');
         await requireAdmin(request);
       } catch (error) {
         return NextResponse.json({ 
@@ -115,6 +116,7 @@ export async function PATCH(request: NextRequest) {
     if (!hasAdminAuth) {
       // Fall back to JWT-based authentication
       try {
+        const { requireAdmin } = await import('@/lib/auth-middleware');
         await requireAdmin(request);
       } catch (error) {
         return NextResponse.json({ 

@@ -19,6 +19,7 @@ export const user = pgTable("user", {
   name: text("name").notNull(),
   password: text("password").notNull(),
   isAdmin: boolean("is_admin").notNull().default(false),
+  teamId: integer("team_id").references(() => teams.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
 });

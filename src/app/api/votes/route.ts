@@ -2,16 +2,37 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { votes, rounds } from '@/db/schema';
 import { eq, and, count } from 'drizzle-orm';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 // POST handler - Cast vote (Team leaders only during voting round)
 export async function POST(request: NextRequest) {
   try {
-  // TODO: Replace with real authentication logic
-  const session = { user: { id: 'test-user-id' } };
-    if (!session?.user?.id) {
+    // Get authentication from cookie
+    const token = request.cookies.get('auth-token')?.value;
+    
+    if (!token) {
       return NextResponse.json({ 
-        error: 'Authentication required', 
+        error: 'Authentication required - please log in', 
         code: 'UNAUTHENTICATED' 
+      }, { status: 401 });
+    }
+
+    let decoded;
+    try {
+      decoded = jwt.verify(token, JWT_SECRET) as any;
+    } catch (jwtError) {
+      return NextResponse.json({ 
+        error: 'Invalid authentication token - please log in again', 
+        code: 'INVALID_TOKEN' 
+      }, { status: 401 });
+    }
+
+    if (!decoded?.userId) {
+      return NextResponse.json({ 
+        error: 'Invalid user session - please log in again', 
+        code: 'INVALID_SESSION' 
       }, { status: 401 });
     }
 
@@ -95,10 +116,21 @@ export async function POST(request: NextRequest) {
       }
     ]).returning();
 
-    return NextResponse.json(newVote[0], { status: 201 });
+    return NextResponse.json({
+      success: true,
+      message: `Vote recorded successfully (${value === 1 ? 'Yes' : 'No'})`,
+      vote: newVote[0]
+    }, { status: 201 });
   } catch (error) {
     console.error('POST votes error:', error);
-    return NextResponse.json({ error: 'Internal server error: ' + error }, { status: 500 });
+    console.error('Error details:', {
+      message: error instanceof Error ? error.message : 'Unknown error',
+      stack: error instanceof Error ? error.stack : undefined
+    });
+    return NextResponse.json({ 
+      error: 'Internal server error occurred while casting vote',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
 
@@ -107,9 +139,28 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const teamId = searchParams.get('teamId');
+    const fromTeamId = searchParams.get('fromTeamId');
 
-    if (teamId) {
-      // Get votes for specific team
+    if (fromTeamId) {
+      // Get voting status for a specific team (what votes they've cast)
+      const teamVotes = await db
+        .select()
+        .from(votes)
+        .where(eq(votes.fromTeamId, parseInt(fromTeamId)))
+        .orderBy(votes.createdAt);
+
+      const downvoteCount = teamVotes.filter(v => v.value === -1).length;
+      const votedTeams = teamVotes.map(v => v.toTeamId);
+
+      return NextResponse.json({
+        fromTeamId: parseInt(fromTeamId),
+        votescast: teamVotes,
+        downvoteCount,
+        remainingDownvotes: Math.max(0, 3 - downvoteCount),
+        votedTeams,
+      });
+    } else if (teamId) {
+      // Get votes for specific team (what votes they've received)
       const teamVotes = await db
         .select()
         .from(votes)

@@ -39,6 +39,9 @@ export default function DashboardPage() {
   const [team, setTeam] = useState<Team | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [quizCompleted, setQuizCompleted] = useState(false);
+  const [votingCompleted, setVotingCompleted] = useState(false);
+  const [finalCompleted, setFinalCompleted] = useState(false);
   const router = useRouter();
 
   useEffect(() => {
@@ -63,6 +66,24 @@ export default function DashboardPage() {
   const isLeader = useMemo(() => {
     return user?.team?.role === 'LEADER';
   }, [user]);
+
+  const checkRoundStatuses = async () => {
+    try {
+      const res = await fetch("/api/rounds");
+      if (res.ok) {
+        const rounds = await res.json();
+        const quiz = rounds.find((r: any) => r.type === 'QUIZ');
+        const voting = rounds.find((r: any) => r.type === 'VOTING');
+        const final = rounds.find((r: any) => r.type === 'FINAL');
+        
+        setQuizCompleted(quiz?.isCompleted || false);
+        setVotingCompleted(voting?.isCompleted || false);
+        setFinalCompleted(final?.isCompleted || false);
+      }
+    } catch (e) {
+      console.error("Failed to check round statuses:", e);
+    }
+  };
 
   const loadTeam = async () => {
     try {
@@ -104,6 +125,7 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user) {
       loadTeam();
+      checkRoundStatuses();
     }
   }, [user]);
 
@@ -278,6 +300,42 @@ export default function DashboardPage() {
             </div>
           </section>
         )}
+
+        {/* Competition Status */}
+        <section className="mt-8 max-w-4xl mx-auto">
+          <h2 className="text-xl font-semibold mb-4">Competition Status</h2>
+          <div className="bg-card text-card-foreground p-6 rounded-lg border">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${quizCompleted ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                <div>
+                  <h3 className="font-medium">Quiz Round</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {quizCompleted ? 'Completed' : 'In Progress'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${votingCompleted ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                <div>
+                  <h3 className="font-medium">Voting Round</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {votingCompleted ? 'Completed' : 'In Progress'}
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <div className={`w-3 h-3 rounded-full ${finalCompleted ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                <div>
+                  <h3 className="font-medium">Final Round</h3>
+                  <p className="text-sm text-muted-foreground">
+                    {finalCompleted ? 'Completed' : 'In Progress'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </section>
 
         {/* Quick Links */}
         <section className="mt-8 max-w-4xl mx-auto">

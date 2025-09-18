@@ -1,9 +1,17 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Timer, Users, Trophy, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { Timer, Users, Trophy, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
 import VotingLayout from '@/components/ui/VotingLayout';
-import { useSession } from '@/lib/auth-client';
+
+interface User {
+  id: string;
+  name: string;
+  username: string;
+  isAdmin: boolean;
+  teamId?: number | null;
+}
 
 interface Team {
   id: number;
@@ -46,15 +54,15 @@ interface VotingStatus {
   votedTeams: number[];
 }
 
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
-
 export default function VotingPage() {
-  const { data: session, isPending } = useSession();
+  const [user, setUser] = useState<User | null>(null);
+  const [isPending, setIsPending] = useState(true);
   const [teams, setTeams] = useState<Team[]>([]);
+  const [userTeam, setUserTeam] = useState<Team | null>(null);
   const [currentPitchTeam, setCurrentPitchTeam] = useState<Team | null>(null);
   const [votingActive, setVotingActive] = useState(false);
   const [allPitchesCompleted, setAllPitchesCompleted] = useState(false);
+  const [votingRoundCompleted, setVotingRoundCompleted] = useState(false);
   const [voteValue, setVoteValue] = useState<1 | -1>(1);
   const [message, setMessage] = useState<string | null>(null);
   const [messageType, setMessageType] = useState<'success' | 'error' | 'info'>('info');
@@ -63,10 +71,48 @@ export default function VotingPage() {
   const [tokenStatus, setTokenStatus] = useState<TokenStatus | null>(null);
   const [votingStatus, setVotingStatus] = useState<VotingStatus | null>(null);
 
-  // Get user's team from session
-  const userTeam = useMemo(() => {
-    return session?.user?.team || null;
-  }, [session]);
+  // Load user from localStorage
+  useEffect(() => {
+    setIsPending(true);
+    try {
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        const parsedUser = JSON.parse(stored) as User;
+        setUser(parsedUser);
+      } else {
+        setUser(null);
+      }
+    } catch (e) {
+      console.error("Error parsing user from localStorage:", e);
+      setUser(null);
+    }
+    setIsPending(false);
+  }, []);
+
+  // Fetch user's team when user is loaded
+  useEffect(() => {
+    if (user?.teamId) {
+      fetchUserTeam(user.teamId);
+    } else {
+      setUserTeam(null);
+    }
+  }, [user]);
+
+  const fetchUserTeam = async (teamId: number) => {
+    try {
+      const response = await fetch(`/api/teams/${teamId}`);
+      if (response.ok) {
+        const team = await response.json();
+        setUserTeam(team);
+      } else {
+        console.error('Failed to fetch user team');
+        setUserTeam(null);
+      }
+    } catch (error) {
+      console.error('Error fetching user team:', error);
+      setUserTeam(null);
+    }
+  };
 
   const userTeamId = userTeam?.id;
 
@@ -82,13 +128,16 @@ export default function VotingPage() {
     const loadTeams = async () => {
       try {
         const res = await fetch("/api/teams");
-        if (!res.ok) throw new Error(`Failed to load teams: ${res.statusText}`);
+        if (!res.ok) {
+          console.warn(`Failed to load teams: ${res.status} ${res.statusText}`);
+          return;
+        }
         
         const data = await res.json();
         setTeams(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error loading teams:", error);
-        showMessage("Failed to load teams", 'error');
+        // Don't show error message to user for teams loading failure
       }
     };
 
@@ -102,7 +151,10 @@ export default function VotingPage() {
       
       try {
         const res = await fetch(`/api/tokens/convert?teamId=${userTeamId}`);
-        if (!res.ok) throw new Error(`Failed to load token status: ${res.statusText}`);
+        if (!res.ok) {
+          console.warn(`Failed to load token status: ${res.status} ${res.statusText}`);
+          return;
+        }
         
         const data: TokenStatus = await res.json();
         setTokenStatus(data);
@@ -121,10 +173,21 @@ export default function VotingPage() {
       
       try {
         const res = await fetch(`/api/votes?fromTeamId=${userTeamId}`);
-        if (!res.ok) throw new Error(`Failed to load voting status: ${res.statusText}`);
+        if (!res.ok) {
+          console.warn(`Failed to load voting status: ${res.status} ${res.statusText}`);
+          return;
+        }
         
         const data: VotingStatus = await res.json();
-        setVotingStatus(data);
+        // Ensure all required fields are present with defaults
+        const safeData: VotingStatus = {
+          fromTeamId: data.fromTeamId || userTeamId,
+          votescast: data.votescast || [],
+          downvoteCount: data.downvoteCount || 0,
+          remainingDownvotes: data.remainingDownvotes ?? 3,
+          votedTeams: data.votedTeams || [],
+        };
+        setVotingStatus(safeData);
       } catch (error) {
         console.error("Error loading voting status:", error);
       }
@@ -138,14 +201,31 @@ export default function VotingPage() {
     const pollPitchStatus = async () => {
       try {
         const res = await fetch("/api/voting/current");
-        if (!res.ok) throw new Error(`Failed to fetch pitch status: ${res.statusText}`);
+        if (!res.ok) {
+          console.warn(`Failed to fetch pitch status: ${res.status} ${res.statusText}`);
+          return;
+        }
         
         const data: CurrentPitchData = await res.json();
         setCurrentPitchTeam(data?.team ?? null);
         setVotingActive(data?.votingActive ?? false);
         setAllPitchesCompleted(data?.allPitchesCompleted ?? false);
+        
+        // Check voting round status
+        try {
+          const roundsRes = await fetch("/api/rounds");
+          if (roundsRes.ok) {
+            const rounds = await roundsRes.json();
+            if (Array.isArray(rounds)) {
+              const votingRound = rounds.find((r: any) => r.type === "VOTING");
+              setVotingRoundCompleted(votingRound?.isCompleted || false);
+            }
+          }
+        } catch (roundsError) {
+          console.warn("Failed to check voting round status:", roundsError);
+        }
       } catch (error) {
-        console.error("Error polling pitch status:", error);
+        console.warn("Error polling pitch status:", error);
       }
     };
 
@@ -158,7 +238,11 @@ export default function VotingPage() {
   // Cast vote function
   const castVote = async () => {
     if (!userTeamId || !currentPitchTeam?.id) {
-      showMessage("No team selected or no team currently pitching", 'error');
+      if (!userTeamId) {
+        showMessage("You are not assigned to a team. Please contact an administrator.", 'error');
+      } else {
+        showMessage("No team is currently pitching", 'error');
+      }
       return;
     }
 
@@ -169,7 +253,7 @@ export default function VotingPage() {
     }
 
     // Check if already voted for this team
-    if (votingStatus?.votedTeams.includes(currentPitchTeam.id)) {
+    if (votingStatus?.votedTeams?.includes(currentPitchTeam.id)) {
       showMessage("You have already voted for this team", 'error');
       return;
     }
@@ -197,6 +281,13 @@ export default function VotingPage() {
       });
 
       const data: VoteResponse = await res.json();
+      
+      // Debug logging
+      console.log('Vote response:', {
+        status: res.status,
+        ok: res.ok,
+        data: data
+      });
 
       if (res.ok && data.success) {
         showMessage(data.message || `Vote recorded successfully (${voteValue === 1 ? 'Yes' : 'No'})`, 'success');
@@ -206,7 +297,15 @@ export default function VotingPage() {
           const statusRes = await fetch(`/api/votes?fromTeamId=${userTeamId}`);
           if (statusRes.ok) {
             const statusData = await statusRes.json();
-            setVotingStatus(statusData);
+            // Ensure all required fields are present with defaults
+            const safeStatusData: VotingStatus = {
+              fromTeamId: statusData.fromTeamId || userTeamId,
+              votescast: statusData.votescast || [],
+              downvoteCount: statusData.downvoteCount || 0,
+              remainingDownvotes: statusData.remainingDownvotes ?? 3,
+              votedTeams: statusData.votedTeams || [],
+            };
+            setVotingStatus(safeStatusData);
           }
         }
       } else {
@@ -286,7 +385,7 @@ export default function VotingPage() {
   }
 
   // Show authentication required if not logged in
-  if (!session?.user) {
+  if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <div className="max-w-md w-full mx-4 rounded-lg border bg-white p-8 text-center">
@@ -296,11 +395,50 @@ export default function VotingPage() {
             You need to be signed in with a team account to participate in voting.
           </p>
           <a 
-            href="/auth/signin" 
+            href="/sign-in" 
             className="block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
           >
             Sign In to Team
           </a>
+        </div>
+      </div>
+    );
+  }
+
+  // Show voting completed message
+  if (votingRoundCompleted) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-all duration-500 ease-in-out">
+        <div className="max-w-md w-full mx-4 rounded-lg border border-green-300 bg-green-50 p-8 text-center shadow-lg animate-in fade-in-50 slide-in-from-bottom-4 duration-700">
+          <div className="text-6xl mb-4 animate-pulse">🗳️</div>
+          <h2 className="text-2xl font-bold mb-4 text-green-800">Voting Round Completed</h2>
+          <p className="text-green-700 mb-6">
+            The voting round has been completed by the admin and is no longer accepting votes.
+            <br />
+            <span className="text-sm mt-2 block text-green-600">
+              The page will automatically reactivate when voting is resumed.
+            </span>
+          </p>
+          <div className="space-y-3">
+            <Link
+              href="/dashboard"
+              className="block w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
+            >
+              Return to Dashboard
+            </Link>
+            <Link
+              href="/scoreboard"
+              className="block w-full px-4 py-2 border border-green-300 bg-white text-green-700 rounded-lg hover:bg-green-50 transition-colors"
+            >
+              View Scoreboard
+            </Link>
+          </div>
+          <div className="mt-6 text-xs text-gray-500">
+            <div className="flex items-center justify-center space-x-1">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span>Monitoring for voting resumption...</span>
+            </div>
+          </div>
         </div>
       </div>
     );
@@ -311,15 +449,15 @@ export default function VotingPage() {
   const canVoteForCurrentTeam = currentPitchTeam && 
                                votingActive && 
                                userTeamId !== currentPitchTeam.id &&
-                               !votingStatus?.votedTeams.includes(currentPitchTeam.id);
+                               !votingStatus?.votedTeams?.includes(currentPitchTeam.id);
 
   const canDownvote = voteValue === -1 && votingStatus && votingStatus.remainingDownvotes > 0;
 
   return (
-    <div className="max-w-3xl mx-auto px-6 pt-6">
-      <Link href="/" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline mb-4">
+    <div className="max-w-3xl mx-auto px-6 pt-6 transition-all duration-300 ease-in-out">
+      <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline mb-4 transition-colors">
         <ArrowLeft className="h-4 w-4" />
-        Back to Home
+        Back to Dashboard
       </Link>
       <VotingLayout
         header="Team Voting Portal"
@@ -328,19 +466,24 @@ export default function VotingPage() {
         teamMembers={undefined}
         showRules={true}
       >
-      <div className="flex flex-col gap-8 md:flex-row md:gap-12">
+      <div className="flex flex-col gap-8 md:flex-row md:gap-12 animate-in fade-in-50 slide-in-from-bottom-4 duration-500">
         {/* Cast Vote Card */}
-        <div className="flex-1 rounded-xl border bg-card p-6 shadow">
+        <div className="flex-1 rounded-xl border bg-card p-6 shadow transition-all duration-300 hover:shadow-lg">
           <h2 className="text-xl font-bold mb-4">Cast Your Vote</h2>
           
           {/* Team Info Display */}
-          <div className="mb-4 p-3 bg-blue-50 rounded-md border">
+          <div className="mb-4 p-3 bg-blue-50 rounded-md border transition-all duration-200">
             <p className="text-sm text-blue-700">
-              <strong>Your Team:</strong> {userTeam ? `${userTeam.name} (#${userTeam.id})` : 'No team'}
+              <strong>Your Team:</strong> {userTeam ? `${userTeam.name} (#${userTeam.id})` : 'Not assigned to a team'}
             </p>
-            {votingStatus && (
+            {!userTeam && (
+              <p className="text-xs text-orange-600 mt-1">
+                ⚠️ You need to be assigned to a team to participate in voting. Please contact an administrator.
+              </p>
+            )}
+            {votingStatus && userTeam && (
               <p className="text-xs text-blue-600 mt-1">
-                Votes cast: {votingStatus.votescast.length} | Downvotes remaining: {votingStatus.remainingDownvotes}
+                Votes cast: {votingStatus.votescast?.length || 0} | Downvotes remaining: {votingStatus.remainingDownvotes || 0}
               </p>
             )}
           </div>
@@ -359,7 +502,7 @@ export default function VotingPage() {
                   This is your team - you cannot vote for yourself
                 </p>
               )}
-              {votingStatus?.votedTeams.includes(currentPitchTeam.id) && (
+              {votingStatus?.votedTeams?.includes(currentPitchTeam.id) && (
                 <p className="text-sm text-green-600 mt-1 flex items-center gap-1">
                   <CheckCircle2 className="h-4 w-4" />
                   You have already voted for this team
@@ -410,29 +553,36 @@ export default function VotingPage() {
           <button
             onClick={castVote}
             disabled={!canVoteForCurrentTeam || isLoading || (voteValue === -1 && !canDownvote)}
-            className="w-full rounded-md bg-primary px-4 py-2 text-base font-bold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full rounded-md bg-primary px-4 py-2 text-base font-bold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
           >
-            {isLoading ? "Submitting..." : "Submit Vote"}
+            {isLoading ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Submitting...
+              </span>
+            ) : (
+              "Submit Vote"
+            )}
           </button>
 
           {!votingActive && (
-            <div className="mt-2 text-xs text-gray-500">
+            <div className="mt-2 text-xs text-gray-500 animate-pulse">
               Voting will be enabled by admin during each pitch.
             </div>
           )}
         </div>
 
         {/* Convert Tokens Card */}
-        <div className="flex-1 rounded-xl border bg-card p-6 shadow">
+        <div className="flex-1 rounded-xl border bg-card p-6 shadow transition-all duration-300 hover:shadow-lg">
           <h2 className="text-xl font-bold mb-4">Convert Tokens</h2>
           <p className="mb-4 text-sm text-gray-600">
             Convert 1 token from each category (Marketing, Capital, Team, Strategy) to get 1 vote.
           </p>
           
           {tokenStatus && (
-            <div className="mb-4 p-3 bg-gray-50 rounded-md text-sm">
-              <h4 className="font-medium mb-2">Available Tokens:</h4>
-              <div className="grid grid-cols-2 gap-2">
+            <div className="mb-4 p-3 bg-gray-50 rounded-md text-sm transition-all duration-200">
+              <h4 className="font-medium mb-2 text-black">Available Tokens:</h4>
+              <div className="grid grid-cols-2 gap-2 text-black">
                 <div>Marketing: {tokenStatus.availableTokens.marketing}</div>
                 <div>Capital: {tokenStatus.availableTokens.capital}</div>
                 <div>Team: {tokenStatus.availableTokens.team}</div>
@@ -449,9 +599,16 @@ export default function VotingPage() {
           <button
             onClick={convertToken}
             disabled={!tokenStatus?.canConvert || isConvertingTokens}
-            className="w-full rounded-md bg-purple-600 px-4 py-2 text-base font-bold text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full rounded-md bg-purple-600 px-4 py-2 text-base font-bold text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
           >
-            {isConvertingTokens ? "Converting..." : "Convert Tokens → Vote"}
+            {isConvertingTokens ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Converting...
+              </span>
+            ) : (
+              "Convert Tokens → Vote"
+            )}
           </button>
 
           {tokenStatus && !tokenStatus.canConvert && (
@@ -473,22 +630,22 @@ export default function VotingPage() {
           <h3 className="text-lg font-bold mb-4">Your Voting History</h3>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
             <div className="text-center p-3 bg-blue-50 rounded-md">
-              <div className="text-2xl font-bold text-blue-600">{votingStatus.votescast.length}</div>
+              <div className="text-2xl font-bold text-blue-600">{votingStatus?.votescast?.length || 0}</div>
               <div className="text-sm text-blue-700">Total Votes Cast</div>
             </div>
             <div className="text-center p-3 bg-green-50 rounded-md">
               <div className="text-2xl font-bold text-green-600">
-                {votingStatus.votescast.filter(v => v.value === 1).length}
+                {votingStatus?.votescast?.filter(v => v.value === 1).length || 0}
               </div>
               <div className="text-sm text-green-700">Yes Votes</div>
             </div>
             <div className="text-center p-3 bg-red-50 rounded-md">
-              <div className="text-2xl font-bold text-red-600">{votingStatus.downvoteCount}</div>
-              <div className="text-sm text-red-700">No Votes ({votingStatus.remainingDownvotes} remaining)</div>
+              <div className="text-2xl font-bold text-red-600">{votingStatus?.downvoteCount || 0}</div>
+              <div className="text-sm text-red-700">No Votes ({votingStatus?.remainingDownvotes || 0} remaining)</div>
             </div>
           </div>
           
-          {votingStatus.votescast.length > 0 && (
+          {votingStatus?.votescast && votingStatus.votescast.length > 0 && (
             <div className="mt-4">
               <h4 className="font-medium mb-2">Teams You've Voted For:</h4>
               <div className="flex flex-wrap gap-2">

@@ -136,6 +136,17 @@ export default function AdminPage() {
   const updateRound = async (roundId: number, status: "PENDING"|"ACTIVE"|"COMPLETED") => {
     setLoading(true);
     setError(null);
+    
+    // Check if trying to complete an already completed round
+    if (status === "COMPLETED") {
+      const currentRound = rounds.find(r => r.id === roundId);
+      if (currentRound && currentRound.status === "COMPLETED") {
+        setError(`Round "${currentRound.name}" is already completed`);
+        setLoading(false);
+        return;
+      }
+    }
+    
     try {
       const res = await fetch("/api/rounds", {
         method: "PATCH",
@@ -147,7 +158,14 @@ export default function AdminPage() {
         throw new Error(err?.error || "Failed to update round");
       }
       await fetchAllData();
-      setSuccess(`Round status updated to ${status}`);
+      
+      // Get round name for success message
+      const roundName = rounds.find(r => r.id === roundId)?.name || `Round ${roundId}`;
+      if (status === "COMPLETED") {
+        setSuccess(`Round "${roundName}" has been completed successfully`);
+      } else {
+        setSuccess(`Round "${roundName}" status updated to ${status}`);
+      }
     } catch (e: any) {
       setError(e?.message || "Failed to update round");
     } finally {
@@ -201,6 +219,12 @@ export default function AdminPage() {
   };
 
   const completeAllPitches = async () => {
+    // Check if pitches are already completed
+    if (allPitchesCompleted) {
+      setError("All pitches are already completed");
+      return;
+    }
+    
     try {
       setAllPitchesCompleted(true);
       await fetch("/api/voting/current", {
@@ -208,7 +232,7 @@ export default function AdminPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ allPitchesCompleted: true })
       });
-      setSuccess("All pitches marked as completed");
+      setSuccess("All pitches marked as completed successfully");
     } catch (err) {
       setError("Failed to complete pitches");
     }
@@ -444,17 +468,58 @@ export default function AdminPage() {
         return (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {rounds.map((r) => (
-              <div key={r.id} className="rounded-lg border border-border bg-card p-4">
+              <div key={r.id} className={`rounded-lg border p-4 ${
+                r.status === 'COMPLETED' ? 'border-green-300 bg-green-50' : 
+                r.status === 'ACTIVE' ? 'border-blue-300 bg-blue-50' : 
+                'border-border bg-card'
+              }`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold">{r.name}</h3>
-                    <p className="text-xs text-muted-foreground">Day {r.day} • Status: <span className="font-medium">{r.status}</span></p>
+                    <h3 className="font-semibold text-black">{r.name}</h3>
+                    <p className="text-xs text-gray-600">
+                      Day {r.day} • Status: 
+                      <span className={`font-medium ml-1 ${
+                        r.status === 'COMPLETED' ? 'text-green-700' :
+                        r.status === 'ACTIVE' ? 'text-blue-700' :
+                        'text-gray-700'
+                      }`}>
+                        {r.status}
+                        {r.status === 'COMPLETED' ? ' ✅' : ''}
+                      </span>
+                    </p>
                   </div>
                 </div>
+                {r.status === 'COMPLETED' && (
+                  <div className="mt-2 text-xs text-green-700 font-medium">
+                    This round has been completed
+                  </div>
+                )}
                 <div className="mt-4 flex flex-wrap gap-2">
-                  <button disabled={loading} onClick={() => updateRound(r.id, "PENDING")} className="rounded-md border border-border px-3 py-1 text-sm hover:bg-accent disabled:opacity-50">Set Pending</button>
-                  <button disabled={loading} onClick={() => updateRound(r.id, "ACTIVE")} className="rounded-md border border-border px-3 py-1 text-sm hover:bg-accent disabled:opacity-50">Start</button>
-                  <button disabled={loading} onClick={() => updateRound(r.id, "COMPLETED")} className="rounded-md border border-border px-3 py-1 text-sm hover:bg-accent disabled:opacity-50">Complete</button>
+                  <button 
+                    disabled={loading || r.status === 'COMPLETED'} 
+                    onClick={() => updateRound(r.id, "PENDING")} 
+                    className="rounded-md border border-border px-3 py-1 text-sm text-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Set Pending
+                  </button>
+                  <button 
+                    disabled={loading || r.status === 'COMPLETED'} 
+                    onClick={() => updateRound(r.id, "ACTIVE")} 
+                    className="rounded-md border border-border px-3 py-1 text-sm text-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Start
+                  </button>
+                  <button 
+                    disabled={loading || r.status === 'COMPLETED'} 
+                    onClick={() => updateRound(r.id, "COMPLETED")} 
+                    className={`rounded-md border px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
+                      r.status === 'COMPLETED' 
+                        ? 'border-green-300 bg-green-100 text-green-700 cursor-not-allowed' 
+                        : 'border-border text-black hover:bg-gray-50'
+                    }`}
+                  >
+                    {r.status === 'COMPLETED' ? 'Completed ✅' : 'Complete'}
+                  </button>
                 </div>
               </div>
             ))}
@@ -578,10 +643,10 @@ export default function AdminPage() {
         return (
           <div className="space-y-6">
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="font-semibold mb-4 text-black">Quiz Settings</h3>
+              <h3 className="font-semibold mb-4 text-white">Quiz Settings</h3>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm mb-2 text-black">Time Limit (minutes)</label>
+                  <label className="block text-sm mb-2 text-white">Time Limit (minutes)</label>
                   <input 
                     type="number" 
                     value={quizSettings.timeLimit || 30}
@@ -590,7 +655,7 @@ export default function AdminPage() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm mb-2 text-black">Total Questions</label>
+                  <label className="block text-sm mb-2 text-white">Total Questions</label>
                   <input 
                     type="number" 
                     value={questions.length}
@@ -617,7 +682,7 @@ export default function AdminPage() {
 
             <div className="rounded-lg border border-border bg-card p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-black">Question Management</h3>
+                <h3 className="font-semibold text-white">Question Management</h3>
                 <button 
                   onClick={() => openQuestionForm()}
                   disabled={questions.length >= 15}
@@ -673,23 +738,23 @@ export default function AdminPage() {
             </div>
 
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="font-semibold mb-4 text-black">Quiz Statistics</h3>
+              <h3 className="font-semibold mb-4 text-white">Quiz Statistics</h3>
               <div className="grid gap-4 md:grid-cols-4">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-black">{stats.quizAttempts || 0}</div>
-                  <div className="text-sm text-gray-600">Quiz Attempts</div>
+                  <div className="text-2xl font-bold text-white">{stats.quizAttempts || 0}</div>
+                  <div className="text-sm text-white">Quiz Attempts</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-black">{stats.completedQuizzes || 0}</div>
-                  <div className="text-sm text-gray-600">Completed</div>
+                  <div className="text-2xl font-bold text-white">{stats.completedQuizzes || 0}</div>
+                  <div className="text-sm text-white">Completed</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-black">{stats.averageScore || 0}%</div>
-                  <div className="text-sm text-gray-600">Average Score</div>
+                  <div className="text-2xl font-bold text-white">{stats.averageScore || 0}%</div>
+                  <div className="text-sm text-white">Average Score</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-black">{stats.highestScore || 0}%</div>
-                  <div className="text-sm text-gray-600">Highest Score</div>
+                  <div className="text-2xl font-bold text-white">{stats.highestScore || 0}%</div>
+                  <div className="text-sm text-white">Highest Score</div>
                 </div>
               </div>
             </div>

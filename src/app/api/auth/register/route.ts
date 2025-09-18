@@ -58,21 +58,22 @@ export async function POST(req: NextRequest) {
     // Hash password
     const hashedPassword = hashSync(password, 12);
 
-    // Start a transaction to create user, team, and team membership
+    // Create team first
+    const newTeam = await db.insert(teams).values({
+      name: teamName.trim(),
+      college: college.trim(),
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    }).returning();
+
+    // Create user and assign them to the team
     const newUser = await db.insert(user).values({
       id: userId,
       username: username.trim().toLowerCase(),
       name: name.trim(),
       password: hashedPassword,
       isAdmin: false,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    }).returning();
-
-    // Create team (no leaderId)
-    const newTeam = await db.insert(teams).values({
-      name: teamName.trim(),
-      college: college.trim(),
+      teamId: newTeam[0].id, // Assign user to the team
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
@@ -84,6 +85,7 @@ export async function POST(req: NextRequest) {
         id: newUser[0].id,
         username: newUser[0].username,
         name: newUser[0].name,
+        teamId: newUser[0].teamId,
       },
       team: {
         id: newTeam[0].id,

@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 interface Option {
   id: number;
@@ -55,7 +56,7 @@ const QuizHeader: React.FC<{ timeLeft: number; isFullscreen: boolean; onToggleFu
   <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-lg border border-border bg-white">
     <div className="flex items-center gap-4">
       <button
-        className="rounded-md border border-border px-3 py-2 text-sm text-black hover:bg-gray-50 transition-colors"
+        className="rounded-md border border-blue-300 bg-blue-50 px-3 py-2 text-sm text-blue-700 hover:bg-blue-100 transition-colors"
         onClick={onToggleFullscreen}
       >
         {isFullscreen ? "Exit Fullscreen" : "Go Fullscreen"}
@@ -85,7 +86,7 @@ const QuestionNavigation: React.FC<{
               ? "bg-primary text-white"
               : answers[q.id]
               ? "bg-green-100 text-green-800 border border-green-300"
-              : "bg-white border border-border hover:bg-gray-50 text-black"
+              : "bg-orange-50 border border-orange-200 hover:bg-orange-100 text-orange-700"
           }`}
           onClick={() => onQuestionSelect(idx)}
         >
@@ -118,7 +119,7 @@ const QuestionContent: React.FC<{
         .map((option) => (
           <label 
             key={option.id} 
-            className={`flex cursor-pointer items-start gap-4 rounded-md border p-4 transition-colors hover:bg-gray-50 ${
+            className={`flex cursor-pointer items-start gap-4 rounded-md border p-4 transition-colors hover:bg-blue-50 ${
               answer === option.id ? "border-primary bg-primary/5" : "border-border bg-white"
             }`}
           >
@@ -198,7 +199,7 @@ const QuizComponent: React.FC<{
           {/* Navigation Controls */}
           <div className="flex items-center justify-between">
             <button
-              className="rounded-md border border-border px-4 py-2 text-sm text-black hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              className="rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               onClick={() => onCurrentQChange(Math.max(0, currentQ - 1))}
               disabled={currentQ === 0}
             >
@@ -210,7 +211,7 @@ const QuizComponent: React.FC<{
             </span>
             
             <button
-              className="rounded-md border border-border px-4 py-2 text-sm text-black hover:bg-gray-50 disabled:opacity-50 transition-colors"
+              className="rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm text-blue-700 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
               onClick={() => onCurrentQChange(Math.min(questions.length - 1, currentQ + 1))}
               disabled={currentQ === questions.length - 1}
             >
@@ -366,6 +367,7 @@ export default function QuizPage() {
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [quizActive, setQuizActive] = useState<boolean>(false);
+  const [quizCompleted, setQuizCompleted] = useState<boolean>(false);
   const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes
   const [submitting, setSubmitting] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
@@ -418,9 +420,11 @@ export default function QuizPage() {
         const rounds = await res.json();
         const quizRound = rounds.find((r: any) => r.name === "QUIZ");
         setQuizActive(quizRound?.status === "ACTIVE");
+        setQuizCompleted(quizRound?.status === "COMPLETED");
       } catch (e) {
         console.error("Failed to check quiz status:", e);
         setQuizActive(false);
+        setQuizCompleted(false);
       }
     };
     fetchQuizStatus();
@@ -588,7 +592,7 @@ export default function QuizPage() {
             </Link>
             <Link
               href="/sign-up"
-              className="inline-flex w-full items-center justify-center rounded-md border border-border px-4 py-2 text-sm font-medium text-black hover:bg-gray-50"
+              className="inline-flex w-full items-center justify-center rounded-md border border-blue-300 bg-blue-50 px-4 py-2 text-sm font-medium text-blue-700 hover:bg-blue-100"
             >
               Create Account
             </Link>
@@ -599,6 +603,35 @@ export default function QuizPage() {
   }
 
   // Not a team leader
+
+  // Show quiz completed message
+  if (quizCompleted) {
+    return (
+      <div className="min-h-screen bg-gray-50 text-black flex items-center justify-center p-6">
+        <div className="max-w-lg w-full rounded-lg border border-green-300 bg-green-50 p-8 text-center">
+          <div className="text-6xl mb-4">✅</div>
+          <h2 className="text-2xl font-bold mb-4 text-green-800">Quiz Round Completed</h2>
+          <p className="text-green-700 mb-6">
+            The quiz round has been completed and is no longer available for new submissions.
+          </p>
+          <div className="space-y-3">
+            <Link
+              href="/dashboard"
+              className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+            >
+              Return to Dashboard
+            </Link>
+            <Link
+              href="/scoreboard"
+              className="inline-flex w-full items-center justify-center rounded-md border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50"
+            >
+              View Scoreboard
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
 
   // Show results
@@ -611,6 +644,16 @@ export default function QuizPage() {
     <div className="min-h-screen bg-gray-50 text-black" ref={quizRef}>
       {/* Rules Modal */}
       <RulesModal open={showRules} onClose={() => setShowRules(false)} />
+
+      {/* Back to Dashboard Button */}
+      <div className="bg-white border-b border-border">
+        <div className="mx-auto max-w-6xl px-6 py-3">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Link>
+        </div>
+      </div>
 
       {/* Header */}
       <div className="border-b border-border bg-white">

@@ -17,7 +17,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Find user by username (case insensitive)
+    // Find user by username (case insensitive) with team info
     const foundUsers = await db
       .select({
         id: user.id,
@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
         name: user.name,
         password: user.password,
         isAdmin: user.isAdmin,
+        teamId: user.teamId,
       })
       .from(user)
       .where(eq(user.username, username.trim().toLowerCase()))
@@ -46,23 +47,26 @@ export async function POST(req: NextRequest) {
       }, { status: 401 });
     }
 
-    // Get user's team information (first team by username)
-    const userTeam = await db
-      .select({
-        teamId: teams.id,
-        teamName: teams.name,
-        college: teams.college,
-      })
-      .from(teams)
-      .where(eq(teams.name, foundUser.name))
-      .limit(1);
+    // Get user's team information from database
+    let userTeam = null;
+    if (foundUser.teamId) {
+      const teamResult = await db
+        .select()
+        .from(teams)
+        .where(eq(teams.id, foundUser.teamId))
+        .limit(1);
+      
+      if (teamResult.length > 0) {
+        userTeam = teamResult[0];
+      }
+    }
 
     // Create JWT token
     const tokenPayload = { 
       userId: foundUser.id, 
       username: foundUser.username,
       isAdmin: foundUser.isAdmin,
-      teamId: userTeam[0]?.teamId || null,
+      teamId: foundUser.teamId,
     };
 
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '7d' });
@@ -73,11 +77,7 @@ export async function POST(req: NextRequest) {
       username: foundUser.username,
       name: foundUser.name,
       isAdmin: foundUser.isAdmin,
-      team: userTeam.length > 0 ? {
-        id: userTeam[0].teamId,
-        name: userTeam[0].teamName,
-        college: userTeam[0].college,
-      } : null
+      teamId: foundUser.teamId,
     };
 
     // Create response with secure httpOnly cookie
@@ -138,6 +138,7 @@ export async function GET(req: NextRequest) {
         username: user.username,
         name: user.name,
         isAdmin: user.isAdmin,
+        teamId: user.teamId,
       })
       .from(user)
       .where(eq(user.id, decoded.userId))
@@ -152,28 +153,12 @@ export async function GET(req: NextRequest) {
 
     const foundUser = foundUsers[0];
 
-
-    // Get user's current team information (first team where user is leader)
-    const userTeam = await db
-      .select({
-        teamId: teams.id,
-        teamName: teams.name,
-        college: teams.college,
-      })
-      .from(teams)
-  .where(eq(teams.name, foundUser.name))
-      .limit(1);
-
     const userResponse = {
       id: foundUser.id,
       username: foundUser.username,
       name: foundUser.name,
       isAdmin: foundUser.isAdmin,
-      team: userTeam.length > 0 ? {
-        id: userTeam[0].teamId,
-        name: userTeam[0].teamName,
-        college: userTeam[0].college,
-      } : null
+      teamId: foundUser.teamId,
     };
 
     return NextResponse.json({ 

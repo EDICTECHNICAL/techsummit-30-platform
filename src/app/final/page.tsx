@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "@/lib/auth-client";
+import Link from "next/link";
+import { ArrowLeft } from "lucide-react";
 
 interface Team {
   id: number;
@@ -41,6 +43,7 @@ export default function FinalPage() {
   const [myRatings, setMyRatings] = useState<PeerRating[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [finalRoundCompleted, setFinalRoundCompleted] = useState(false);
   const [activeTab, setActiveTab] = useState<'rate' | 'register' | 'judge' | 'status'>('status');
 
   // Rating form state
@@ -62,6 +65,14 @@ export default function FinalPage() {
   const loadData = async () => {
     try {
       setLoading(true);
+      
+      // Check final round status
+      const roundsRes = await fetch('/api/rounds');
+      if (roundsRes.ok) {
+        const rounds = await roundsRes.json();
+        const finalRound = rounds.find((r: any) => r.name === "FINAL");
+        setFinalRoundCompleted(finalRound?.status === "COMPLETED");
+      }
       
       // Load teams
       const teamsRes = await fetch('/api/teams');
@@ -215,6 +226,37 @@ export default function FinalPage() {
   if (isPending || loading) return <div className="p-6">Loading...</div>;
   if (!session?.user) return <div className="p-6">Please sign in to access the final round.</div>;
 
+  // Show final round completed message
+  if (finalRoundCompleted) {
+    return (
+      <div className="min-h-screen bg-background text-foreground p-6">
+        <div className="max-w-lg mx-auto">
+          <div className="rounded-lg border border-green-300 bg-green-50 p-8 text-center">
+            <div className="text-6xl mb-4">🏆</div>
+            <h2 className="text-2xl font-bold mb-4 text-green-800">Final Round Completed</h2>
+            <p className="text-green-700 mb-6">
+              The final round has been completed. No more registrations or ratings are being accepted.
+            </p>
+            <div className="space-y-3">
+              <Link
+                href="/dashboard"
+                className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
+              >
+                Return to Dashboard
+              </Link>
+              <Link
+                href="/scoreboard"
+                className="inline-flex w-full items-center justify-center rounded-md border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50"
+              >
+                View Final Results
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const availableTeams = teams.filter(team => team.id !== userTeamId);
   const ratedTeamIds = new Set(myRatings.map(r => r.toTeamId));
   const unratedTeams = availableTeams.filter(team => !ratedTeamIds.has(team.id));
@@ -223,6 +265,14 @@ export default function FinalPage() {
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-6xl mx-auto">
+        {/* Back to Dashboard Button */}
+        <div className="mb-4">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Link>
+        </div>
+
         <h1 className="text-3xl font-bold mb-2">Round 3: Finals</h1>
         <p className="text-muted-foreground mb-6">
           Submit 5-minute pitch presentations, rate peer teams (3-10), and receive judge scores.
