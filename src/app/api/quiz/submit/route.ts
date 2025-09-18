@@ -2,35 +2,16 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { quizSubmissions, teams, user, rounds, questions, options, teamMembers } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
+import { requireLeader } from '@/lib/auth-middleware';
 
-// POST handler - Submit quiz (Team leaders only during active quiz round)
-export async function POST(request: NextRequest) {
+export async function POST(req: NextRequest) {
   try {
-  // TODO: Replace with real authentication logic
-  const session = { user: { id: 'test-user-id' } };
-    if (!session?.user?.id) {
-      return NextResponse.json({ 
-        error: 'Authentication required', 
-        code: 'UNAUTHENTICATED' 
-      }, { status: 401 });
-    }
-
-    const { teamId, answers, durationSeconds } = await request.json();
-
-    // Fetch team details
-  const teamDetails = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
-    if (!teamDetails[0]) {
-      return NextResponse.json({ error: 'Team not found', code: 'TEAM_NOT_FOUND' }, { status: 404 });
-    }
-    const { name: teamName, college: teamCollege, leaderId } = teamDetails[0];
-
-    // Fetch user details
-  const userDetails = await db.select().from(user).where(eq(user.id, session.user.id)).limit(1);
-    if (!userDetails[0]) {
-      return NextResponse.json({ error: 'User not found', code: 'USER_NOT_FOUND' }, { status: 404 });
-    }
-    const { name: userName, username: userUsername } = userDetails[0];
+    // Authenticate user and require leader role
+    const authUser = await requireLeader(req);
     
+    const { teamId, answers, durationSeconds } = await req.json();
+
+    // Validate required fields
     if (!teamId || !answers || !Array.isArray(answers) || durationSeconds === undefined) {
       return NextResponse.json({ 
         error: 'Team ID, answers array, and duration are required', 
@@ -38,21 +19,11 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Verify user is team leader
-    const isLeader = await db
-      .select()
-      .from(teamMembers)
-      .where(and(
-        eq(teamMembers.teamId, teamId),
-        eq(teamMembers.userId, session.user.id),
-        eq(teamMembers.role, 'LEADER')
-      ))
-      .limit(1);
-
-    if (isLeader.length === 0) {
+    // Verify user is leader of the specified team
+    if (!authUser.team || authUser.team.id !== teamId) {
       return NextResponse.json({ 
-        error: 'Only team leaders can submit quiz', 
-        code: 'LEADER_REQUIRED' 
+        error: 'You can only submit quiz for your own team', 
+        code: 'TEAM_MISMATCH' 
       }, { status: 403 });
     }
 
@@ -108,7 +79,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Validate answers format and get options
+    // Validate answers format
     if (answers.length !== 15) {
       return NextResponse.json({ 
         error: 'Quiz must have exactly 15 answers', 
@@ -116,25 +87,63 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Validate answer structure
+    for (const answer of answers) {
+      if (!answer.questionId || !answer.optionId) {
+        return NextResponse.json({ 
+          error: 'Each answer must have questionId and optionId', 
+          code: 'INVALID_ANSWER_FORMAT' 
+        }, { status: 400 });
+      }
+    }
+
     const questionIds = answers.map(a => a.questionId);
     const optionIds = answers.map(a => a.optionId);
 
-    // Get all questions and options
+    // Validate all question IDs are unique
+    const uniqueQuestionIds = new Set(questionIds);
+    if (uniqueQuestionIds.size !== 15) {
+      return NextResponse.json({ 
+        error: 'All 15 questions must be answered exactly once', 
+        code: 'DUPLICATE_QUESTIONS' 
+      }, { status: 400 });
+    }
+
+    // Get all questions and validate they exist
     const questionsData = await db
       .select()
       .from(questions)
       .where(inArray(questions.id, questionIds));
 
+    if (questionsData.length !== 15) {
+      return NextResponse.json({ 
+        error: 'Invalid questions in answers', 
+        code: 'INVALID_QUESTIONS' 
+      }, { status: 400 });
+    }
+
+    // Get all options and validate they exist
     const optionsData = await db
       .select()
       .from(options)
       .where(inArray(options.id, optionIds));
 
-    if (questionsData.length !== 15 || optionsData.length !== 15) {
+    if (optionsData.length !== 15) {
       return NextResponse.json({ 
-        error: 'Invalid questions or options in answers', 
-        code: 'INVALID_QUESTIONS_OPTIONS' 
+        error: 'Invalid options in answers', 
+        code: 'INVALID_OPTIONS' 
       }, { status: 400 });
+    }
+
+    // Validate that each option belongs to its corresponding question
+    for (const answer of answers) {
+      const option = optionsData.find(o => o.id === answer.optionId);
+      if (!option || option.questionId !== answer.questionId) {
+        return NextResponse.json({ 
+          error: 'Option does not belong to the specified question', 
+          code: 'MISMATCHED_OPTION_QUESTION' 
+        }, { status: 400 });
+      }
     }
 
     // Calculate score and tokens
@@ -159,20 +168,18 @@ export async function POST(request: NextRequest) {
     const finalScore = Math.min(Math.ceil(rawScore), 60);
 
     // Create quiz submission
-    const newSubmission = await db.insert(quizSubmissions).values([
-      {
-        teamId: teamId,
-        memberCount: 5,
-        answers: answers,
-        rawScore: finalScore,
-        tokensMarketing: tokensMarketing,
-        tokensCapital: tokensCapital,
-        tokensTeam: tokensTeam,
-        tokensStrategy: tokensStrategy,
-        durationSeconds: durationSeconds,
-        createdAt: new Date(),
-      }
-    ]).returning();
+    const newSubmission = await db.insert(quizSubmissions).values({
+      teamId: teamId,
+      memberCount: 5,
+      answers: answers,
+      rawScore: finalScore,
+      tokensMarketing: tokensMarketing,
+      tokensCapital: tokensCapital,
+      tokensTeam: tokensTeam,
+      tokensStrategy: tokensStrategy,
+      durationSeconds: durationSeconds,
+      createdAt: new Date(),
+    }).returning();
 
     return NextResponse.json({
       submission: newSubmission[0],
@@ -184,8 +191,83 @@ export async function POST(request: NextRequest) {
         strategy: tokensStrategy,
       }
     }, { status: 201 });
-  } catch (error) {
+
+  } catch (error: any) {
     console.error('POST quiz submit error:', error);
-    return NextResponse.json({ error: 'Internal server error: ' + error }, { status: 500 });
+    
+    // Handle specific authentication errors
+    if (error.message === 'Authentication required') {
+      return NextResponse.json({ 
+        error: 'Authentication required', 
+        code: 'UNAUTHENTICATED' 
+      }, { status: 401 });
+    }
+    
+    if (error.message === 'Team leader access required') {
+      return NextResponse.json({ 
+        error: 'Only team leaders can submit quiz', 
+        code: 'LEADER_REQUIRED' 
+      }, { status: 403 });
+    }
+
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      details: error.message 
+    }, { status: 500 });
+  }
+}
+
+// GET handler - Get quiz submissions (optional, for admin or team viewing)
+export async function GET(req: NextRequest) {
+  try {
+    const authUser = await requireLeader(req);
+    const { searchParams } = new URL(req.url);
+    const teamId = searchParams.get('teamId');
+
+    if (teamId) {
+      // Leaders can only view their own team's submission
+      if (authUser.team?.id !== parseInt(teamId)) {
+        return NextResponse.json({ 
+          error: 'You can only view your own team\'s submission', 
+          code: 'UNAUTHORIZED' 
+        }, { status: 403 });
+      }
+
+      const submission = await db
+        .select()
+        .from(quizSubmissions)
+        .where(eq(quizSubmissions.teamId, parseInt(teamId)))
+        .limit(1);
+
+      return NextResponse.json(submission[0] || null);
+    }
+
+    // If no teamId specified, return user's team submission
+    if (authUser.team) {
+      const submission = await db
+        .select()
+        .from(quizSubmissions)
+        .where(eq(quizSubmissions.teamId, authUser.team.id))
+        .limit(1);
+
+      return NextResponse.json(submission[0] || null);
+    }
+
+    return NextResponse.json(null);
+
+  } catch (error: any) {
+    console.error('GET quiz submit error:', error);
+    
+    if (error.message === 'Authentication required') {
+      return NextResponse.json({ 
+        error: 'Authentication required', 
+        code: 'UNAUTHENTICATED' 
+      }, { status: 401 });
+    }
+
+    return NextResponse.json({ 
+      error: 'Internal server error', 
+      details: error.message 
+    }, { status: 500 });
   }
 }
