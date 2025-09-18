@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackButton } from "@/components/BackButton";
 import { useTheme } from "@/components/ThemeProvider";
 
 const NAV_LINKS = [
@@ -17,7 +18,8 @@ export function DashboardNavbar({ onToggleTheme }: { onToggleTheme: () => void }
       style={{ background: "linear-gradient(90deg, rgba(30,32,38,0.85) 60%, rgba(60,64,80,0.85) 100%)", boxShadow: "0 4px 32px 0 rgba(30,32,38,0.12)" }}
     >
       <div className="flex items-center justify-between px-10 py-5 overflow-x-auto">
-        <div className="flex gap-3">
+        <div className="flex gap-3 items-center">
+          <BackButton />
           {NAV_LINKS.map((link) => (
             <Link
               key={link.href}

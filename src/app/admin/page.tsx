@@ -6,6 +6,10 @@ import { useSession } from "@/lib/auth-client";
 
 export default function AdminPage() {
   const [rounds, setRounds] = useState<any[]>([]);
+  const [teams, setTeams] = useState<any[]>([]);
+  const [currentPitchTeamId, setCurrentPitchTeamId] = useState<number | null>(null);
+  const [votingActive, setVotingActive] = useState(false);
+  const [allPitchesCompleted, setAllPitchesCompleted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,6 +35,52 @@ export default function AdminPage() {
   };
 
   useEffect(() => { fetchRounds(); }, []);
+  useEffect(() => {
+    const fetchTeams = async () => {
+      const res = await fetch("/api/teams");
+      const data = await res.json();
+      setTeams(Array.isArray(data) ? data : []);
+    };
+    fetchTeams();
+  }, []);
+  // Control currently pitching team and voting status
+  const setPitchTeam = async (teamId: number) => {
+    setCurrentPitchTeamId(teamId);
+    setVotingActive(false);
+    const team = teams.find(t => t.id === teamId);
+    await fetch("/api/voting/current", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ teamId, teamName: team?.name })
+    });
+  };
+
+  const startVoting = async () => {
+    setVotingActive(true);
+    await fetch("/api/voting/current", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ votingActive: true })
+    });
+  };
+
+  const endVoting = async () => {
+    setVotingActive(false);
+    await fetch("/api/voting/current", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ votingActive: false })
+    });
+  };
+
+  const completeAllPitches = async () => {
+    setAllPitchesCompleted(true);
+    await fetch("/api/voting/current", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ allPitchesCompleted: true })
+    });
+  };
 
   const updateRound = async (roundId: number, status: "PENDING"|"ACTIVE"|"COMPLETED") => {
     setLoading(true);
@@ -75,6 +125,26 @@ export default function AdminPage() {
               <button disabled={loading} onClick={() => updateRound(r.id, "ACTIVE")} className="rounded-md border border-border px-3 py-1 text-sm hover:bg-accent disabled:opacity-50">Start</button>
               <button disabled={loading} onClick={() => updateRound(r.id, "COMPLETED")} className="rounded-md border border-border px-3 py-1 text-sm hover:bg-accent disabled:opacity-50">Complete</button>
             </div>
+            {r.name === "VOTING" && r.status === "ACTIVE" && (
+              <div className="mt-6">
+                <h4 className="font-semibold mb-2">Voting Control</h4>
+                <div className="mb-2">
+                  <label className="block text-sm mb-1">Select Pitching Team</label>
+                  <select value={currentPitchTeamId ?? ''} onChange={e => setPitchTeam(Number(e.target.value))} className="w-full rounded-md border px-3 py-2">
+                    <option value={''} className="text-black dark:text-white">-- Select Team --</option>
+                    {teams.map(t => (
+                      <option key={t.id} value={t.id} className="text-black dark:text-white">{t.name} (#{t.id})</option>
+                    ))}
+                  </select>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={startVoting} disabled={!currentPitchTeamId || votingActive} className="rounded-md bg-green-600 px-4 py-2 text-white font-bold disabled:opacity-50">Start 30s Voting</button>
+                  <button onClick={endVoting} disabled={!votingActive} className="rounded-md bg-red-600 px-4 py-2 text-white font-bold disabled:opacity-50">End Voting</button>
+                  <button onClick={completeAllPitches} disabled={allPitchesCompleted} className="rounded-md bg-purple-600 px-4 py-2 text-white font-bold disabled:opacity-50">Complete All Pitches</button>
+                </div>
+                <div className="mt-2 text-xs text-muted-foreground">Voting will be enabled for the selected team for 30 seconds. After all teams have pitched, enable vote conversion.</div>
+              </div>
+            )}
           </div>
         ))}
       </div>

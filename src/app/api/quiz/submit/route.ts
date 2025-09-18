@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { quizSubmissions, teamMembers, rounds, questions, options } from '@/db/schema';
+import { quizSubmissions, teams, user, rounds, questions, options, teamMembers } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
 
 // POST handler - Submit quiz (Team leaders only during active quiz round)
@@ -16,6 +16,20 @@ export async function POST(request: NextRequest) {
     }
 
     const { teamId, answers, durationSeconds } = await request.json();
+
+    // Fetch team details
+  const teamDetails = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
+    if (!teamDetails[0]) {
+      return NextResponse.json({ error: 'Team not found', code: 'TEAM_NOT_FOUND' }, { status: 404 });
+    }
+    const { name: teamName, college: teamCollege, leaderId } = teamDetails[0];
+
+    // Fetch user details
+  const userDetails = await db.select().from(user).where(eq(user.id, session.user.id)).limit(1);
+    if (!userDetails[0]) {
+      return NextResponse.json({ error: 'User not found', code: 'USER_NOT_FOUND' }, { status: 404 });
+    }
+    const { name: userName, username: userUsername } = userDetails[0];
     
     if (!teamId || !answers || !Array.isArray(answers) || durationSeconds === undefined) {
       return NextResponse.json({ 

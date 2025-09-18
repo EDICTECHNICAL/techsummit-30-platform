@@ -26,10 +26,7 @@ export default function DashboardPage() {
     setIsPending(false);
   }, [router]);
 
-  const [teams, setTeams] = useState<any[]>([]);
-  const [myTeam, setMyTeam] = useState<any | null>(null);
-  const [form, setForm] = useState({ name: "", college: "" });
-  const [loading, setLoading] = useState(false);
+  const [team, setTeam] = useState<any | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
 
@@ -42,50 +39,28 @@ export default function DashboardPage() {
     }`,
   });
 
-  const loadTeams = async () => {
+  const loadTeam = async () => {
     try {
       const res = await fetch("/api/teams", { headers: bearer() as any });
       const data = await res.json();
-      if (Array.isArray(data)) setTeams(data);
-
-      // detect my team by membership
-      const mine = data.find((t: any) =>
-      t.members?.some?.((m: any) => m.userId === user?.id)
-      );
-      setMyTeam(mine || null);
+      if (Array.isArray(data) && user) {
+        // Find the team where the user is the leader or matches username
+        const myTeam = data.find((t: any) => t.leader?.userId === user.id || t.leader?.username === user.username);
+        setTeam(myTeam || null);
+      }
     } catch (e: any) {
-      setError(e?.message || "Failed to load teams");
+      setError(e?.message || "Failed to load team");
     }
   };
 
 
   useEffect(() => {
     if (user) {
-      loadTeams();
+      loadTeam();
     }
   }, [user]);
 
-  const createTeam = async () => {
-    setLoading(true);
-    setError(null);
-    setMsg(null);
-    try {
-      const res = await fetch("/api/teams", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", ...(bearer() as any) },
-        body: JSON.stringify({ name: form.name, college: form.college }),
-      });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data?.error || "Failed to create team");
-      setMsg(`Team created: ${data.name}`);
-      setForm({ name: "", college: "" });
-      await loadTeams();
-    } catch (e: any) {
-      setError(e?.message || "Failed to create team");
-    } finally {
-      setLoading(false);
-    }
-  };
+  // Team creation removed
 
 
 
@@ -116,6 +91,12 @@ export default function DashboardPage() {
             <h1 className={`text-4xl font-extrabold tracking-tight mb-2 ${theme === "dark" ? "text-white" : "text-black"}`} style={{ letterSpacing: "-0.02em" }}>Dashboard</h1>
             <p className={`text-lg mt-2 ${theme === "dark" ? "text-blue-400" : "text-blue-700"}`}>
               Welcome, <span className={`font-semibold ${theme === "dark" ? "text-white" : "text-black"}`}>{user.name || user.username}</span>
+              {team && (
+                <>
+                  <br />
+                  <span className="font-medium">Team:</span> {team.name} <span className="font-medium">College:</span> {team.college}
+                </>
+              )}
             </p>
           </div>
 
@@ -162,48 +143,7 @@ export default function DashboardPage() {
         </div>
       </section>
 
-      {/* My Team */}
-      <section className="mt-6">
-        <h2 className="text-lg font-semibold">My Team</h2>
-        {myTeam ? (
-          <div className="mt-3 rounded-lg border border-border bg-card p-4">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <div>
-                <p className="font-medium">
-                  {myTeam.name}{" "}
-                  <span className="text-xs text-muted-foreground">
-                    (#{myTeam.id})
-                  </span>
-                </p>
-                <p className="text-sm text-muted-foreground">
-                  {myTeam.college}
-                </p>
-              </div>
-              <div className="text-sm">Members: {myTeam.memberCount}</div>
-            </div>
-            <ul className="mt-3 list-disc pl-5 text-sm">
-              {myTeam.members?.map((m: any) => (
-                <li key={m.userId}>
-                  {m.name || m.email} —{" "}
-                  <span className="uppercase text-xs">{m.role}</span>
-                </li>
-              ))}
-            </ul>
-
-            {isLeader && (
-              <div className="mt-4 rounded-md border border-border p-3">
-                <h3 className="font-medium text-sm">Invite Member</h3>
-                <div className="mt-2 flex flex-wrap items-center gap-2">
-                </div>
-              </div>
-            )}
-          </div>
-        ) : (
-          <p className="mt-2 text-sm text-muted-foreground">
-            You are not in a team yet.
-          </p>
-        )}
-      </section>
+      {/* My Team section removed */}
 
   {/* ...other dashboard content... */}
 
