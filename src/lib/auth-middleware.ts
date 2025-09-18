@@ -1,7 +1,5 @@
-
-// src/lib/auth-middleware.ts
 import { NextRequest } from 'next/server';
-import jwt, { JwtPayload } from 'jsonwebtoken';
+import jwt from 'jsonwebtoken';
 import { db } from '@/db';
 import { user, teams } from '@/db/schema';
 import { eq } from 'drizzle-orm';
@@ -13,128 +11,104 @@ export interface AuthUser {
   username: string;
   name: string;
   isAdmin: boolean;
-  team?: {
+  team: {
     id: number;
     name: string;
     college: string;
   } | null;
 }
 
-interface TokenPayload extends JwtPayload {
-  userId?: string;
-  username?: string;
-  isAdmin?: boolean;
-  teamId?: number | null;
-}
-
-/**
- * Authenticates a request using JWT or legacy base64 user data.
- * Returns AuthUser or null if authentication fails.
- */
-export async function authenticateRequest(req: NextRequest): Promise<AuthUser | null> {
+export async function authenticateRequest(request: NextRequest): Promise<AuthUser | null> {
   try {
     // Try to get token from cookie first
-    let token = req.cookies.get('auth-token')?.value;
-
-    // If no cookie, try Authorization header
+    let token = request.cookies.get('auth-token')?.value;
+    
+    // If no cookie token, try Authorization header
     if (!token) {
-      const authHeader = req.headers.get('authorization');
+      const authHeader = request.headers.get('authorization');
       if (authHeader && authHeader.startsWith('Bearer ')) {
         token = authHeader.replace('Bearer ', '');
-
-        // Handle base64 encoded user data (for compatibility)
-        try {
-          const decoded = Buffer.from(token, 'base64').toString('utf-8');
-          const userData = JSON.parse(decoded);
-          if (userData?.id) {
-            // This is direct user data, validate it exists in DB
-            const foundUsers = await db
-              .select()
-              .from(user)
-              .where(eq(user.id, userData.id))
-              .limit(1);
-
-            if (foundUsers.length > 0) {
-              const foundUser = foundUsers[0] as any;
-              return {
-                id: foundUser.id,
-                username: foundUser.username,
-                name: foundUser.name,
-                isAdmin: foundUser.isAdmin,
-                team: null
-              };
-            }
-          }
-        } catch {
-          // Not base64 encoded, treat as JWT token
-        }
       }
     }
-
+    
     if (!token) {
       return null;
     }
 
     // Verify JWT token
-    let decoded: TokenPayload;
-    try {
-      decoded = jwt.verify(token, JWT_SECRET) as TokenPayload;
-    } catch (err) {
-      console.error('JWT verification failed:', err);
-      return null;
-    }
-
+    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    
     if (!decoded.userId) {
-      console.error('JWT payload missing userId');
       return null;
     }
 
-    // Get user from database
+    // Get current user info from database
     const foundUsers = await db
-      .select()
+      .select({
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        isAdmin: user.isAdmin,
+      })
       .from(user)
       .where(eq(user.id, decoded.userId))
       .limit(1);
 
     if (foundUsers.length === 0) {
-      console.error('User not found for userId:', decoded.userId);
       return null;
     }
 
-    const foundUser = foundUsers[0] as any;
+    const foundUser = foundUsers[0];
+
+    // Get user's team information
+    const userTeam = await db
+      .select({
+        teamId: teams.id,
+        teamName: teams.name,
+        college: teams.college,
+      })
+      .from(teams)
+      .where(eq(teams.name, foundUser.name))
+      .limit(1);
+
     return {
       id: foundUser.id,
       username: foundUser.username,
       name: foundUser.name,
       isAdmin: foundUser.isAdmin,
-      team: null
+      team: userTeam.length > 0 ? {
+        id: userTeam[0].teamId,
+        name: userTeam[0].teamName,
+        college: userTeam[0].college,
+      } : null
     };
+
   } catch (error) {
     console.error('Authentication error:', error);
     return null;
   }
 }
 
-/**
- * Throws if authentication fails, otherwise returns AuthUser.
- */
-export async function requireAuth(req: NextRequest): Promise<AuthUser> {
-  const user = await authenticateRequest(req);
+export async function requireAuth(request: NextRequest): Promise<AuthUser> {
+  const user = await authenticateRequest(request);
   if (!user) {
     throw new Error('Authentication required');
   }
   return user;
 }
 
-
-
-/**
- * Throws if user is not an admin.
- */
-export async function requireAdmin(req: NextRequest): Promise<AuthUser> {
-  const user = await requireAuth(req);
+export async function requireAdmin(request: NextRequest): Promise<AuthUser> {
+  const user = await requireAuth(request);
   if (!user.isAdmin) {
     throw new Error('Admin access required');
+  }
+  return user;
+}
+
+export async function requireTeamMember(request: NextRequest): Promise<AuthUser> {
+  const user = await requireAuth(request);
+  if (!user.team) {
+    throw new Error('Team membership required');
   }
   return user;
 }

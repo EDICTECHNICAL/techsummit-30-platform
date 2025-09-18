@@ -343,6 +343,30 @@ const QuizResults: React.FC<{ result: QuizResult; onReturnToDashboard: () => voi
 );
 
 export default function QuizPage() {
+  // Simple modal for rules
+  const RulesModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
+    if (!open) return null;
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg shadow-lg max-w-md w-full p-6 relative">
+          <h2 className="text-2xl font-bold mb-4 text-black">Quiz Rules</h2>
+          <ul className="list-disc ml-6 mb-4 text-sm text-black">
+            <li>15 questions, 30 minutes total time.</li>
+            <li>Each option affects your team's token allocation.</li>
+            <li>Once started, the timer cannot be paused.</li>
+            <li>If you close the browser, the timer will resume from where you left off.</li>
+            <li>Submit before time runs out. Auto-submit on timeout.</li>
+          </ul>
+          <button
+            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:opacity-90"
+            onClick={onClose}
+          >
+            I Understand, Start Quiz
+          </button>
+        </div>
+      </div>
+    );
+  };
   const [user, setUser] = useState<User | null>(null);
   const [isPending, setIsPending] = useState(true);
   const [questions, setQuestions] = useState<Question[]>([]);
@@ -355,6 +379,7 @@ export default function QuizPage() {
   const [result, setResult] = useState<QuizResult | null>(null);
   const [currentQ, setCurrentQ] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showRules, setShowRules] = useState(true); // Show rules modal initially
   const quizRef = useRef<HTMLDivElement>(null);
 
   // Load user from localStorage
@@ -409,7 +434,7 @@ export default function QuizPage() {
 
   // Timer management with localStorage persistence
   useEffect(() => {
-    if (showResult) return;
+    if (showResult || showRules) return;
 
     // Restore timer from localStorage on mount
     const stored = localStorage.getItem('quiz_time_left');
@@ -424,18 +449,16 @@ export default function QuizPage() {
       setTimeLeft((prevTime) => {
         const newTime = prevTime > 0 ? prevTime - 1 : 0;
         localStorage.setItem('quiz_time_left', String(newTime));
-        
         // Auto-submit when time runs out
         if (newTime === 0 && Object.keys(answers).length > 0) {
           handleSubmitQuiz();
         }
-        
         return newTime;
       });
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [showResult, answers]);
+  }, [showResult, showRules, answers]);
 
   // Clean up timer on quiz completion
   useEffect(() => {
@@ -592,6 +615,9 @@ export default function QuizPage() {
   // Main quiz interface
   return (
     <div className="min-h-screen bg-background text-foreground" ref={quizRef}>
+      {/* Rules Modal */}
+      <RulesModal open={showRules} onClose={() => setShowRules(false)} />
+
       {/* Header */}
       <div className="border-b border-border bg-card">
         <div className="mx-auto max-w-6xl px-6 py-6">
@@ -608,7 +634,6 @@ export default function QuizPage() {
               </p>
             </div>
             <div className="text-right">
-
               <p className="font-medium">{user.name}</p>
               <p className="text-sm text-muted-foreground">
                 Team: {user.team?.name}
