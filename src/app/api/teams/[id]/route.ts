@@ -5,9 +5,10 @@ import { eq, and } from 'drizzle-orm';
 import { requireAuth } from '@/lib/auth-middleware';
 
 // GET handler - Get single team by ID (basic info only)
-export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
+export async function GET(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const teamId = parseInt(params.id);
+    const { id } = await context.params;
+    const teamId = parseInt(id);
     if (!teamId || isNaN(teamId)) {
       return NextResponse.json({ error: 'Valid team ID is required', code: 'INVALID_ID' }, { status: 400 });
     }
@@ -23,9 +24,10 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
 }
 
 // PATCH handler - Update team (authenticated user only)
-export async function PATCH(request: NextRequest, { params }: { params: { id: string } }) {
+export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const teamId = parseInt(params.id);
+    const { id } = await context.params;
+    const teamId = parseInt(id);
     if (!teamId || isNaN(teamId)) {
       return NextResponse.json({ error: 'Valid team ID is required', code: 'INVALID_ID' }, { status: 400 });
     }
@@ -73,9 +75,10 @@ export async function PATCH(request: NextRequest, { params }: { params: { id: st
 }
 
 // DELETE handler - Delete team (authenticated user only, with restrictions)
-export async function DELETE(request: NextRequest, { params }: { params: { id: string } }) {
+export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    const teamId = parseInt(params.id);
+    const { id } = await context.params;
+    const teamId = parseInt(id);
     if (!teamId || isNaN(teamId)) {
       return NextResponse.json({ error: 'Valid team ID is required', code: 'INVALID_ID' }, { status: 400 });
     }

@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 
-export default function SignInPage() {
+
+function SignInPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [username, setUsername] = useState("");
@@ -17,39 +18,26 @@ export default function SignInPage() {
     e.preventDefault();
     setLoading(true);
     setError(null);
-    
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          username: username.trim(), 
-          password 
-        })
+        body: JSON.stringify({ username: username.trim(), password })
       });
-      
       const result = await res.json();
-      
       if (!res.ok || !result.success) {
         setError(result.error || "Login failed");
         return;
       }
-
-      // Store user data in localStorage for client-side access
       if (typeof window !== 'undefined') {
         localStorage.setItem("user", JSON.stringify(result.user));
-        
-        // Also store token for API requests
         if (result.token) {
           localStorage.setItem("auth-token", result.token);
         }
       }
-
-      // Redirect to dashboard or intended page
       const redirectTo = searchParams?.get("from") || "/dashboard";
       router.push(redirectTo);
-      router.refresh(); // Ensure page refreshes to pick up new auth state
-      
+      router.refresh();
     } catch (err: any) {
       console.error('Login error:', err);
       setError(err?.message || "Network error. Please try again.");
@@ -67,7 +55,6 @@ export default function SignInPage() {
           <h1 className="text-3xl font-bold">Welcome Back</h1>
           <p className="text-muted-foreground mt-2">Sign in to your account</p>
         </div>
-        
         {registrationSuccess && (
           <div className="mb-4 p-3 rounded-md bg-green-50 border border-green-200">
             <p className="text-sm text-green-800">
@@ -75,13 +62,11 @@ export default function SignInPage() {
             </p>
           </div>
         )}
-        
         {error && (
           <div className="mb-4 p-3 rounded-md bg-destructive/10 border border-destructive/20">
             <p className="text-sm text-destructive">{error}</p>
           </div>
         )}
-        
         <form className="space-y-4" onSubmit={onSubmit}>
           <div>
             <label htmlFor="username" className="block text-sm font-medium text-muted-foreground mb-1">
@@ -98,7 +83,6 @@ export default function SignInPage() {
               disabled={loading}
             />
           </div>
-          
           <div>
             <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-1">
               Password
@@ -114,7 +98,6 @@ export default function SignInPage() {
               disabled={loading}
             />
           </div>
-          
           <div className="flex items-center justify-between">
             <label className="flex items-center gap-2 text-sm">
               <input 
@@ -133,7 +116,6 @@ export default function SignInPage() {
               Forgot password?
             </Link>
           </div>
-          
           <button
             type="submit"
             disabled={loading || !username.trim() || !password}
@@ -149,7 +131,6 @@ export default function SignInPage() {
             )}
           </button>
         </form>
-        
         <div className="mt-6 text-center space-y-2">
           <p className="text-sm text-muted-foreground">
             Don't have an account?{" "}
@@ -166,5 +147,13 @@ export default function SignInPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense>
+      <SignInPageContent />
+    </Suspense>
   );
 }
