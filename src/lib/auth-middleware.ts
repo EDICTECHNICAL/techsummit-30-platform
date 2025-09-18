@@ -1,3 +1,4 @@
+// src/lib/auth-middleware.ts
 import { NextRequest } from 'next/server';
 import jwt from 'jsonwebtoken';
 import { db } from '@/db';
@@ -6,7 +7,7 @@ import { eq } from 'drizzle-orm';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
-export interface AuthUser {
+interface AuthUser {
   id: string;
   username: string;
   name: string;
@@ -18,19 +19,18 @@ export interface AuthUser {
   } | null;
 }
 
-export async function authenticateRequest(request: NextRequest): Promise<AuthUser | null> {
+export async function authenticateRequest(req: NextRequest): Promise<AuthUser | null> {
   try {
-    // Try to get token from cookie first
-    let token = request.cookies.get('auth-token')?.value;
+    // Try to get token from cookie first, then from Authorization header
+    let token = req.cookies.get('auth-token')?.value;
     
-    // If no cookie token, try Authorization header
     if (!token) {
-      const authHeader = request.headers.get('authorization');
+      const authHeader = req.headers.get('Authorization');
       if (authHeader && authHeader.startsWith('Bearer ')) {
-        token = authHeader.replace('Bearer ', '');
+        token = authHeader.substring(7);
       }
     }
-    
+
     if (!token) {
       return null;
     }
@@ -68,7 +68,7 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthUse
         college: teams.college,
       })
       .from(teams)
-      .where(eq(teams.name, foundUser.name))
+      .where(eq(teams.name, foundUser.name)) // Assuming team name matches user name
       .limit(1);
 
     return {
@@ -89,26 +89,34 @@ export async function authenticateRequest(request: NextRequest): Promise<AuthUse
   }
 }
 
-export async function requireAuth(request: NextRequest): Promise<AuthUser> {
-  const user = await authenticateRequest(request);
-  if (!user) {
+export async function requireAuth(req: NextRequest): Promise<AuthUser> {
+  const authUser = await authenticateRequest(req);
+  
+  if (!authUser) {
     throw new Error('Authentication required');
   }
-  return user;
+
+  return authUser;
 }
 
-export async function requireAdmin(request: NextRequest): Promise<AuthUser> {
-  const user = await requireAuth(request);
-  if (!user.isAdmin) {
+export async function requireAdmin(req: NextRequest): Promise<AuthUser> {
+  const authUser = await requireAuth(req);
+  
+  if (!authUser.isAdmin) {
     throw new Error('Admin access required');
   }
-  return user;
+
+  return authUser;
 }
 
-export async function requireTeamMember(request: NextRequest): Promise<AuthUser> {
-  const user = await requireAuth(request);
-  if (!user.team) {
+// Helper function to check if user is team leader (can be used if needed)
+export async function requireTeamLeader(req: NextRequest): Promise<AuthUser> {
+  const authUser = await requireAuth(req);
+  
+  if (!authUser.team) {
     throw new Error('Team membership required');
   }
-  return user;
+
+  // Additional team leader validation can be added here if you have leader roles
+  return authUser;
 }

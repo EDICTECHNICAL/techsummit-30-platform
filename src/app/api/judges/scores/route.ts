@@ -1,22 +1,16 @@
+// src/app/api/judges/scores/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { judgeScores, rounds } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { judgeScores, rounds, teams } from '@/db/schema';
+import { eq, and, sum, avg, count } from 'drizzle-orm';
+import { requireAdmin } from '@/lib/auth-middleware';
 
 // POST handler - Submit judge score (Admin only during final round)
 export async function POST(request: NextRequest) {
   try {
-  // TODO: Replace with real authentication logic
-  const session = { user: { id: 'test-user-id' } };
-    if (!session?.user?.id) {
-      return NextResponse.json({ 
-        error: 'Authentication required', 
-        code: 'UNAUTHENTICATED' 
-      }, { status: 401 });
-    }
-
-    // userRoles table removed. Add admin check if needed.
-
+    // Require admin authentication
+    const authUser = await requireAdmin(request);
+    
     const { judgeName, teamId, score } = await request.json();
     
     if (!judgeName || !teamId || score === undefined) {
@@ -31,6 +25,14 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ 
         error: 'Score must be an integer', 
         code: 'INVALID_SCORE' 
+      }, { status: 400 });
+    }
+
+    // Validate judge name
+    if (judgeName.trim().length < 1 || judgeName.trim().length > 100) {
+      return NextResponse.json({ 
+        error: 'Judge name must be between 1-100 characters', 
+        code: 'INVALID_JUDGE_NAME' 
       }, { status: 400 });
     }
 
@@ -51,6 +53,20 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Verify team exists
+    const team = await db
+      .select()
+      .from(teams)
+      .where(eq(teams.id, teamId))
+      .limit(1);
+
+    if (team.length === 0) {
+      return NextResponse.json({ 
+        error: 'Team not found', 
+        code: 'TEAM_NOT_FOUND' 
+      }, { status: 404 });
+    }
+
     // Check if this judge already scored this team
     const existingScore = await db
       .select()
@@ -68,59 +84,110 @@ export async function POST(request: NextRequest) {
       }, { status: 409 });
     }
 
-    const newScore = await db.insert(judgeScores).values([
-      {
-        judgeName: judgeName.trim(),
-        teamId: teamId,
-        score: score,
-        createdAt: new Date(),
-      }
-    ]).returning();
+    const newScore = await db.insert(judgeScores).values({
+      judgeName: judgeName.trim(),
+      teamId: teamId,
+      score: score,
+      createdAt: new Date(),
+    }).returning();
 
-    return NextResponse.json(newScore[0], { status: 201 });
-  } catch (error) {
+    return NextResponse.json({
+      success: true,
+      score: newScore[0],
+      message: `Judge ${judgeName.trim()} scored ${team[0].name} with ${score} points`
+    }, { status: 201 });
+
+  } catch (error: any) {
     console.error('POST judge score error:', error);
-    return NextResponse.json({ error: 'Internal server error: ' + error }, { status: 500 });
+    
+    if (error.message === 'Authentication required') {
+      return NextResponse.json({ 
+        error: 'Authentication required', 
+        code: 'UNAUTHENTICATED' 
+      }, { status: 401 });
+    }
+    
+    if (error.message === 'Admin access required') {
+      return NextResponse.json({ 
+        error: 'Admin access required', 
+        code: 'ADMIN_REQUIRED' 
+      }, { status: 403 });
+    }
+
+    return NextResponse.json({ 
+      error: 'Failed to submit judge score',
+      details: error.message || 'Unknown error'
+    }, { status: 500 });
   }
 }
 
-// GET handler - Get judge scores
+// GET handler - Get judge scores with filtering and stats
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const teamId = searchParams.get('teamId');
     const judgeName = searchParams.get('judgeName');
 
-    let whereClauses = [];
+    // Apply filters
+    const whereConditions = [];
     if (teamId) {
-      whereClauses.push(eq(judgeScores.teamId, parseInt(teamId)));
+      whereConditions.push(eq(judgeScores.teamId, parseInt(teamId)));
     }
     if (judgeName) {
-      whereClauses.push(eq(judgeScores.judgeName, judgeName));
+      whereConditions.push(eq(judgeScores.judgeName, judgeName));
     }
-    const scores = await db
-      .select()
-      .from(judgeScores)
-      .where(whereClauses.length > 0 ? and(...whereClauses) : undefined)
-      .orderBy(judgeScores.createdAt);
 
-    if (teamId) {
-      // Calculate team statistics
-      const totalScore = scores.reduce((sum, s) => sum + s.score, 0);
-      const averageScore = scores.length > 0 ? totalScore / scores.length : 0;
+    let scores;
+    if (whereConditions.length > 0) {
+      scores = await db
+        .select({
+          id: judgeScores.id,
+          judgeName: judgeScores.judgeName,
+          teamId: judgeScores.teamId,
+          score: judgeScores.score,
+          createdAt: judgeScores.createdAt,
+        })
+        .from(judgeScores)
+        .where(and(...whereConditions))
+        .orderBy(judgeScores.createdAt);
+    } else {
+      scores = await db
+        .select({
+          id: judgeScores.id,
+          judgeName: judgeScores.judgeName,
+          teamId: judgeScores.teamId,
+          score: judgeScores.score,
+          createdAt: judgeScores.createdAt,
+        })
+        .from(judgeScores)
+        .orderBy(judgeScores.createdAt);
+    }
+
+    // If requesting specific team scores, include summary stats
+    if (teamId && !judgeName) {
+      const teamScores = scores;
+      const totalScore = teamScores.reduce((sum, s) => sum + s.score, 0);
+      const averageScore = teamScores.length > 0 ? totalScore / teamScores.length : 0;
 
       return NextResponse.json({
         teamId: parseInt(teamId),
-        scores: scores,
+        scores: teamScores,
         totalScore: totalScore,
         averageScore: Math.round(averageScore * 100) / 100,
-        judgeCount: scores.length,
+        judgeCount: teamScores.length,
       });
     }
 
-    return NextResponse.json(scores);
+    return NextResponse.json({
+      scores: scores,
+      count: scores.length
+    });
+
   } catch (error) {
     console.error('GET judge scores error:', error);
-    return NextResponse.json({ error: 'Internal server error: ' + error }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to fetch judge scores',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }

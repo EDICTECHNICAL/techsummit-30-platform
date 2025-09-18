@@ -1,20 +1,16 @@
+// src/app/api/final/ratings/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { peerRatings, rounds } from '@/db/schema';
-import { eq, and } from 'drizzle-orm';
+import { peerRatings, rounds, teams } from '@/db/schema';
+import { eq, and, avg, count } from 'drizzle-orm';
+import { requireAuth } from '@/lib/auth-middleware';
 
-// POST handler - Submit peer rating (Team leaders only during final round)
+// POST handler - Submit peer rating (Authenticated users during final round)
 export async function POST(request: NextRequest) {
   try {
-  // TODO: Replace with real authentication logic
-  const session = { user: { id: 'test-user-id' } };
-    if (!session?.user?.id) {
-      return NextResponse.json({ 
-        error: 'Authentication required', 
-        code: 'UNAUTHENTICATED' 
-      }, { status: 401 });
-    }
-
+    // Authenticate user
+    const authUser = await requireAuth(request);
+    
     const { fromTeamId, toTeamId, rating } = await request.json();
     
     if (!fromTeamId || !toTeamId || rating === undefined) {
@@ -24,15 +20,21 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Verify user belongs to the from team or is admin
+    if (!authUser.isAdmin && (!authUser.team || authUser.team.id !== fromTeamId)) {
+      return NextResponse.json({ 
+        error: 'You can only submit ratings for your own team', 
+        code: 'UNAUTHORIZED_TEAM' 
+      }, { status: 403 });
+    }
+
     // Validate rating range (3-10)
-    if (rating < 3 || rating > 10 || !Number.isInteger(rating)) {
+    if (!Number.isInteger(rating) || rating < 3 || rating > 10) {
       return NextResponse.json({ 
         error: 'Rating must be an integer between 3 and 10', 
         code: 'INVALID_RATING' 
       }, { status: 400 });
     }
-
-    // No leader check; allow any authenticated user
 
     // Check if final round is active
     const finalRound = await db
@@ -59,6 +61,17 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
+    // Verify both teams exist
+    const fromTeam = await db.select().from(teams).where(eq(teams.id, fromTeamId)).limit(1);
+    const toTeam = await db.select().from(teams).where(eq(teams.id, toTeamId)).limit(1);
+
+    if (fromTeam.length === 0 || toTeam.length === 0) {
+      return NextResponse.json({ 
+        error: 'One or both teams not found', 
+        code: 'TEAM_NOT_FOUND' 
+      }, { status: 404 });
+    }
+
     // Check if team already rated this target team
     const existingRating = await db
       .select()
@@ -76,36 +89,81 @@ export async function POST(request: NextRequest) {
       }, { status: 409 });
     }
 
-    const newRating = await db.insert(peerRatings).values([
-      {
-        fromTeamId: fromTeamId,
-        toTeamId: toTeamId,
-        rating: rating,
-        createdAt: new Date(),
-      }
-    ]).returning();
+    const newRating = await db.insert(peerRatings).values({
+      fromTeamId: fromTeamId,
+      toTeamId: toTeamId,
+      rating: rating,
+      createdAt: new Date(),
+    }).returning();
 
-    return NextResponse.json(newRating[0], { status: 201 });
-  } catch (error) {
+    return NextResponse.json({
+      success: true,
+      rating: newRating[0],
+      message: `Successfully rated ${toTeam[0].name} with ${rating}/10`
+    }, { status: 201 });
+
+  } catch (error: any) {
     console.error('POST peer rating error:', error);
-    return NextResponse.json({ error: 'Internal server error: ' + error }, { status: 500 });
+    
+    if (error.message === 'Authentication required') {
+      return NextResponse.json({ 
+        error: 'Authentication required', 
+        code: 'UNAUTHENTICATED' 
+      }, { status: 401 });
+    }
+
+    return NextResponse.json({ 
+      error: 'Failed to submit peer rating',
+      details: error.message || 'Unknown error'
+    }, { status: 500 });
   }
 }
 
-// GET handler - Get peer ratings
+// GET handler - Get peer ratings with filtering
 export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
     const teamId = searchParams.get('teamId');
+    const fromTeamId = searchParams.get('fromTeamId');
 
+    // Filter by specific criteria
+    const whereConditions = [];
     if (teamId) {
-      // Get ratings for specific team
-      const teamRatings = await db
-        .select()
-        .from(peerRatings)
-        .where(eq(peerRatings.toTeamId, parseInt(teamId)))
-        .orderBy(peerRatings.createdAt);
+      whereConditions.push(eq(peerRatings.toTeamId, parseInt(teamId)));
+    }
+    if (fromTeamId) {
+      whereConditions.push(eq(peerRatings.fromTeamId, parseInt(fromTeamId)));
+    }
 
+    let ratings;
+    if (whereConditions.length > 0) {
+      ratings = await db
+        .select({
+          id: peerRatings.id,
+          fromTeamId: peerRatings.fromTeamId,
+          toTeamId: peerRatings.toTeamId,
+          rating: peerRatings.rating,
+          createdAt: peerRatings.createdAt,
+        })
+        .from(peerRatings)
+        .where(and(...whereConditions))
+        .orderBy(peerRatings.createdAt);
+    } else {
+      ratings = await db
+        .select({
+          id: peerRatings.id,
+          fromTeamId: peerRatings.fromTeamId,
+          toTeamId: peerRatings.toTeamId,
+          rating: peerRatings.rating,
+          createdAt: peerRatings.createdAt,
+        })
+        .from(peerRatings)
+        .orderBy(peerRatings.createdAt);
+    }
+
+    // If requesting specific team ratings, include summary stats
+    if (teamId && !fromTeamId) {
+      const teamRatings = ratings;
       const averageRating = teamRatings.length > 0 
         ? teamRatings.reduce((sum, r) => sum + r.rating, 0) / teamRatings.length 
         : 0;
@@ -116,17 +174,18 @@ export async function GET(request: NextRequest) {
         averageRating: Math.round(averageRating * 100) / 100,
         ratingCount: teamRatings.length,
       });
-    } else {
-      // Get all peer ratings
-      const allRatings = await db
-        .select()
-        .from(peerRatings)
-        .orderBy(peerRatings.createdAt);
-
-      return NextResponse.json(allRatings);
     }
+
+    return NextResponse.json({
+      ratings: ratings,
+      count: ratings.length
+    });
+
   } catch (error) {
     console.error('GET peer ratings error:', error);
-    return NextResponse.json({ error: 'Internal server error: ' + error }, { status: 500 });
+    return NextResponse.json({ 
+      error: 'Failed to fetch peer ratings',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 500 });
   }
 }
