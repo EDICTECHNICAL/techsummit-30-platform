@@ -19,11 +19,12 @@ export async function POST(request: NextRequest) {
     try {
       const { db } = await import('@/db');
       const { teams } = await import('@/db/schema');
-      const team = await db.select().from(teams).where(teams.id.eq(teamId)).limit(1);
+  const { eq } = await import('drizzle-orm');
+  const team = await db.select().from(teams).where(eq(teams.id, teamId)).limit(1);
       if (team.length > 0 && team[0].name) name = team[0].name;
     } catch {}
   }
-  votingState.team = teamId ? { id: teamId, name: name || `Team ${teamId}` } : null;
+  votingState.team = teamId && name ? { id: teamId, name } : null;
   votingState.votingActive = false;
   return NextResponse.json(votingState);
 }

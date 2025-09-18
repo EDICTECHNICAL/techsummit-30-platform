@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { user, teams, teamMembers } from '@/db/schema';
+import { user, teams } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { compareSync } from 'bcryptjs';
 import jwt from 'jsonwebtoken';
@@ -46,26 +46,23 @@ export async function POST(req: NextRequest) {
       }, { status: 401 });
     }
 
-    // Get user's team information
+    // Get user's team information (first team by username)
     const userTeam = await db
       .select({
         teamId: teams.id,
         teamName: teams.name,
         college: teams.college,
-        role: teamMembers.role,
       })
-      .from(teamMembers)
-      .leftJoin(teams, eq(teamMembers.teamId, teams.id))
-      .where(eq(teamMembers.userId, foundUser.id))
+      .from(teams)
+      .where(eq(teams.name, foundUser.name))
       .limit(1);
 
-    // Create JWT token with comprehensive user info
+    // Create JWT token
     const tokenPayload = { 
       userId: foundUser.id, 
       username: foundUser.username,
       isAdmin: foundUser.isAdmin,
       teamId: userTeam[0]?.teamId || null,
-      role: userTeam[0]?.role || null
     };
 
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '7d' });
@@ -80,7 +77,6 @@ export async function POST(req: NextRequest) {
         id: userTeam[0].teamId,
         name: userTeam[0].teamName,
         college: userTeam[0].college,
-        role: userTeam[0].role,
       } : null
     };
 
@@ -156,17 +152,16 @@ export async function GET(req: NextRequest) {
 
     const foundUser = foundUsers[0];
 
-    // Get user's current team information
+
+    // Get user's current team information (first team where user is leader)
     const userTeam = await db
       .select({
         teamId: teams.id,
         teamName: teams.name,
         college: teams.college,
-        role: teamMembers.role,
       })
-      .from(teamMembers)
-      .leftJoin(teams, eq(teamMembers.teamId, teams.id))
-      .where(eq(teamMembers.userId, foundUser.id))
+      .from(teams)
+  .where(eq(teams.name, foundUser.name))
       .limit(1);
 
     const userResponse = {
@@ -178,7 +173,6 @@ export async function GET(req: NextRequest) {
         id: userTeam[0].teamId,
         name: userTeam[0].teamName,
         college: userTeam[0].college,
-        role: userTeam[0].role,
       } : null
     };
 

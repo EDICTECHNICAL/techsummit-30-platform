@@ -1,8 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { teams, teamMembers, user } from '@/db/schema';
+import { teams, user } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
-import { requireAuth, requireLeader } from '@/lib/auth-middleware';
+import { requireAuth } from '@/lib/auth-middleware';
 
 // GET handler - Get single team by ID (public info, detailed info for team members)
 export async function GET(request: NextRequest, { params }: { params: { id: string } }) {
@@ -24,15 +24,14 @@ export async function GET(request: NextRequest, { params }: { params: { id: stri
         college: teams.college,
         createdAt: teams.createdAt,
         updatedAt: teams.updatedAt,
-        leaderId: teams.leaderId,
+  // Removed leaderId
         memberName: user.name,
         memberUsername: user.username,
-        memberRole: teamMembers.role,
-        userId: user.id,
+  userId: user.id,
       })
       .from(teams)
-      .leftJoin(teamMembers, eq(teams.id, teamMembers.teamId))
-      .leftJoin(user, eq(teamMembers.userId, user.id))
+  // Removed teamMembers join
+  .leftJoin(user, eq(teams.id, user.id))
       .where(eq(teams.id, teamId));
 
     if (teamWithMembers.length === 0) {

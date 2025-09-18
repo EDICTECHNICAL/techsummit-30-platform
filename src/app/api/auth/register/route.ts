@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { user, teams, teamMembers } from '@/db/schema';
+import { user, teams } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { hashSync } from 'bcryptjs';
 
@@ -69,23 +69,14 @@ export async function POST(req: NextRequest) {
       updatedAt: new Date(),
     }).returning();
 
-    // Create team with the new user as leader
+    // Create team (no leaderId)
     const newTeam = await db.insert(teams).values({
       name: teamName.trim(),
       college: college.trim(),
-      leaderId: userId,
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
 
-    // Add user as team leader in team_members
-    await db.insert(teamMembers).values({
-      teamId: newTeam[0].id,
-      userId: userId,
-      role: 'LEADER',
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
 
     return NextResponse.json({ 
       success: true,

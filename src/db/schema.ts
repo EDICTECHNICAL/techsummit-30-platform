@@ -1,12 +1,5 @@
 // Team members table
-export const teamMembers = pgTable('team_members', {
-  id: serial('id').primaryKey(),
-  teamId: integer('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
-  userId: varchar('user_id', { length: 36 }).notNull().references(() => user.id, { onDelete: 'cascade' }),
-  role: text('role').notNull(), // 'LEADER' or 'MEMBER'
-  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
-  updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow()
-});
+
 // Admins table for dedicated admin management
 export const admins = pgTable("admins", {
   id: varchar("id", { length: 36 }).primaryKey(),
@@ -65,7 +58,6 @@ export const teams = pgTable('teams', {
   id: serial('id').primaryKey(),
   name: text('name').notNull().unique(),
   college: text('college').notNull(),
-  leaderId: varchar('leader_id', { length: 36 }).notNull().references(() => user.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow()
 });

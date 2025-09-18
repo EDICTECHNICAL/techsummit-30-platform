@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { quizSubmissions, teams, user, rounds, questions, options, teamMembers } from '@/db/schema';
+import { quizSubmissions, teams, user, rounds, questions, options } from '@/db/schema';
 import { eq, and, inArray } from 'drizzle-orm';
-import { requireLeader } from '@/lib/auth-middleware';
+import { requireAuth } from '@/lib/auth-middleware';
 
 export async function POST(req: NextRequest) {
   try {
-    // Authenticate user and require leader role
-    const authUser = await requireLeader(req);
+  // Authenticate user
+  const authUser = await requireAuth(req);
     
     const { teamId, answers, durationSeconds } = await req.json();
 
@@ -19,7 +19,7 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Verify user is leader of the specified team
+    // Verify user belongs to the specified team
     if (!authUser.team || authUser.team.id !== teamId) {
       return NextResponse.json({ 
         error: 'You can only submit quiz for your own team', 
@@ -66,18 +66,7 @@ export async function POST(req: NextRequest) {
       }, { status: 409 });
     }
 
-    // Validate team has exactly 5 members
-    const memberCount = await db
-      .select()
-      .from(teamMembers)
-      .where(eq(teamMembers.teamId, teamId));
 
-    if (memberCount.length !== 5) {
-      return NextResponse.json({ 
-        error: 'Team must have exactly 5 members to submit quiz', 
-        code: 'INVALID_TEAM_SIZE' 
-      }, { status: 400 });
-    }
 
     // Validate answers format
     if (answers.length !== 15) {
@@ -220,12 +209,12 @@ export async function POST(req: NextRequest) {
 // GET handler - Get quiz submissions (optional, for admin or team viewing)
 export async function GET(req: NextRequest) {
   try {
-    const authUser = await requireLeader(req);
+    const authUser = await requireAuth(req);
     const { searchParams } = new URL(req.url);
     const teamId = searchParams.get('teamId');
 
     if (teamId) {
-      // Leaders can only view their own team's submission
+      // Users can only view their own team's submission
       if (authUser.team?.id !== parseInt(teamId)) {
         return NextResponse.json({ 
           error: 'You can only view your own team\'s submission', 

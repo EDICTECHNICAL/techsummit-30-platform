@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { tokenConversions, teamMembers, quizSubmissions, rounds } from '@/db/schema';
+import { tokenConversions, quizSubmissions, rounds } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 // POST handler - Convert tokens to votes (Team leaders only during voting round)
@@ -37,23 +37,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Verify user is team leader
-    const isLeader = await db
-      .select()
-      .from(teamMembers)
-      .where(and(
-        eq(teamMembers.teamId, teamId),
-        eq(teamMembers.userId, userId),
-        eq(teamMembers.role, 'LEADER')
-      ))
-      .limit(1);
-
-    if (isLeader.length === 0) {
-      return NextResponse.json({ 
-        error: 'Only team leaders can convert tokens', 
-        code: 'LEADER_REQUIRED' 
-      }, { status: 403 });
-    }
+    // No teamMembers check; allow all authenticated users
 
     // Check if voting round is active
     const votingRound = await db

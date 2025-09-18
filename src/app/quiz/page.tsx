@@ -372,9 +372,7 @@ export default function QuizPage() {
   }, []);
 
   // Check if user is a team leader
-  const isLeader = useMemo(() => {
-    return user?.team?.role === 'LEADER';
-  }, [user]);
+  // Remove leader check; all users can access
 
   // Load quiz questions
   useEffect(() => {
@@ -584,27 +582,7 @@ export default function QuizPage() {
   }
 
   // Not a team leader
-  if (!isLeader) {
-    return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
-        <div className="max-w-lg w-full rounded-lg border border-border bg-card p-8 text-center">
-          <div className="inline-flex items-center rounded-full bg-yellow-100 px-3 py-1 text-sm font-medium text-yellow-800 mb-4">
-            Access Restricted
-          </div>
-          <h2 className="text-2xl font-bold mb-4">Leader Access Only</h2>
-          <p className="text-muted-foreground mb-6">
-            The quiz portal is only accessible to team leaders. Please contact your team leader to take the quiz on behalf of your team.
-          </p>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center rounded-md border border-border px-4 py-2 text-sm font-medium hover:bg-accent"
-          >
-            Return to Dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
+
 
   // Show results
   if (showResult && result) {
@@ -620,7 +598,7 @@ export default function QuizPage() {
           <div className="flex items-center justify-between">
             <div>
               <div className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-2">
-                Round 1 • Leader Quiz Portal
+                Round 1 • Quiz Portal
               </div>
               <h1 className="text-3xl font-bold tracking-tight">
                 Techpreneur Summit 3.0 Quiz
@@ -630,7 +608,7 @@ export default function QuizPage() {
               </p>
             </div>
             <div className="text-right">
-              <p className="text-sm text-muted-foreground">Team Leader</p>
+
               <p className="font-medium">{user.name}</p>
               <p className="text-sm text-muted-foreground">
                 Team: {user.team?.name}
