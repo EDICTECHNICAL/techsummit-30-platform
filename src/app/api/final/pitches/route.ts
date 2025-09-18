@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { finalPitches, teams, teamMembers, rounds } from '@/db/schema';
+import { finalPitches, teams, rounds } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 // GET handler - List all final pitches
@@ -46,23 +46,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Verify user is team leader
-    const isLeader = await db
-      .select()
-      .from(teamMembers)
-      .where(and(
-        eq(teamMembers.teamId, teamId),
-        eq(teamMembers.userId, session.user.id),
-        eq(teamMembers.role, 'LEADER')
-      ))
-      .limit(1);
-
-    if (isLeader.length === 0) {
-      return NextResponse.json({ 
-        error: 'Only team leaders can register for final pitches', 
-        code: 'LEADER_REQUIRED' 
-      }, { status: 403 });
-    }
+    // No leader check; allow any authenticated user
 
     // Check if final round is active
     const finalRound = await db

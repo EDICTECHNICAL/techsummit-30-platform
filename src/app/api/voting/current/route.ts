@@ -1,8 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // In-memory state for demo (replace with DB in production)
-let votingState = {
-  team: null, // { id, name }
+
+type VotingTeam = { id: string | number; name: string } | null;
+let votingState: {
+  team: VotingTeam;
+  votingActive: boolean;
+  allPitchesCompleted: boolean;
+} = {
+  team: null,
   votingActive: false,
   allPitchesCompleted: false,
 };

@@ -37,10 +37,7 @@ export default function VotingPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [isConvertingTokens, setIsConvertingTokens] = useState(false);
 
-  const isLeader = useMemo(() => 
-    session?.user?.roles?.includes?.("LEADER") ?? false, 
-    [session]
-  );
+  // Voting is open to all authenticated users; no leader logic needed
 
   const currentTeam = useMemo(() => 
     teams.find(t => t.id === fromTeamId), 

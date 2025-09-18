@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { peerRatings, teamMembers, rounds } from '@/db/schema';
+import { peerRatings, rounds } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
 
 // POST handler - Submit peer rating (Team leaders only during final round)
@@ -32,23 +32,7 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Verify user is leader of fromTeam
-    const isLeader = await db
-      .select()
-      .from(teamMembers)
-      .where(and(
-        eq(teamMembers.teamId, fromTeamId),
-        eq(teamMembers.userId, session.user.id),
-        eq(teamMembers.role, 'LEADER')
-      ))
-      .limit(1);
-
-    if (isLeader.length === 0) {
-      return NextResponse.json({ 
-        error: 'Only team leaders can submit peer ratings', 
-        code: 'LEADER_REQUIRED' 
-      }, { status: 403 });
-    }
+    // No leader check; allow any authenticated user
 
     // Check if final round is active
     const finalRound = await db
