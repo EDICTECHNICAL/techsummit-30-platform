@@ -1,26 +1,102 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { user } from '@/db/schema';
-import { eq } from 'drizzle-orm';
+import { user, teams, teamMembers } from '@/db/schema';
+import { eq, and } from 'drizzle-orm';
 import { compareSync } from 'bcryptjs';
+import jwt from 'jsonwebtoken';
+
+const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
 
 export async function POST(req: NextRequest) {
-  const { username, password } = await req.json();
-  if (!username || !password) {
-    return NextResponse.json({ error: 'Username and password required' }, { status: 400 });
-  }
+  try {
+    const { username, password } = await req.json();
+    
+    if (!username || !password) {
+      return NextResponse.json({ error: 'Username and password are required' }, { status: 400 });
+    }
 
-  // Find user by username
-  const found = await db.select().from(user).where(eq(user.username, username));
-  if (found.length === 0) {
-    return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
-  }
+    // Find user by username (case insensitive)
+    const foundUsers = await db
+      .select({
+        id: user.id,
+        username: user.username,
+        name: user.name,
+        password: user.password,
+        isAdmin: user.isAdmin,
+      })
+      .from(user)
+      .where(eq(user.username, username.trim().toLowerCase()))
+      .limit(1);
 
-  const valid = compareSync(password, found[0].password ?? '');
-  if (!valid) {
-    return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
-  }
+    if (foundUsers.length === 0) {
+      return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
+    }
 
-  // TODO: Set session/cookie here if needed
-  return NextResponse.json({ success: true, user: { id: found[0].id, username: found[0].username, name: found[0].name } });
+    const foundUser = foundUsers[0];
+
+    // Verify password
+    const isPasswordValid = compareSync(password, foundUser.password);
+    if (!isPasswordValid) {
+      return NextResponse.json({ error: 'Invalid username or password' }, { status: 401 });
+    }
+
+    // Get user's team information
+    const userTeam = await db
+      .select({
+        teamId: teams.id,
+        teamName: teams.name,
+        college: teams.college,
+        role: teamMembers.role,
+      })
+      .from(teamMembers)
+      .leftJoin(teams, eq(teamMembers.teamId, teams.id))
+      .where(eq(teamMembers.userId, foundUser.id))
+      .limit(1);
+
+    // Create JWT token
+    const token = jwt.sign(
+      { 
+        userId: foundUser.id, 
+        username: foundUser.username,
+        isAdmin: foundUser.isAdmin,
+        teamId: userTeam[0]?.teamId || null
+      },
+      JWT_SECRET,
+      { expiresIn: '7d' }
+    );
+
+    const userResponse = {
+      id: foundUser.id,
+      username: foundUser.username,
+      name: foundUser.name,
+      isAdmin: foundUser.isAdmin,
+      team: userTeam.length > 0 ? {
+        id: userTeam[0].teamId,
+        name: userTeam[0].teamName,
+        college: userTeam[0].college,
+        role: userTeam[0].role,
+      } : null
+    };
+
+    // Create response with secure httpOnly cookie
+    const response = NextResponse.json({ 
+      success: true, 
+      user: userResponse,
+      token // Also return token for client-side storage if needed
+    });
+
+    // Set httpOnly cookie for server-side authentication
+    response.cookies.set('auth-token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 60 * 60 * 24 * 7, // 7 days
+      path: '/'
+    });
+
+    return response;
+  } catch (error) {
+    console.error('Login error:', error);
+    return NextResponse.json({ error: 'Login failed. Please try again.' }, { status: 500 });
+  }
 }

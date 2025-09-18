@@ -1,116 +1,291 @@
-"use client"
+"use client";
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { supabase } from "@/lib/auth-client";
 
 export default function SignUpPage() {
   const router = useRouter();
-  const [name, setName] = useState("");
-  const [username, setUsername] = useState("");
-  const [password, setPassword] = useState("");
-  const [teamName, setTeamName] = useState("");
-  const [college, setCollege] = useState("");
+  const [formData, setFormData] = useState({
+    name: "",
+    username: "",
+    password: "",
+    confirmPassword: "",
+    teamName: "",
+    college: "",
+  });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+
+  const validateForm = () => {
+    const errors: Record<string, string> = {};
+    
+    if (!formData.name.trim()) {
+      errors.name = "Name is required";
+    } else if (formData.name.length > 100) {
+      errors.name = "Name must be less than 100 characters";
+    }
+
+    if (!formData.username.trim()) {
+      errors.username = "Username is required";
+    } else if (formData.username.length < 3) {
+      errors.username = "Username must be at least 3 characters";
+    } else if (formData.username.length > 50) {
+      errors.username = "Username must be less than 50 characters";
+    } else if (!/^[a-zA-Z0-9_-]+$/.test(formData.username)) {
+      errors.username = "Username can only contain letters, numbers, hyphens, and underscores";
+    }
+
+    if (!formData.password) {
+      errors.password = "Password is required";
+    } else if (formData.password.length < 6) {
+      errors.password = "Password must be at least 6 characters";
+    }
+
+    if (formData.password !== formData.confirmPassword) {
+      errors.confirmPassword = "Passwords do not match";
+    }
+
+    if (!formData.teamName.trim()) {
+      errors.teamName = "Team name is required";
+    } else if (formData.teamName.length > 100) {
+      errors.teamName = "Team name must be less than 100 characters";
+    }
+
+    if (!formData.college.trim()) {
+      errors.college = "College is required";
+    } else if (formData.college.length > 200) {
+      errors.college = "College name must be less than 200 characters";
+    }
+
+    setFieldErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
+  const handleInputChange = (field: string, value: string) => {
+    setFormData(prev => ({ ...prev, [field]: value }));
+    // Clear field error when user starts typing
+    if (fieldErrors[field]) {
+      setFieldErrors(prev => ({ ...prev, [field]: "" }));
+    }
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setLoading(true);
     setError(null);
+    
+    if (!validateForm()) {
+      return;
+    }
+    
+    setLoading(true);
+    
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password, name, teamName, college })
+        body: JSON.stringify({
+          name: formData.name.trim(),
+          username: formData.username.trim().toLowerCase(),
+          password: formData.password,
+          teamName: formData.teamName.trim(),
+          college: formData.college.trim(),
+        })
       });
+      
       const result = await res.json();
-      if (!result.success) {
+      
+      if (!res.ok || !result.success) {
         setError(result.error || "Registration failed");
-        setLoading(false);
         return;
       }
+
+      // Redirect to sign-in page with success message
       router.push("/sign-in?registered=true");
+      
     } catch (err: any) {
-      setError(err?.message || "Registration failed");
+      console.error('Registration error:', err);
+      setError(err?.message || "Network error. Please try again.");
+    } finally {
       setLoading(false);
     }
   };
 
+  const isFormValid = Object.values(formData).every(value => value.trim()) && 
+                     formData.password === formData.confirmPassword &&
+                     Object.keys(fieldErrors).length === 0;
+
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6">
-        <h1 className="text-2xl font-bold">Create your account</h1>
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-8">
+      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg">
+        <div className="text-center mb-6">
+          <h1 className="text-3xl font-bold">Create Account</h1>
+          <p className="text-muted-foreground mt-2">Join the competition</p>
+        </div>
+        
         {error && (
-          <p className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
+          <div className="mb-4 p-3 rounded-md bg-destructive/10 border border-destructive/20">
+            <p className="text-sm text-destructive">{error}</p>
+          </div>
         )}
-        <form className="mt-6 space-y-4" onSubmit={onSubmit}>
+        
+        <form className="space-y-4" onSubmit={onSubmit}>
           <div>
-            <label className="text-sm text-muted-foreground">Name</label>
+            <label htmlFor="name" className="block text-sm font-medium text-muted-foreground mb-1">
+              Full Name *
+            </label>
             <input
+              id="name"
               type="text"
               required
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 outline-none focus:ring-2"
-              placeholder="Your name"
+              value={formData.name}
+              onChange={(e) => handleInputChange("name", e.target.value)}
+              className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+                fieldErrors.name 
+                  ? "border-destructive focus:ring-destructive" 
+                  : "border-input focus:ring-primary focus:border-transparent"
+              }`}
+              placeholder="Enter your full name"
+              disabled={loading}
             />
+            {fieldErrors.name && <p className="text-xs text-destructive mt-1">{fieldErrors.name}</p>}
           </div>
+          
           <div>
-            <label className="text-sm text-muted-foreground">Username</label>
+            <label htmlFor="username" className="block text-sm font-medium text-muted-foreground mb-1">
+              Username *
+            </label>
             <input
+              id="username"
               type="text"
               required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 outline-none focus:ring-2"
-              placeholder="Choose a username"
+              value={formData.username}
+              onChange={(e) => handleInputChange("username", e.target.value)}
+              className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+                fieldErrors.username 
+                  ? "border-destructive focus:ring-destructive" 
+                  : "border-input focus:ring-primary focus:border-transparent"
+              }`}
+              placeholder="Choose a unique username"
+              disabled={loading}
             />
+            {fieldErrors.username && <p className="text-xs text-destructive mt-1">{fieldErrors.username}</p>}
           </div>
+          
           <div>
-            <label className="text-sm text-muted-foreground">Password</label>
+            <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-1">
+              Password *
+            </label>
             <input
+              id="password"
               type="password"
               required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 outline-none focus:ring-2"
-              placeholder="Create a password"
+              value={formData.password}
+              onChange={(e) => handleInputChange("password", e.target.value)}
+              className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+                fieldErrors.password 
+                  ? "border-destructive focus:ring-destructive" 
+                  : "border-input focus:ring-primary focus:border-transparent"
+              }`}
+              placeholder="Create a secure password"
+              disabled={loading}
             />
+            {fieldErrors.password && <p className="text-xs text-destructive mt-1">{fieldErrors.password}</p>}
           </div>
+          
           <div>
-            <label className="text-sm text-muted-foreground">Team Name</label>
+            <label htmlFor="confirmPassword" className="block text-sm font-medium text-muted-foreground mb-1">
+              Confirm Password *
+            </label>
             <input
+              id="confirmPassword"
+              type="password"
+              required
+              value={formData.confirmPassword}
+              onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+              className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+                fieldErrors.confirmPassword 
+                  ? "border-destructive focus:ring-destructive" 
+                  : "border-input focus:ring-primary focus:border-transparent"
+              }`}
+              placeholder="Confirm your password"
+              disabled={loading}
+            />
+            {fieldErrors.confirmPassword && <p className="text-xs text-destructive mt-1">{fieldErrors.confirmPassword}</p>}
+          </div>
+          
+          <div>
+            <label htmlFor="teamName" className="block text-sm font-medium text-muted-foreground mb-1">
+              Team Name *
+            </label>
+            <input
+              id="teamName"
               type="text"
               required
-              value={teamName}
-              onChange={(e) => setTeamName(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 outline-none focus:ring-2"
-              placeholder="Your team name"
+              value={formData.teamName}
+              onChange={(e) => handleInputChange("teamName", e.target.value)}
+              className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+                fieldErrors.teamName 
+                  ? "border-destructive focus:ring-destructive" 
+                  : "border-input focus:ring-primary focus:border-transparent"
+              }`}
+              placeholder="Choose your team name"
+              disabled={loading}
             />
+            {fieldErrors.teamName && <p className="text-xs text-destructive mt-1">{fieldErrors.teamName}</p>}
           </div>
+          
           <div>
-            <label className="text-sm text-muted-foreground">College</label>
+            <label htmlFor="college" className="block text-sm font-medium text-muted-foreground mb-1">
+              College/University *
+            </label>
             <input
+              id="college"
               type="text"
               required
-              value={college}
-              onChange={(e) => setCollege(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 outline-none focus:ring-2"
-              placeholder="Your college name"
+              value={formData.college}
+              onChange={(e) => handleInputChange("college", e.target.value)}
+              className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+                fieldErrors.college 
+                  ? "border-destructive focus:ring-destructive" 
+                  : "border-input focus:ring-primary focus:border-transparent"
+              }`}
+              placeholder="Your college or university name"
+              disabled={loading}
             />
+            {fieldErrors.college && <p className="text-xs text-destructive mt-1">{fieldErrors.college}</p>}
           </div>
+          
           <button
             type="submit"
-            disabled={loading}
-            className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            disabled={loading || !isFormValid}
+            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            {loading ? "Creating..." : "Create account"}
+            {loading ? (
+              <span className="flex items-center justify-center gap-2">
+                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                Creating Account...
+              </span>
+            ) : (
+              "Create Account"
+            )}
           </button>
         </form>
-        <div className="mt-6 text-center text-sm text-muted-foreground">
-          Already have an account? <Link className="underline" href="/sign-in">Sign in</Link>
+        
+        <div className="mt-6 text-center space-y-2">
+          <p className="text-sm text-muted-foreground">
+            Already have an account?{" "}
+            <Link href="/sign-in" className="text-primary hover:underline font-medium">
+              Sign in here
+            </Link>
+          </p>
+          <Link 
+            href="/" 
+            className="text-sm text-muted-foreground hover:text-foreground underline"
+          >
+            ← Back to Home
+          </Link>
         </div>
       </div>
     </div>
