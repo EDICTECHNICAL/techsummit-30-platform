@@ -3,5 +3,7 @@
     "src/app/api/sse/voting/route.ts": {
       "maxDuration": 300
     }
-  }
+  },
+  "buildCommand": "next build",
+  "outputDirectory": ".next"
 }
