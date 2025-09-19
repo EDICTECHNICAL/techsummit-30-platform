@@ -27,6 +27,7 @@
 # environment and secrets
 .env
 .env.*
+!.env.production.example
 
 # database
 *.sqlite

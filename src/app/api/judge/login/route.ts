@@ -1,12 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
-
-// Judge login credentials - in production, these would be in environment variables or database
-const JUDGE_CREDENTIALS = [
-  { username: "judge1", password: "judge123" },
-  { username: "judge2", password: "judge456" },
-  { username: "judge3", password: "judge789" },
-  { username: "admin", password: "admin123" } // Admin can also access judge console
-];
+import { db } from "@/db";
+import { judges } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import bcrypt from "bcryptjs";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,12 +15,25 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check credentials
-    const isValid = JUDGE_CREDENTIALS.some(
-      cred => cred.username === username && cred.password === password
-    );
+    // Check if judge exists in judges table
+    const judgeUser = await db.select()
+      .from(judges)
+      .where(eq(judges.username, username))
+      .limit(1);
 
-    if (!isValid) {
+    if (judgeUser.length === 0) {
+      return NextResponse.json({ 
+        success: false, 
+        error: "Invalid judge credentials" 
+      }, { status: 401 });
+    }
+
+    const judge = judgeUser[0];
+
+    // Verify password
+    const isValidPassword = await bcrypt.compare(password, judge.password);
+
+    if (!isValidPassword) {
       return NextResponse.json({ 
         success: false, 
         error: "Invalid judge credentials" 
@@ -35,7 +44,11 @@ export async function POST(req: NextRequest) {
     const response = NextResponse.json({ 
       success: true, 
       message: "Judge login successful",
-      judge: username 
+      judge: {
+        id: judge.id,
+        username: judge.username,
+        name: judge.name
+      }
     });
 
     // Set judge authentication cookie
@@ -46,15 +59,17 @@ export async function POST(req: NextRequest) {
       maxAge: 60 * 60 * 24 // 24 hours
     });
 
-    // Also set admin auth if it's admin login
-    if (username === "admin") {
-      response.cookies.set("admin-auth", "true", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: 60 * 60 * 24 // 24 hours
-      });
-    }
+    // Store judge user data in cookie for session
+    response.cookies.set("judge-user", JSON.stringify({
+      id: judge.id,
+      username: judge.username,
+      name: judge.name
+    }), {
+      httpOnly: false, // Allow client-side access for user data
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24 // 24 hours
+    });
 
     return response;
 

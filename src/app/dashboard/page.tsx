@@ -32,8 +32,7 @@ interface Team {
 }
 
 export default function DashboardPage() {
-  const { theme, setTheme } = useTheme();
-  const handleToggleTheme = () => setTheme(theme === "dark" ? "light" : "dark");
+  const { theme } = useTheme();
   const [user, setUser] = useState<User | null>(null);
   const [isPending, setIsPending] = useState(true);
   const [team, setTeam] = useState<Team | null>(null);
@@ -184,7 +183,7 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6 relative">
-      <DashboardNavbar onToggleTheme={handleToggleTheme} />
+      <DashboardNavbar />
       
       <div className="pt-20 overflow-y-auto h-[calc(100vh-5rem)]">
         <div className="flex flex-col gap-2 items-start max-w-4xl mx-auto">

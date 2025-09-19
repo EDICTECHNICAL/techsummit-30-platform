@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import PageLock from "@/components/ui/PageLock";
 import { useRoundStatus } from "@/hooks/useRoundStatus";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface Option {
   id: number;
@@ -353,7 +354,8 @@ export default function QuizPage() {
             <li className="text-foreground">15 questions, 30 minutes total time.</li>
             <li className="text-foreground">Each option affects your team's token allocation.</li>
             <li className="text-foreground">Once started, the timer cannot be paused.</li>
-            <li className="text-foreground">If you close the browser, the timer will resume from where you left off.</li>
+            <li className="text-foreground">Your answers are automatically saved - refreshing the browser won't lose your progress.</li>
+            <li className="text-foreground">If you close the browser, the timer and answers will resume from where you left off.</li>
             <li className="text-foreground">Submit before time runs out. Auto-submit on timeout.</li>
           </ul>
           <button
@@ -497,12 +499,51 @@ export default function QuizPage() {
     return () => clearInterval(timer);
   }, [showResult, showRules, answers, hasSubmitted]);
 
+  // Restore answers from localStorage on mount
+  useEffect(() => {
+    if (showResult || hasSubmitted) return;
+
+    // Restore previously saved answers
+    const storedAnswers = localStorage.getItem('quiz_answers');
+    if (storedAnswers) {
+      try {
+        const parsedAnswers = JSON.parse(storedAnswers);
+        // Validate that the answers are in the correct format
+        if (typeof parsedAnswers === 'object' && parsedAnswers !== null) {
+          const answerCount = Object.keys(parsedAnswers).length;
+          setAnswers(parsedAnswers);
+          console.log('Restored quiz answers from localStorage:', parsedAnswers);
+          
+          // Show user feedback about restored progress
+          if (answerCount > 0) {
+            setMessage(`Progress restored: ${answerCount} question${answerCount === 1 ? '' : 's'} previously answered.`);
+            // Clear the message after 3 seconds
+            setTimeout(() => setMessage(null), 3000);
+          }
+        }
+      } catch (e) {
+        console.error('Failed to parse saved quiz answers:', e);
+        // Clear invalid data
+        localStorage.removeItem('quiz_answers');
+      }
+    }
+  }, [showResult, hasSubmitted]);
+
   // Clean up timer on quiz completion
   useEffect(() => {
     if (showResult) {
       localStorage.removeItem('quiz_time_left');
+      localStorage.removeItem('quiz_answers');
     }
   }, [showResult]);
+
+  // Clean up answers if user has already submitted
+  useEffect(() => {
+    if (hasSubmitted) {
+      localStorage.removeItem('quiz_answers');
+      localStorage.removeItem('quiz_time_left');
+    }
+  }, [hasSubmitted]);
 
   // Fullscreen management
   useEffect(() => {
@@ -531,7 +572,12 @@ export default function QuizPage() {
   };
 
   const handleAnswerChange = (questionId: number, optionId: number) => {
-    setAnswers(prev => ({ ...prev, [questionId]: optionId }));
+    setAnswers(prev => {
+      const newAnswers = { ...prev, [questionId]: optionId };
+      // Persist answers to localStorage for browser refresh persistence
+      localStorage.setItem('quiz_answers', JSON.stringify(newAnswers));
+      return newAnswers;
+    });
     setMessage(null); // Clear any existing messages
   };
 
@@ -593,6 +639,7 @@ export default function QuizPage() {
       
       // Clear the quiz state
       localStorage.removeItem('quiz_time_left');
+      localStorage.removeItem('quiz_answers');
       
     } catch (error: any) {
       console.error("Quiz submission error:", error);
@@ -757,10 +804,13 @@ export default function QuizPage() {
       {/* Back to Dashboard Button */}
       <div className="bg-card border-b border-border">
         <div className="mx-auto max-w-6xl px-6 py-3">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Link>
+          <div className="flex items-center justify-between">
+            <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+              <ArrowLeft className="h-4 w-4" />
+              Back to Dashboard
+            </Link>
+            <ThemeToggle />
+          </div>
         </div>
       </div>
 

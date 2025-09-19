@@ -10,11 +10,19 @@ export async function POST(request: NextRequest) {
     // Authenticate the user
     const authUser = await requireAuth(request);
 
-    const { teamId } = await request.json();
+    const { teamId, quantity = 1 } = await request.json();
     if (!teamId) {
       return NextResponse.json({ 
         error: 'Team ID is required', 
         code: 'MISSING_REQUIRED_FIELDS' 
+      }, { status: 400 });
+    }
+
+    // Validate quantity
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      return NextResponse.json({ 
+        error: 'Quantity must be a positive integer', 
+        code: 'INVALID_QUANTITY' 
       }, { status: 400 });
     }
 
@@ -43,20 +51,6 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check if team has already converted tokens (only allow once per team)
-    const existingConversion = await db
-      .select()
-      .from(tokenConversions)
-      .where(eq(tokenConversions.teamId, teamId))
-      .limit(1);
-
-    if (existingConversion.length > 0) {
-      return NextResponse.json({ 
-        error: 'Team has already converted tokens', 
-        code: 'ALREADY_CONVERTED' 
-      }, { status: 409 });
-    }
-
     // Get team's quiz submission to check available tokens
     const quizSubmission = await db
       .select()
@@ -79,12 +73,32 @@ export async function POST(request: NextRequest) {
       strategy: submission.remainingStrategy ?? submission.tokensStrategy,
     };
 
-    // Require at least 1 token in each category
-    if (available.marketing < 1 || available.capital < 1 || available.team < 1 || available.strategy < 1) {
+    // Calculate maximum possible conversions based on available tokens
+    const maxPossibleConversions = Math.min(
+      available.marketing,
+      available.capital,
+      available.team,
+      available.strategy
+    );
+
+    // Check if any conversion is possible
+    if (maxPossibleConversions < 1) {
       return NextResponse.json({ 
         error: 'Insufficient tokens: need at least 1 in each category (Marketing, Capital, Team, Strategy)', 
         code: 'INSUFFICIENT_TOKENS',
-        currentTokens: available
+        currentTokens: available,
+        maxPossibleConversions: 0
+      }, { status: 400 });
+    }
+
+    // Validate requested quantity doesn't exceed maximum possible
+    if (quantity > maxPossibleConversions) {
+      return NextResponse.json({ 
+        error: `Cannot convert ${quantity} tokens. Maximum possible conversions: ${maxPossibleConversions}`, 
+        code: 'QUANTITY_EXCEEDS_MAXIMUM',
+        currentTokens: available,
+        maxPossibleConversions: maxPossibleConversions,
+        requestedQuantity: quantity
       }, { status: 400 });
     }
 
@@ -93,8 +107,8 @@ export async function POST(request: NextRequest) {
       {
         teamId: teamId,
         category: 'ALL',
-        tokensUsed: 4,
-        votesGained: 1,
+        tokensUsed: quantity * 4, // 4 tokens per conversion (1 from each category)
+        votesGained: quantity,
         createdAt: new Date(),
       }
     ]).returning();
@@ -103,30 +117,31 @@ export async function POST(request: NextRequest) {
     const updatedSubmission = await db
       .update(quizSubmissions)
       .set({
-        remainingMarketing: Math.max(0, available.marketing - 1),
-        remainingCapital: Math.max(0, available.capital - 1),
-        remainingTeam: Math.max(0, available.team - 1),
-        remainingStrategy: Math.max(0, available.strategy - 1),
+        remainingMarketing: Math.max(0, available.marketing - quantity),
+        remainingCapital: Math.max(0, available.capital - quantity),
+        remainingTeam: Math.max(0, available.team - quantity),
+        remainingStrategy: Math.max(0, available.strategy - quantity),
       })
       .where(eq(quizSubmissions.teamId, teamId))
       .returning();
 
     // Calculate new remaining tokens after deduction
     const newRemainingTokens = {
-      marketing: Math.max(0, available.marketing - 1),
-      capital: Math.max(0, available.capital - 1),
-      team: Math.max(0, available.team - 1),
-      strategy: Math.max(0, available.strategy - 1),
+      marketing: Math.max(0, available.marketing - quantity),
+      capital: Math.max(0, available.capital - quantity),
+      team: Math.max(0, available.team - quantity),
+      strategy: Math.max(0, available.strategy - quantity),
     };
 
     return NextResponse.json({
       success: true,
       conversion: newConversion[0],
-      tokensUsed: 4,
-      votesGained: 1,
+      tokensUsed: quantity * 4,
+      votesGained: quantity,
       tokensBeforeConversion: available,
       remainingTokens: newRemainingTokens,
-      message: 'Successfully converted 1 token from each category → 1 vote. Tokens have been deducted from your balance.'
+      maxPossibleConversions: Math.min(...Object.values(newRemainingTokens)),
+      message: `Successfully converted ${quantity} token${quantity > 1 ? 's' : ''} from each category → ${quantity} vote${quantity > 1 ? 's' : ''}. Tokens have been deducted from your balance.`
     }, { status: 201 });
 
   } catch (error: any) {
@@ -200,12 +215,16 @@ export async function GET(request: NextRequest) {
     // Calculate total votes gained from conversions
     const totalVotesGained = conversions.reduce((sum, conv) => sum + conv.votesGained, 0);
 
-    // Check if team can convert tokens
-    const canConvert = conversions.length === 0 && 
-                      availableTokens.marketing >= 1 && 
-                      availableTokens.capital >= 1 && 
-                      availableTokens.team >= 1 && 
-                      availableTokens.strategy >= 1;
+    // Calculate maximum possible conversions based on current available tokens
+    const maxPossibleConversions = Math.min(
+      availableTokens.marketing,
+      availableTokens.capital,
+      availableTokens.team,
+      availableTokens.strategy
+    );
+
+    // Check if team can convert tokens (has tokens available)
+    const canConvert = maxPossibleConversions >= 1;
 
     return NextResponse.json({
       teamId: parseInt(teamId),
@@ -214,6 +233,7 @@ export async function GET(request: NextRequest) {
       availableTokens: availableTokens,
       totalVotesGained: totalVotesGained,
       canConvert: canConvert,
+      maxPossibleConversions: maxPossibleConversions,
       hasQuizSubmission: quizSubmission.length > 0,
     });
 

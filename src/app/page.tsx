@@ -3,12 +3,18 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function HomePage() {
   const { data: session, isPending } = useSession();
   const isSignedIn = !!session?.user;
   return (
     <div className="min-h-screen bg-background text-foreground">
+      {/* Theme Toggle - Fixed position */}
+      <div className="fixed top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
+      
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="relative mx-auto max-w-6xl px-6 py-20 sm:py-28">

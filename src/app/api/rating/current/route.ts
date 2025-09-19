@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { votingEmitter } from '../../sse/voting/route';
+import { ratingEmitter } from '../../sse/rating/route';
 
 // Helper function to check admin authentication (both JWT and cookie-based)
 function checkAdminAuth(req: NextRequest): boolean {
@@ -11,95 +11,83 @@ function checkAdminAuth(req: NextRequest): boolean {
   return false;
 }
 
-// In-memory state for demo (replace with DB in production)
-type VotingTeam = { id: string | number; name: string } | null;
-let votingState: {
-  team: VotingTeam;
-  votingActive: boolean;
+// In-memory state for rating cycle
+type RatingTeam = { id: string | number; name: string } | null;
+let ratingState: {
+  team: RatingTeam;
+  ratingActive: boolean;
   allPitchesCompleted: boolean;
-  // Pitch cycle state
-  pitchCycleActive: boolean;
-  currentPhase: 'idle' | 'pitching' | 'preparing' | 'voting';
+  // Rating cycle state
+  ratingCycleActive: boolean;
+  currentPhase: 'idle' | 'pitching' | 'judges-rating' | 'peers-rating';
   phaseTimeLeft: number;
   cycleStartTime: number | null;
 } = {
   team: null,
-  votingActive: false,
+  ratingActive: false,
   allPitchesCompleted: false,
-  pitchCycleActive: false,
+  ratingCycleActive: false,
   currentPhase: 'idle',
   phaseTimeLeft: 0,
   cycleStartTime: null,
 };
 
-// Auto-timeout functionality
-let votingTimeout: NodeJS.Timeout | null = null;
-
-const autoDisableVoting = () => {
-  if (votingTimeout) {
-    clearTimeout(votingTimeout);
-  }
-  
-  votingTimeout = setTimeout(() => {
-    if (votingState.votingActive) {
-      votingState.votingActive = false;
-      console.log('Auto-disabled voting after 30 seconds timeout');
-    }
-    votingTimeout = null;
-  }, 30000); // 30 seconds
-};
-
-// GET handler - Get current voting state (public endpoint)
+// GET handler - Get current rating state (public endpoint)
 export async function GET(request: NextRequest) {
   try {
-    // Calculate real-time phase time left if in pitch cycle
-    let currentState = { ...votingState };
+    // Calculate real-time phase time left if in rating cycle
+    let currentState = { ...ratingState };
     
-    if (currentState.pitchCycleActive && currentState.cycleStartTime) {
+    if (currentState.ratingCycleActive && currentState.cycleStartTime) {
       const elapsed = Math.floor((Date.now() - currentState.cycleStartTime) / 1000);
       
-      if (elapsed < 90) {
-        // Pitching phase (90 seconds)
+      if (elapsed < 300) {
+        // Pitching phase (5 minutes = 300 seconds)
         currentState.currentPhase = 'pitching';
-        currentState.phaseTimeLeft = Math.max(0, 90 - elapsed);
-      } else if (elapsed < 95) {
-        // Preparation phase (5 seconds)
-        currentState.currentPhase = 'preparing';
-        currentState.phaseTimeLeft = Math.max(0, 95 - elapsed);
-      } else if (elapsed < 125) {
-        // Voting phase (30 seconds)
-        currentState.currentPhase = 'voting';
-        currentState.phaseTimeLeft = Math.max(0, 125 - elapsed);
-        // Auto-enable voting during voting phase
-        if (!currentState.votingActive) {
-          currentState.votingActive = true;
-          votingState.votingActive = true;
+        currentState.phaseTimeLeft = Math.max(0, 300 - elapsed);
+      } else if (elapsed < 360) {
+        // Judges rating phase (1 minute = 60 seconds)
+        currentState.currentPhase = 'judges-rating';
+        currentState.phaseTimeLeft = Math.max(0, 360 - elapsed);
+        // Auto-enable rating during judges rating phase
+        if (!currentState.ratingActive) {
+          currentState.ratingActive = true;
+          ratingState.ratingActive = true;
+        }
+      } else if (elapsed < 420) {
+        // Peers rating phase (1 minute = 60 seconds)
+        currentState.currentPhase = 'peers-rating';
+        currentState.phaseTimeLeft = Math.max(0, 420 - elapsed);
+        // Keep rating active for peers
+        if (!currentState.ratingActive) {
+          currentState.ratingActive = true;
+          ratingState.ratingActive = true;
         }
       } else {
         // Cycle should be completed
-        currentState.pitchCycleActive = false;
+        currentState.ratingCycleActive = false;
         currentState.currentPhase = 'idle';
         currentState.phaseTimeLeft = 0;
-        currentState.votingActive = false;
+        currentState.ratingActive = false;
         currentState.cycleStartTime = null;
         
         // Update the actual state
-        votingState.pitchCycleActive = false;
-        votingState.currentPhase = 'idle';
-        votingState.phaseTimeLeft = 0;
-        votingState.votingActive = false;
-        votingState.cycleStartTime = null;
+        ratingState.ratingCycleActive = false;
+        ratingState.currentPhase = 'idle';
+        ratingState.phaseTimeLeft = 0;
+        ratingState.ratingActive = false;
+        ratingState.cycleStartTime = null;
         
-        console.log('Auto-completed pitch cycle after timeout');
+        console.log('Auto-completed rating cycle after timeout');
       }
     }
     
-    console.log('GET /api/voting/current - returning state:', currentState);
+    console.log('GET /api/rating/current - returning state:', currentState);
     return NextResponse.json(currentState);
   } catch (error) {
-    console.error('GET voting current error:', error);
+    console.error('GET rating current error:', error);
     return NextResponse.json({ 
-      error: 'Failed to get voting state',
+      error: 'Failed to get rating state',
       details: error instanceof Error ? error.message : 'Unknown error'
     }, { status: 500 });
   }
@@ -142,24 +130,24 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Set the team and reset voting state
-    votingState.team = teamId && name ? { id: teamId, name } : null;
-    votingState.votingActive = false; // Reset voting when team changes
+    // Set the team and reset rating state
+    ratingState.team = teamId && name ? { id: teamId, name } : null;
+    ratingState.ratingActive = false; // Reset rating when team changes
     
     // Broadcast the change via SSE
-    votingEmitter.broadcast({
+    ratingEmitter.broadcast({
       type: 'teamChanged',
-      data: votingState
+      data: ratingState
     });
     
     return NextResponse.json({
       success: true,
-      votingState,
-      message: votingState.team ? `Set current team to ${name}` : 'Cleared current team'
+      ratingState,
+      message: ratingState.team ? `Set current team to ${name}` : 'Cleared current team'
     });
 
   } catch (error: any) {
-    console.error('POST voting current error:', error);
+    console.error('POST rating current error:', error);
     
     // Handle authentication errors
     if (error.message === 'Authentication required') {
@@ -177,13 +165,13 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({ 
-      error: 'Failed to set voting state',
+      error: 'Failed to set rating state',
       details: error.message || 'Unknown error'
     }, { status: 500 });
   }
 }
 
-// PATCH handler - Update voting state (Admin only)
+// PATCH handler - Update rating state (Admin only)
 export async function PATCH(request: NextRequest) {
   try {
     // Check admin authentication (cookie-based or JWT-based)
@@ -201,61 +189,48 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const { votingActive, allPitchesCompleted, pitchCycleActive, currentPhase, phaseTimeLeft, cycleStartTime } = await request.json();
+    const { ratingActive, allPitchesCompleted, ratingCycleActive, currentPhase, phaseTimeLeft, cycleStartTime } = await request.json();
     
-    // Update voting state
-    if (typeof votingActive === 'boolean') {
-      votingState.votingActive = votingActive;
-      
-      // Start auto-timeout when voting is activated (only if not part of pitch cycle)
-      if (votingActive && !votingState.pitchCycleActive) {
-        autoDisableVoting();
-        console.log('Voting activated - auto-timeout set for 30 seconds');
-      } else {
-        // Clear timeout if voting is manually disabled
-        if (votingTimeout) {
-          clearTimeout(votingTimeout);
-          votingTimeout = null;
-          console.log('Voting manually disabled - auto-timeout cleared');
-        }
-      }
+    // Update rating state
+    if (typeof ratingActive === 'boolean') {
+      ratingState.ratingActive = ratingActive;
     }
     
     if (typeof allPitchesCompleted === 'boolean') {
-      votingState.allPitchesCompleted = allPitchesCompleted;
+      ratingState.allPitchesCompleted = allPitchesCompleted;
     }
 
-    // Update pitch cycle state
-    if (typeof pitchCycleActive === 'boolean') {
-      votingState.pitchCycleActive = pitchCycleActive;
+    // Update rating cycle state
+    if (typeof ratingCycleActive === 'boolean') {
+      ratingState.ratingCycleActive = ratingCycleActive;
     }
     
-    if (currentPhase && ['idle', 'pitching', 'preparing', 'voting'].includes(currentPhase)) {
-      votingState.currentPhase = currentPhase;
+    if (currentPhase && ['idle', 'pitching', 'judges-rating', 'peers-rating'].includes(currentPhase)) {
+      ratingState.currentPhase = currentPhase;
     }
     
     if (typeof phaseTimeLeft === 'number') {
-      votingState.phaseTimeLeft = phaseTimeLeft;
+      ratingState.phaseTimeLeft = phaseTimeLeft;
     }
     
     if (typeof cycleStartTime === 'number' || cycleStartTime === null) {
-      votingState.cycleStartTime = cycleStartTime;
+      ratingState.cycleStartTime = cycleStartTime;
     }
     
-    // Broadcast the voting state change via SSE
-    votingEmitter.broadcast({
-      type: 'votingStateChanged',
-      data: votingState
+    // Broadcast the rating state change via SSE
+    ratingEmitter.broadcast({
+      type: 'ratingStateChanged',
+      data: ratingState
     });
     
     return NextResponse.json({
       success: true,
-      votingState,
-      message: 'Voting state updated successfully'
+      ratingState,
+      message: 'Rating state updated successfully'
     });
 
   } catch (error: any) {
-    console.error('PATCH voting current error:', error);
+    console.error('PATCH rating current error:', error);
     
     // Handle authentication errors
     if (error.message === 'Authentication required') {
@@ -273,7 +248,7 @@ export async function PATCH(request: NextRequest) {
     }
 
     return NextResponse.json({ 
-      error: 'Failed to update voting state',
+      error: 'Failed to update rating state',
       details: error.message || 'Unknown error'
     }, { status: 500 });
   }

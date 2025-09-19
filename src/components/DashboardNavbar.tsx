@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { BackButton } from "@/components/BackButton";
-import { useTheme } from "@/components/ThemeProvider";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard" },
@@ -10,8 +10,7 @@ const NAV_LINKS = [
   { href: "/scoreboard", label: "Scoreboard" },
 ];
 
-export function DashboardNavbar({ onToggleTheme }: { onToggleTheme: () => void }) {
-  const { theme } = useTheme();
+export function DashboardNavbar() {
   return (
     <nav
       className="fixed top-0 left-0 w-full z-50 backdrop-blur-lg border-b border-gray-200/20"
@@ -31,12 +30,7 @@ export function DashboardNavbar({ onToggleTheme }: { onToggleTheme: () => void }
             </Link>
           ))}
         </div>
-        <button
-          onClick={onToggleTheme}
-          className={`ml-4 px-5 py-2 rounded-full border border-blue-400 bg-white/10 ${theme === "dark" ? "text-blue-400" : "text-blue-700"} font-semibold shadow-lg hover:bg-blue-400/20`}
-        >
-          {theme === "dark" ? "🌙" : "☀️"}
-        </button>
+        <ThemeToggle />
       </div>
     </nav>
   );

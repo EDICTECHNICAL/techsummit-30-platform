@@ -1,7 +1,13 @@
 "use client"
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSession } from "@/lib/auth-client";
+import { Timer, Users, Trophy, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import Link from 'next/link';
+import PageLock from "@/components/ui/PageLock";
+import { useRoundStatus } from "@/hooks/useRoundStatus";
+import { useRatingSSE } from "@/hooks/useRatingSSE";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface Team {
   id: number;
@@ -25,7 +31,31 @@ interface JudgeScore {
   createdAt: string;
 }
 
+interface CurrentRatingData {
+  team: Team | null;
+  ratingActive: boolean;
+  allPitchesCompleted: boolean;
+  // Rating cycle properties
+  ratingCycleActive?: boolean;
+  currentPhase?: 'idle' | 'pitching' | 'judges-rating' | 'peers-rating';
+  phaseTimeLeft?: number;
+  cycleStartTime?: number | null;
+}
+
+interface RatingResponse {
+  success?: boolean;
+  error?: string;
+  message?: string;
+  rating?: any;
+}
+
 export default function FinalPage() {
+  // Page lock functionality
+  const { isCompleted: isFinalCompleted, loading: roundLoading } = useRoundStatus('FINAL');
+  
+  // Real-time updates via SSE
+  const { isConnected: sseConnected, lastEvent } = useRatingSSE();
+  
   const { data: session, isPending } = useSession();
   const [teams, setTeams] = useState<Team[]>([]);
   const [myRatings, setMyRatings] = useState<PeerRating[]>([]);
@@ -33,6 +63,7 @@ export default function FinalPage() {
   const [nonQualifiedTeams, setNonQualifiedTeams] = useState<any[]>([]);
   const [isQualified, setIsQualified] = useState<boolean>(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [msgType, setMsgType] = useState<'success' | 'error' | 'info'>('info');
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'rate' | 'judge' | 'status'>('status');
 
@@ -41,22 +72,176 @@ export default function FinalPage() {
   const [votingCompleted, setVotingCompleted] = useState<boolean>(false);
   const [roundsLoading, setRoundsLoading] = useState<boolean>(true);
 
-  // Rating form state
+  // Rating form state (updated for Round 3)
   const [toTeamId, setToTeamId] = useState<number | null>(null);
-  const [rating, setRating] = useState<number>(7);
+  const [rating, setRating] = useState<number>(5); // Changed default to 5 for peer ratings (3-10)
 
-  // Judge form state
+  // Judge form state (updated for Round 3)
   const [judgeTeamId, setJudgeTeamId] = useState<number | null>(null);
-  const [judgeScore, setJudgeScore] = useState<number>(80);
+  const [judgeScore, setJudgeScore] = useState<number>(50); // Changed default to 50 for judge ratings (0-100)
   const [judgeName, setJudgeName] = useState<string>('');
+
+  // Rating cycle state
+  const [currentPitchTeam, setCurrentPitchTeam] = useState<Team | null>(null);
+  const [ratingActive, setRatingActive] = useState(false);
+  const [allPitchesCompleted, setAllPitchesCompleted] = useState(false);
+  const [ratingCycleActive, setRatingCycleActive] = useState<boolean>(false);
+  const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'judges-rating' | 'peers-rating'>('idle');
+  const [phaseTimeLeft, setPhaseTimeLeft] = useState<number>(0);
+  const [cycleStartTime, setCycleStartTime] = useState<number | null>(null);
+
+  // Check for judge authentication
+  const [isJudgeAuthenticated, setIsJudgeAuthenticated] = useState(false);
 
   const userTeamId = session?.user?.team?.id;
   const isAdmin = session?.user?.isAdmin;
 
   useEffect(() => {
+    if (typeof window !== "undefined") {
+      const isJudge = document.cookie.includes("judge-auth=true") || document.cookie.includes("admin-auth=true");
+      setIsJudgeAuthenticated(isJudge);
+    }
+  }, []);
+
+  // Show message with auto-dismiss
+  const showMessage = useCallback((text: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setMsg(text);
+    setMsgType(type);
+    setTimeout(() => setMsg(null), 5000);
+  }, []);
+
+  // Handle real-time SSE updates
+  useEffect(() => {
+    if (!lastEvent) return;
+
+    console.log('Processing Rating SSE event:', lastEvent);
+
+    switch (lastEvent.type) {
+      case 'teamChanged':
+        if (lastEvent.data) {
+          setCurrentPitchTeam(lastEvent.data.team);
+          setRatingActive(lastEvent.data.ratingActive);
+          setAllPitchesCompleted(lastEvent.data.allPitchesCompleted);
+          setRatingCycleActive(lastEvent.data.ratingCycleActive);
+          setCurrentPhase(lastEvent.data.currentPhase);
+          setPhaseTimeLeft(lastEvent.data.phaseTimeLeft);
+          setCycleStartTime(lastEvent.data.cycleStartTime);
+          showMessage(`New team is pitching: ${lastEvent.data.team?.name || 'None'}`, 'info');
+        }
+        break;
+      
+      case 'ratingStateChanged':
+        if (lastEvent.data) {
+          setRatingActive(lastEvent.data.ratingActive);
+          setAllPitchesCompleted(lastEvent.data.allPitchesCompleted);
+          setRatingCycleActive(lastEvent.data.ratingCycleActive);
+          setCurrentPhase(lastEvent.data.currentPhase);
+          setPhaseTimeLeft(lastEvent.data.phaseTimeLeft);
+          setCycleStartTime(lastEvent.data.cycleStartTime);
+          
+          // Handle rating state changes
+          if (lastEvent.data.ratingActive && !ratingActive) {
+            showMessage('Rating is now active!', 'success');
+          } else if (!lastEvent.data.ratingActive && ratingActive) {
+            showMessage('Rating has ended', 'info');
+          }
+        }
+        break;
+        
+      case 'connected':
+        showMessage('Connected to real-time updates', 'success');
+        break;
+    }
+  }, [lastEvent, ratingActive, showMessage]);
+
+  // Poll current rating status
+  useEffect(() => {
+    const pollRatingStatus = async () => {
+      try {
+        const res = await fetch("/api/rating/current");
+        if (!res.ok) {
+          console.warn(`Failed to fetch rating status: ${res.status} ${res.statusText}`);
+          return;
+        }
+        
+        const data: CurrentRatingData = await res.json();
+        setCurrentPitchTeam(data?.team ?? null);
+        
+        // Handle rating cycle state
+        const newRatingCycleActive = data?.ratingCycleActive ?? false;
+        const newCurrentPhase = data?.currentPhase ?? 'idle';
+        const newPhaseTimeLeft = data?.phaseTimeLeft ?? 0;
+        const newCycleStartTime = data?.cycleStartTime ?? null;
+        
+        setRatingCycleActive(newRatingCycleActive);
+        setCurrentPhase(newCurrentPhase);
+        setPhaseTimeLeft(newPhaseTimeLeft);
+        setCycleStartTime(newCycleStartTime);
+        
+        setRatingActive(data?.ratingActive ?? false);
+        setAllPitchesCompleted(data?.allPitchesCompleted ?? false);
+      } catch (error) {
+        console.warn("Error polling rating status:", error);
+      }
+    };
+
+    const interval = setInterval(pollRatingStatus, 2000);
+    pollRatingStatus();
+    
+    return () => clearInterval(interval);
+  }, []);
+
+  // Real-time timer update for rating cycle
+  useEffect(() => {
+    if (!ratingCycleActive || !cycleStartTime) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - cycleStartTime) / 1000);
+      let newPhase: 'idle' | 'pitching' | 'judges-rating' | 'peers-rating' = 'idle';
+      let timeLeft = 0;
+      
+      if (elapsed < 300) {
+        newPhase = 'pitching';
+        timeLeft = 300 - elapsed;
+      } else if (elapsed < 360) {
+        newPhase = 'judges-rating';
+        timeLeft = 360 - elapsed;
+      } else if (elapsed < 420) {
+        newPhase = 'peers-rating';
+        timeLeft = 420 - elapsed;
+      }
+      
+      setCurrentPhase(newPhase);
+      setPhaseTimeLeft(Math.max(0, timeLeft));
+      
+      if (elapsed >= 420) {
+        // Cycle should end
+        setRatingCycleActive(false);
+        setCurrentPhase('idle');
+        setPhaseTimeLeft(0);
+        setRatingActive(false);
+        setCycleStartTime(null);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [ratingCycleActive, cycleStartTime]);
+
+  useEffect(() => {
     loadData();
     checkRoundCompletion();
   }, [session]);
+
+  // Set judge name
+  useEffect(() => {
+    if (session?.user?.name) {
+      setJudgeName(session.user.name);
+    } else if (isJudgeAuthenticated) {
+      setJudgeName('Judge');
+    }
+  }, [session, isJudgeAuthenticated]);
 
   const checkRoundCompletion = async () => {
     try {
@@ -164,20 +349,21 @@ export default function FinalPage() {
 
   const submitRating = async () => {
     if (!userTeamId || !toTeamId || rating < 3 || rating > 10) {
-      setMsg("Please select a team and provide a rating between 3-10");
+      showMessage("Please select a team and provide a rating between 3-10", 'error');
       return;
     }
 
     if (userTeamId === toTeamId) {
-      setMsg("Cannot rate your own team");
+      showMessage("Cannot rate your own team", 'error');
       return;
     }
 
     try {
       setLoading(true);
-      const res = await fetch("/api/final/ratings", {
+      const res = await fetch("/api/round3/peer-ratings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ 
           fromTeamId: userTeamId, 
           toTeamId, 
@@ -185,12 +371,12 @@ export default function FinalPage() {
         })
       });
 
-      const data = await res.json();
+      const data: RatingResponse = await res.json();
       
-      if (res.ok) {
-        setMsg(`Successfully rated team with ${rating}/10`);
+      if (res.ok && data.success) {
+        showMessage(data.message || `Successfully rated team with ${rating}/10`, 'success');
         setToTeamId(null);
-        setRating(7);
+        setRating(5); // Reset to default
         // Reload ratings
         const ratingsRes = await fetch(`/api/final/ratings?fromTeamId=${userTeamId}`);
         if (ratingsRes.ok) {
@@ -198,51 +384,91 @@ export default function FinalPage() {
           setMyRatings(ratingsData.ratings || []);
         }
       } else {
-        setMsg(data?.error || "Failed to submit rating");
+        showMessage(data?.error || "Failed to submit rating", 'error');
       }
     } catch (error) {
-      setMsg("Failed to submit rating");
+      console.error("Error submitting rating:", error);
+      showMessage("Network error while submitting rating", 'error');
     } finally {
       setLoading(false);
     }
   };
 
   const submitJudgeScore = async () => {
-    if (!judgeTeamId || !judgeScore || !judgeName.trim()) {
-      setMsg("Please fill in all judge score fields");
+    if (!judgeTeamId || judgeScore < 0 || judgeScore > 100 || !judgeName.trim()) {
+      showMessage("Please fill in all judge score fields with valid data (0-100)", 'error');
       return;
     }
 
     try {
       setLoading(true);
-      const res = await fetch("/api/judges/scores", {
+      const res = await fetch("/api/round3/judge-ratings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        credentials: 'include',
         body: JSON.stringify({ 
           judgeName: judgeName.trim(), 
           teamId: judgeTeamId, 
-          score: judgeScore 
+          rating: judgeScore 
         })
       });
 
-      const data = await res.json();
+      const data: RatingResponse = await res.json();
       
-      if (res.ok) {
-        setMsg(`Judge score submitted successfully: ${judgeScore} points`);
+      if (res.ok && data.success) {
+        showMessage(data.message || `Judge score submitted successfully: ${judgeScore}/100`, 'success');
         setJudgeTeamId(null);
-        setJudgeScore(80);
+        setJudgeScore(50); // Reset to default
       } else {
-        setMsg(data?.error || "Failed to submit judge score");
+        showMessage(data?.error || "Failed to submit judge score", 'error');
       }
     } catch (error) {
-      setMsg("Failed to submit judge score");
+      console.error("Error submitting judge score:", error);
+      showMessage("Network error while submitting judge score", 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  if (isPending || loading || roundsLoading) return <div className="p-6">Loading...</div>;
-  if (!session?.user) return <div className="p-6">Please sign in to access the final round.</div>;
+  if (isPending || loading || roundsLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <div className="max-w-md w-full mx-4 rounded-lg border bg-white p-8 text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <h2 className="text-xl font-bold mb-2">Loading...</h2>
+          <p className="text-gray-600">Checking round status and loading data</p>
+        </div>
+      </div>
+    );
+  }
+  
+  if (!session?.user && !isJudgeAuthenticated) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <div className="max-w-md w-full mx-4 rounded-lg border bg-white p-8 text-center">
+          <Trophy className="h-12 w-12 text-orange-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">Authentication Required</h2>
+          <p className="mb-4 text-gray-600">
+            You need to be signed in with a team account or judge account to participate in the finals.
+          </p>
+          <div className="space-y-3">
+            <a 
+              href="/sign-in" 
+              className="block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Sign In to Team
+            </a>
+            <div className="text-sm text-gray-500">
+              <span>Are you a judge? </span>
+              <a href="/judge/login" className="text-blue-600 hover:underline">
+                Judge Login
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   // Check if previous rounds are completed (only for non-admin users)
   if (!isAdmin && (!quizCompleted || !votingCompleted)) {
@@ -310,26 +536,106 @@ export default function FinalPage() {
   const ratedTeamIds = new Set(myRatings.map(r => r.toTeamId));
   const unratedTeams = availableTeams.filter(team => !ratedTeamIds.has(team.id));
 
+  // Rating permissions
+  const canRateAsJudge = isJudgeAuthenticated && 
+                        currentPitchTeam && 
+                        ratingCycleActive && 
+                        currentPhase === 'judges-rating' && 
+                        phaseTimeLeft > 0;
+
+  const canRateAsPeer = session?.user && 
+                        userTeamId && 
+                        currentPitchTeam && 
+                        userTeamId !== currentPitchTeam.id &&
+                        ratingCycleActive && 
+                        currentPhase === 'peers-rating' && 
+                        phaseTimeLeft > 0 &&
+                        isQualified; // Only qualified teams can rate
+
   return (
-    <div className="min-h-screen bg-background text-foreground p-6">
-      <div className="max-w-6xl mx-auto">
-        {/* Header with Back Button */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Round 3: Finals</h1>
-            <p className="text-muted-foreground">
-              {qualifiedTeams.length > 0 
-                ? `Top 5 qualified teams compete in the final round. ${teams.length - 5} teams in spectator mode.`
-                : "Submit 5-minute pitch presentations, rate peer teams (3-10), and receive judge scores."
-              }
-            </p>
+    <PageLock roundType="FINAL" isCompleted={isFinalCompleted}>
+      <div className="max-w-6xl mx-auto px-6 pt-6 transition-all duration-300 ease-in-out">
+        <div className="flex items-center justify-between mb-4">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline transition-colors">
+            <ArrowLeft className="h-4 w-4" />
+            Back to Dashboard
+          </Link>
+          <ThemeToggle />
+        </div>
+        
+        {/* SSE Connection Status */}
+        <div className={`mb-4 p-2 rounded-md text-xs font-medium ${
+          sseConnected 
+            ? 'bg-green-50 text-green-700 border border-green-200' 
+            : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+        }`}>
+          {sseConnected ? '🟢 Real-time updates connected' : '🟡 Connecting to real-time updates...'}
+        </div>
+
+        {/* Rating Cycle Timer Display */}
+        {ratingCycleActive && (
+          <div className="mb-6 p-4 bg-gradient-to-r from-purple-50 to-pink-50 border border-purple-200 rounded-xl">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-lg font-bold text-purple-900">
+                {currentPhase === 'pitching' && '🎤 Team is Pitching (5 min)'}
+                {currentPhase === 'judges-rating' && '👨‍⚖️ Judges Rating (1 min)'}
+                {currentPhase === 'peers-rating' && '👥 Peers Rating (1 min)'}
+                {currentPhase === 'idle' && '⏸️ Rating Cycle Idle'}
+              </h3>
+              <div className="text-3xl font-bold text-purple-800">
+                {Math.floor(phaseTimeLeft / 60)}:{(phaseTimeLeft % 60).toString().padStart(2, '0')}
+              </div>
+            </div>
+            <div className="w-full bg-purple-200 rounded-full h-4 mb-2">
+              <div 
+                className={`h-4 rounded-full transition-all duration-1000 ${
+                  currentPhase === 'pitching' ? 'bg-blue-500' :
+                  currentPhase === 'judges-rating' ? 'bg-green-500' :
+                  currentPhase === 'peers-rating' ? 'bg-orange-500' :
+                  'bg-gray-400'
+                }`}
+                style={{ 
+                  width: `${
+                    currentPhase === 'pitching' ? (phaseTimeLeft / 300) * 100 :
+                    currentPhase === 'judges-rating' ? (phaseTimeLeft / 60) * 100 :
+                    currentPhase === 'peers-rating' ? (phaseTimeLeft / 60) * 100 :
+                    0
+                  }%` 
+                }}
+              ></div>
+            </div>
+            <div className="text-sm text-purple-700">
+              {currentPhase === 'pitching' && 'Listen to the team presentation (5 minutes total)'}
+              {currentPhase === 'judges-rating' && 'Judges: Rate the team now! (1 minute)'}
+              {currentPhase === 'peers-rating' && 'Teams: Rate the presenting team! (1 minute)'}
+              {currentPhase === 'idle' && 'Waiting for admin to start the next rating cycle'}
+            </div>
           </div>
-          <a 
-            href="/dashboard" 
-            className="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"
-          >
-            ← Back to Dashboard
-          </a>
+        )}
+
+        {/* Current Team Display */}
+        {currentPitchTeam ? (
+          <div className="mb-6 p-4 bg-blue-50 rounded-lg border border-blue-200">
+            <h3 className="font-semibold mb-2">Currently Presenting</h3>
+            <div className="text-lg font-bold text-blue-800">
+              {currentPitchTeam.name} (#{currentPitchTeam.id})
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6 p-4 bg-gray-100 rounded-lg">
+            <p className="text-gray-600">No team is currently presenting.</p>
+          </div>
+        )}
+
+        {/* Header */}
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold mb-2">Round 3: Finals</h1>
+          <p className="text-gray-600 dark:text-gray-300">
+            {qualifiedTeams.length > 0 
+              ? `Top 5 qualified teams compete in the final round. ${teams.length - 5} teams in spectator mode.`
+              : "Submit 5-minute pitch presentations, rate peer teams (3-10), and receive judge scores."
+            }
+          </p>
         </div>
 
         {/* Qualification Status Banner */}
@@ -371,7 +677,7 @@ export default function FinalPage() {
           >
             Status Overview
           </button>
-          {userTeamId && isQualified && (
+          {(userTeamId && isQualified) && (
             <button 
               onClick={() => setActiveTab('rate')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -381,7 +687,7 @@ export default function FinalPage() {
               Rate Teams
             </button>
           )}
-          {isAdmin && (
+          {isJudgeAuthenticated && (
             <button 
               onClick={() => setActiveTab('judge')}
               className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
@@ -477,58 +783,61 @@ export default function FinalPage() {
         {activeTab === 'rate' && userTeamId && (
           <div className="space-y-6">
             {/* Rating Form */}
-            <div className="rounded-lg border bg-card p-6">
-              <h2 className="text-xl font-semibold mb-4">Submit Peer Rating</h2>
-              {unratedTeams.length > 0 ? (
-                <div className="grid gap-4 md:grid-cols-3">
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Select Team to Rate</label>
-                    <select 
-                      value={toTeamId || ''} 
-                      onChange={(e) => setToTeamId(e.target.value ? parseInt(e.target.value) : null)}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2"
-                    >
-                      <option value="">Choose a team...</option>
-                      {unratedTeams.map(team => (
-                        <option key={team.id} value={team.id}>
-                          {team.name} ({team.college})
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium mb-2">Rating (3-10)</label>
-                    <input 
-                      type="number" 
-                      min={3} 
-                      max={10} 
-                      value={rating} 
-                      onChange={(e) => setRating(parseInt(e.target.value))}
-                      className="w-full rounded-md border border-input bg-background px-3 py-2"
-                    />
-                    <p className="text-xs text-muted-foreground mt-1">
-                      3 = Poor, 10 = Excellent
-                    </p>
-                  </div>
-                  <div className="flex items-end">
-                    <button 
-                      onClick={submitRating}
-                      disabled={loading || !toTeamId || rating < 3 || rating > 10}
-                      className="w-full bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md font-medium disabled:opacity-50"
-                    >
-                      {loading ? 'Submitting...' : 'Submit Rating'}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <p className="text-blue-800">
-                    {availableTeams.length === 0 
-                      ? "No other teams available to rate."
-                      : "You have rated all available teams."}
+            <div className="rounded-xl border bg-card p-6 shadow transition-all duration-300 hover:shadow-lg">
+              <h2 className="text-xl font-semibold mb-4">Submit Peer Rating (3-10)</h2>
+              <p className="text-sm text-gray-600 mb-4">
+                Rate the currently presenting team on a scale of 3-10. You can only rate during the peers rating phase.
+              </p>
+              
+              {/* Current presenting team info */}
+              {currentPitchTeam && (
+                <div className="mb-4 p-3 bg-blue-50 rounded-md border">
+                  <p className="text-sm text-blue-700">
+                    <strong>Currently Presenting:</strong> {currentPitchTeam.name} (#{currentPitchTeam.id})
                   </p>
                 </div>
               )}
+              
+              {/* Rating restrictions info */}
+              {!canRateAsPeer && (
+                <div className="mb-4 p-3 bg-yellow-50 rounded-md border border-yellow-200">
+                  <p className="text-sm text-yellow-700">
+                    {!ratingCycleActive && 'Waiting for rating cycle to start...'}
+                    {ratingCycleActive && currentPhase !== 'peers-rating' && 'Wait for peers rating phase...'}
+                    {ratingCycleActive && currentPhase === 'peers-rating' && phaseTimeLeft <= 0 && 'Peers rating time has ended.'}
+                    {!isQualified && 'Only qualified teams can rate in the finals.'}
+                    {userTeamId === currentPitchTeam?.id && 'You cannot rate your own team.'}
+                    {!currentPitchTeam && 'No team is currently presenting.'}
+                  </p>
+                </div>
+              )}
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium mb-2">
+                  Your Rating: {rating}/10
+                </label>
+                <input
+                  type="range"
+                  min="3"
+                  max="10"
+                  value={rating}
+                  onChange={(e) => setRating(parseInt(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                />
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>3 (Poor)</span>
+                  <span>6</span>
+                  <span>10 (Excellent)</span>
+                </div>
+              </div>
+
+              <button
+                onClick={submitRating}
+                disabled={!canRateAsPeer || loading}
+                className="w-full rounded-md bg-orange-600 px-4 py-2 text-white font-bold hover:bg-orange-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+              >
+                {loading ? "Submitting..." : `Submit Peer Rating (${rating}/10)`}
+              </button>
             </div>
 
             {/* Rating Progress */}
@@ -553,14 +862,35 @@ export default function FinalPage() {
         )}
 
         {/* Judge Panel Tab */}
-        {activeTab === 'judge' && isAdmin && (
-          <div className="rounded-lg border bg-card p-6">
-            <h2 className="text-xl font-semibold mb-4">Judges Panel (Admin Only)</h2>
-            <p className="text-muted-foreground mb-6">
-              Submit scores for team presentations. Only admins can access this panel.
+        {activeTab === 'judge' && isJudgeAuthenticated && (
+          <div className="rounded-xl border bg-card p-6 shadow transition-all duration-300 hover:shadow-lg">
+            <h2 className="text-xl font-semibold mb-4">Judge Rating (0-100)</h2>
+            <p className="text-sm text-gray-600 mb-4">
+              Rate the currently presenting team on a scale of 0-100. You can only rate during the judges rating phase.
             </p>
             
-            <div className="grid gap-4 md:grid-cols-4">
+            {/* Current presenting team info */}
+            {currentPitchTeam && (
+              <div className="mb-4 p-3 bg-blue-50 rounded-md border">
+                <p className="text-sm text-blue-700">
+                  <strong>Currently Presenting:</strong> {currentPitchTeam.name} (#{currentPitchTeam.id})
+                </p>
+              </div>
+            )}
+            
+            {/* Rating restrictions info */}
+            {!canRateAsJudge && (
+              <div className="mb-4 p-3 bg-yellow-50 rounded-md border border-yellow-200">
+                <p className="text-sm text-yellow-700">
+                  {!ratingCycleActive && 'Waiting for rating cycle to start...'}
+                  {ratingCycleActive && currentPhase !== 'judges-rating' && 'Wait for judges rating phase...'}
+                  {ratingCycleActive && currentPhase === 'judges-rating' && phaseTimeLeft <= 0 && 'Judges rating time has ended.'}
+                  {!currentPitchTeam && 'No team is currently presenting.'}
+                </p>
+              </div>
+            )}
+            
+            <div className="grid gap-4 md:grid-cols-2">
               <div>
                 <label className="block text-sm font-medium mb-2">Judge Name</label>
                 <input 
@@ -571,59 +901,49 @@ export default function FinalPage() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2"
                 />
               </div>
+              
               <div>
-                <label className="block text-sm font-medium mb-2">Team</label>
-                <select 
-                  value={judgeTeamId || ''} 
-                  onChange={(e) => setJudgeTeamId(e.target.value ? parseInt(e.target.value) : null)}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2"
-                >
-                  <option value="">Select team...</option>
-                  {teams.map(team => (
-                    <option key={team.id} value={team.id}>
-                      {team.name}
-                    </option>
-                  ))}
-                </select>
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">Score (Integer)</label>
-                <input 
-                  type="number" 
-                  value={judgeScore} 
-                  onChange={(e) => setJudgeScore(parseInt(e.target.value) || 0)}
-                  className="w-full rounded-md border border-input bg-background px-3 py-2"
+                <label className="block text-sm font-medium mb-2">
+                  Score: {judgeScore}/100
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  value={judgeScore}
+                  onChange={(e) => setJudgeScore(parseInt(e.target.value))}
+                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                 />
-              </div>
-              <div className="flex items-end">
-                <button 
-                  onClick={submitJudgeScore}
-                  disabled={loading || !judgeTeamId || !judgeScore || !judgeName.trim()}
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md font-medium disabled:opacity-50"
-                >
-                  {loading ? 'Submitting...' : 'Submit Score'}
-                </button>
+                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                  <span>0</span>
+                  <span>50</span>
+                  <span>100</span>
+                </div>
               </div>
             </div>
+            
+            <button 
+              onClick={submitJudgeScore}
+              disabled={!canRateAsJudge || loading || !judgeName.trim()}
+              className="w-full mt-4 rounded-md bg-green-600 px-4 py-2 text-white font-bold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+            >
+              {loading ? 'Submitting...' : `Submit Judge Rating (${judgeScore}/100)`}
+            </button>
           </div>
         )}
 
         {/* Message Display */}
         {msg && (
-          <div className={`mt-6 rounded-lg border p-4 ${
-            msg.includes('Successfully') || msg.includes('✅') 
-              ? 'bg-green-50 border-green-200 text-green-800' 
-              : msg.includes('Failed') || msg.includes('❌')
-              ? 'bg-red-50 border-red-200 text-red-800'
-              : 'bg-blue-50 border-blue-200 text-blue-800'
+          <div className={`mb-6 rounded-md border px-4 py-3 text-center font-medium flex items-center justify-center gap-2 ${
+            msgType === 'success'
+              ? "bg-green-50 border-green-200 text-green-800"
+              : msgType === 'error'
+              ? "bg-red-50 border-red-200 text-red-800"
+              : "bg-blue-50 border-blue-200 text-blue-800"
           }`}>
-            <p className="font-medium">{msg}</p>
-            <button 
-              onClick={() => setMsg(null)}
-              className="mt-2 text-sm underline opacity-70 hover:opacity-100"
-            >
-              Dismiss
-            </button>
+            {msgType === 'success' && <CheckCircle2 className="h-5 w-5" />}
+            {msgType === 'error' && <AlertCircle className="h-5 w-5" />}
+            {msg}
           </div>
         )}
 
@@ -644,6 +964,6 @@ export default function FinalPage() {
           </a>
         </div>
       </div>
-    </div>
+    </PageLock>
   );
 }

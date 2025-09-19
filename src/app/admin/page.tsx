@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 export default function AdminPage() {
   const [rounds, setRounds] = useState<any[]>([]);
@@ -601,13 +602,13 @@ export default function AdminPage() {
               }`}>
                 <div className="flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-black">{r.name}</h3>
-                    <p className="text-xs text-gray-600">
+                    <h3 className="font-semibold text-foreground">{r.name}</h3>
+                    <p className="text-xs text-muted-foreground">
                       Day {r.day} • Status: 
                       <span className={`font-medium ml-1 ${
-                        r.status === 'COMPLETED' ? 'text-green-700' :
-                        r.status === 'ACTIVE' ? 'text-blue-700' :
-                        'text-gray-700'
+                        r.status === 'COMPLETED' ? 'text-green-600 dark:text-green-400' :
+                        r.status === 'ACTIVE' ? 'text-blue-600 dark:text-blue-400' :
+                        'text-muted-foreground'
                       }`}>
                         {r.status}
                         {r.status === 'COMPLETED' ? ' ✅' : ''}
@@ -616,7 +617,7 @@ export default function AdminPage() {
                   </div>
                 </div>
                 {r.status === 'COMPLETED' && (
-                  <div className="mt-2 text-xs text-green-700 font-medium">
+                  <div className="mt-2 text-xs text-green-600 dark:text-green-400 font-medium">
                     This round is currently completed (can be changed)
                   </div>
                 )}
@@ -624,21 +625,21 @@ export default function AdminPage() {
                   <button 
                     disabled={loading} 
                     onClick={() => updateRound(r.id, "PENDING")} 
-                    className="rounded-md border border-border px-3 py-1 text-sm text-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="rounded-md border border-border px-3 py-1 text-sm text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Set Pending
                   </button>
                   <button 
                     disabled={loading} 
                     onClick={() => updateRound(r.id, "ACTIVE")} 
-                    className="rounded-md border border-border px-3 py-1 text-sm text-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="rounded-md border border-border px-3 py-1 text-sm text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Start
                   </button>
                   <button 
                     disabled={loading} 
                     onClick={() => updateRound(r.id, "COMPLETED")} 
-                    className="rounded-md border border-border px-3 py-1 text-sm text-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="rounded-md border border-border px-3 py-1 text-sm text-foreground hover:bg-accent disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Complete
                   </button>
@@ -690,7 +691,7 @@ export default function AdminPage() {
                     <h4 className="font-medium text-blue-900">
                       {currentPhase === 'pitching' && '🎤 Pitch Presentation'}
                       {currentPhase === 'preparing' && '⏳ Get Ready to Vote'}
-                      {currentPhase === 'voting' && '�️ Voting Time'}
+                      {currentPhase === 'voting' && '🗳️ Voting Time'}
                     </h4>
                     <div className="text-2xl font-bold text-blue-800">
                       {phaseTimeLeft}s
@@ -701,14 +702,14 @@ export default function AdminPage() {
                       className={`h-3 rounded-full transition-all duration-1000 ${
                         currentPhase === 'pitching' ? 'bg-green-500' :
                         currentPhase === 'preparing' ? 'bg-yellow-500' :
-                        'bg-blue-500'
+                        'bg-red-500'
                       }`}
                       style={{ 
-                        width: `${
+                        width: `${Math.max(0, Math.min(100,
                           currentPhase === 'pitching' ? (phaseTimeLeft / 90) * 100 :
                           currentPhase === 'preparing' ? (phaseTimeLeft / 5) * 100 :
                           (phaseTimeLeft / 30) * 100
-                        }%` 
+                        ))}%` 
                       }}
                     ></div>
                   </div>
@@ -814,7 +815,7 @@ export default function AdminPage() {
                   <div className="text-sm text-muted-foreground">Peer Ratings</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold">{stats.judgeScores || 0}</div>
+                  <div className="text-2xl font-bold">{stats.judgeScores?.count || 0}</div>
                   <div className="text-sm text-muted-foreground">Judge Scores</div>
                 </div>
               </div>
@@ -1303,6 +1304,13 @@ export default function AdminPage() {
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-7xl mx-auto">
+        <div className="flex items-center justify-between mb-4">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline transition-colors">
+            ← Back to Dashboard
+          </Link>
+          <ThemeToggle />
+        </div>
+        
         <h1 className="text-3xl font-bold">Comprehensive Admin Console</h1>
         <p className="mt-1 text-muted-foreground">Complete platform control and monitoring</p>
         

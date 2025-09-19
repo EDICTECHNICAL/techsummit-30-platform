@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "@/lib/auth-client";
+import Link from 'next/link';
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface Team {
   id: number;
@@ -153,6 +155,13 @@ export default function JudgePage() {
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-6xl mx-auto">
+        <div className="flex items-center justify-between mb-4">
+          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline transition-colors">
+            ← Back to Dashboard
+          </Link>
+          <ThemeToggle />
+        </div>
+        
         <h1 className="text-3xl font-bold mb-2">Judge Console</h1>
         <p className="text-muted-foreground mb-6">
           Submit scores for team presentations during the final round.

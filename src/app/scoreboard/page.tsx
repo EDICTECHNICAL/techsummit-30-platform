@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface LeaderboardTeam {
   rank: number;
@@ -203,6 +204,7 @@ export default function ScoreboardPage() {
             >
               ← Back to Dashboard
             </Link>
+            <ThemeToggle />
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -261,10 +263,10 @@ export default function ScoreboardPage() {
                     {team.finalCumulativeScore.toFixed(1)}
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
-                    <div>Tokens: {team.tokens.total}</div>
-                    <div>Votes: {team.voting.totalVotes}</div>
-                    <div>Peer: {team.peerRating.average.toFixed(1)}</div>
-                    <div>Judge: {team.judgeScores.total}</div>
+                    <div>Tokens: {team.tokens?.total || 0}</div>
+                    <div>Votes: {team.voting?.totalVotes || 0}</div>
+                    <div>Peer: {team.peerRating?.average ? team.peerRating.average.toFixed(1) : '0.0'}</div>
+                    <div>Judge: {team.judgeScores?.total || 0}</div>
                   </div>
                 </div>
               </div>
@@ -336,19 +338,19 @@ export default function ScoreboardPage() {
                     </td>
                     <td className="p-4 text-center">
                       <div className="font-medium">
-                        {team.peerRating.average > 0 ? team.peerRating.average.toFixed(1) : '-'}
+                        {team.peerRating?.average && team.peerRating.average > 0 ? team.peerRating.average.toFixed(1) : '-'}
                       </div>
                       {showDetails && (
                         <div className="text-xs text-muted-foreground">
-                          ({team.peerRating.count} ratings)
+                          ({team.peerRating?.count || 0} ratings)
                         </div>
                       )}
                     </td>
                     <td className="p-4 text-center">
-                      <div className="font-medium">{team.judgeScores.total}</div>
+                      <div className="font-medium">{team.judgeScores?.total || 0}</div>
                       {showDetails && (
                         <div className="text-xs text-muted-foreground">
-                          ({team.judgeScores.count} judges)
+                          ({team.judgeScores?.count || 0} judges)
                         </div>
                       )}
                     </td>

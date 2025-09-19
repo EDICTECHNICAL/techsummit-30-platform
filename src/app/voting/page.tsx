@@ -6,6 +6,8 @@ import Link from 'next/link';
 import VotingLayout from '@/components/ui/VotingLayout';
 import PageLock from "@/components/ui/PageLock";
 import { useRoundStatus } from "@/hooks/useRoundStatus";
+import { useVotingSSE } from "@/hooks/useVotingSSE";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface User {
   id: string;
@@ -50,6 +52,7 @@ interface TokenStatus {
   };
   canConvert: boolean;
   totalVotesGained: number;
+  maxPossibleConversions: number;
   hasQuizSubmission: boolean;
 }
 
@@ -64,6 +67,9 @@ interface VotingStatus {
 export default function VotingPage() {
   // Page lock functionality
   const { isCompleted: isVotingCompleted, loading: roundLoading } = useRoundStatus('VOTING');
+  
+  // Real-time updates via SSE
+  const { isConnected: sseConnected, lastEvent } = useVotingSSE();
 
   const [user, setUser] = useState<User | null>(null);
   const [isPending, setIsPending] = useState(true);
@@ -80,6 +86,7 @@ export default function VotingPage() {
   const [isConvertingTokens, setIsConvertingTokens] = useState(false);
   const [tokenStatus, setTokenStatus] = useState<TokenStatus | null>(null);
   const [votingStatus, setVotingStatus] = useState<VotingStatus | null>(null);
+  const [conversionQuantity, setConversionQuantity] = useState(1);
   
   // Auto-timeout functionality
   const [votingTimeLeft, setVotingTimeLeft] = useState<number | null>(null);
@@ -91,7 +98,6 @@ export default function VotingPage() {
   const [phaseTimeLeft, setPhaseTimeLeft] = useState<number>(0);
   const [cycleStartTime, setCycleStartTime] = useState<number | null>(null);
 
-  // Load user from localStorage
   useEffect(() => {
     setIsPending(true);
     try {
@@ -118,6 +124,13 @@ export default function VotingPage() {
     }
   }, [user]);
 
+  // Show message with auto-dismiss
+  const showMessage = useCallback((text: string, type: 'success' | 'error' | 'info' = 'info') => {
+    setMessage(text);
+    setMessageType(type);
+    setTimeout(() => setMessage(null), 5000);
+  }, []);
+
   const fetchUserTeam = async (teamId: number) => {
     try {
       const response = await fetch(`/api/teams/${teamId}`);
@@ -136,12 +149,49 @@ export default function VotingPage() {
 
   const userTeamId = userTeam?.id;
 
-  // Show message with auto-dismiss
-  const showMessage = useCallback((text: string, type: 'success' | 'error' | 'info' = 'info') => {
-    setMessage(text);
-    setMessageType(type);
-    setTimeout(() => setMessage(null), 5000);
-  }, []);
+  // Handle real-time SSE updates
+  useEffect(() => {
+    if (!lastEvent) return;
+
+    console.log('Processing SSE event:', lastEvent);
+
+    switch (lastEvent.type) {
+      case 'teamChanged':
+        if (lastEvent.data) {
+          setCurrentPitchTeam(lastEvent.data.team);
+          setVotingActive(lastEvent.data.votingActive);
+          setAllPitchesCompleted(lastEvent.data.allPitchesCompleted);
+          setPitchCycleActive(lastEvent.data.pitchCycleActive);
+          setCurrentPhase(lastEvent.data.currentPhase);
+          setPhaseTimeLeft(lastEvent.data.phaseTimeLeft);
+          setCycleStartTime(lastEvent.data.cycleStartTime);
+          showMessage(`New team is pitching: ${lastEvent.data.team?.name || 'None'}`, 'info');
+        }
+        break;
+      
+      case 'votingStateChanged':
+        if (lastEvent.data) {
+          setVotingActive(lastEvent.data.votingActive);
+          setAllPitchesCompleted(lastEvent.data.allPitchesCompleted);
+          setPitchCycleActive(lastEvent.data.pitchCycleActive);
+          setCurrentPhase(lastEvent.data.currentPhase);
+          setPhaseTimeLeft(lastEvent.data.phaseTimeLeft);
+          setCycleStartTime(lastEvent.data.cycleStartTime);
+          
+          // Handle voting state changes
+          if (lastEvent.data.votingActive && !votingActive) {
+            showMessage('Voting is now active!', 'success');
+          } else if (!lastEvent.data.votingActive && votingActive) {
+            showMessage('Voting has ended', 'info');
+          }
+        }
+        break;
+        
+      case 'connected':
+        showMessage('Connected to real-time updates', 'success');
+        break;
+    }
+  }, [lastEvent, votingActive, showMessage]);
 
   // Load teams data
   useEffect(() => {
@@ -162,7 +212,7 @@ export default function VotingPage() {
     };
 
     loadTeams();
-  }, [showMessage]);
+  }, []);
 
   // Load token status for user's team
   useEffect(() => {
@@ -178,13 +228,18 @@ export default function VotingPage() {
         
         const data: TokenStatus = await res.json();
         setTokenStatus(data);
+        
+        // Reset conversion quantity if it exceeds new maximum
+        if (data.maxPossibleConversions < conversionQuantity) {
+          setConversionQuantity(Math.max(1, data.maxPossibleConversions));
+        }
       } catch (error) {
         console.error("Error loading token status:", error);
       }
     };
 
     loadTokenStatus();
-  }, [userTeamId]);
+  }, [userTeamId, conversionQuantity]);
 
   // Load voting status for user's team
   useEffect(() => {
@@ -254,6 +309,26 @@ export default function VotingPage() {
           setVotingStartTime(null);
           setVotingTimeLeft(null);
         }
+
+        // For pitch cycle, calculate time left based on cycle start time and current phase
+        if (newPitchCycleActive && newCycleStartTime) {
+          const elapsed = Math.floor((Date.now() - newCycleStartTime) / 1000);
+          let calculatedPhaseTimeLeft = 0;
+          
+          if (elapsed < 90) {
+            // Pitching phase
+            calculatedPhaseTimeLeft = 90 - elapsed;
+          } else if (elapsed < 95) {
+            // Preparation phase
+            calculatedPhaseTimeLeft = 95 - elapsed;
+          } else if (elapsed < 125) {
+            // Voting phase
+            calculatedPhaseTimeLeft = 125 - elapsed;
+          }
+          
+          // Use calculated time if it's more accurate than server-provided time
+          setPhaseTimeLeft(Math.max(0, calculatedPhaseTimeLeft));
+        }
         
         setVotingActive(newVotingActive);
         setAllPitchesCompleted(data?.allPitchesCompleted ?? false);
@@ -282,9 +357,9 @@ export default function VotingPage() {
     return () => clearInterval(interval);
   }, []);
 
-  // Countdown timer effect
+  // Countdown timer effect for legacy voting
   useEffect(() => {
-    if (!votingActive || !votingStartTime) {
+    if (!votingActive || !votingStartTime || pitchCycleActive) {
       return;
     }
 
@@ -301,7 +376,45 @@ export default function VotingPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [votingActive, votingStartTime]);
+  }, [votingActive, votingStartTime, pitchCycleActive]);
+
+  // Real-time timer update for pitch cycle
+  useEffect(() => {
+    if (!pitchCycleActive || !cycleStartTime) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - cycleStartTime) / 1000);
+      let newPhase: 'idle' | 'pitching' | 'preparing' | 'voting' = 'idle';
+      let timeLeft = 0;
+      
+      if (elapsed < 90) {
+        newPhase = 'pitching';
+        timeLeft = 90 - elapsed;
+      } else if (elapsed < 95) {
+        newPhase = 'preparing';
+        timeLeft = 95 - elapsed;
+      } else if (elapsed < 125) {
+        newPhase = 'voting';
+        timeLeft = 125 - elapsed;
+      }
+      
+      setCurrentPhase(newPhase);
+      setPhaseTimeLeft(Math.max(0, timeLeft));
+      
+      if (elapsed >= 125) {
+        // Cycle should end
+        setPitchCycleActive(false);
+        setCurrentPhase('idle');
+        setPhaseTimeLeft(0);
+        setVotingActive(false);
+        setCycleStartTime(null);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [pitchCycleActive, cycleStartTime]);
 
   // Cast vote function
   const castVote = async () => {
@@ -397,11 +510,14 @@ export default function VotingPage() {
     if (!tokenStatus?.canConvert) {
       if (!tokenStatus?.hasQuizSubmission) {
         showMessage("Complete the quiz first to earn tokens", 'error');
-      } else if (tokenStatus.totalVotesGained > 0) {
-        showMessage("Tokens have already been converted", 'error');
       } else {
         showMessage("Insufficient tokens: need at least 1 in each category", 'error');
       }
+      return;
+    }
+
+    if (conversionQuantity > (tokenStatus?.maxPossibleConversions || 0)) {
+      showMessage(`Cannot convert ${conversionQuantity} tokens. Maximum possible: ${tokenStatus?.maxPossibleConversions || 0}`, 'error');
       return;
     }
 
@@ -414,7 +530,7 @@ export default function VotingPage() {
           "Content-Type": "application/json"
         },
         credentials: 'include', // Important for cookie authentication
-        body: JSON.stringify({ teamId: userTeamId })
+        body: JSON.stringify({ teamId: userTeamId, quantity: conversionQuantity })
       });
 
       const data: VoteResponse = await res.json();
@@ -462,32 +578,90 @@ export default function VotingPage() {
           <p className="mb-4 text-gray-600">
             You need to be signed in with a team account to participate in voting.
           </p>
-          <a 
-            href="/sign-in" 
-            className="block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            Sign In to Team
-          </a>
+          <div className="space-y-3">
+            <a 
+              href="/sign-in" 
+              className="block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Sign In to Team
+            </a>
+            <div className="text-sm text-gray-500">
+              <span>Are you a judge? </span>
+              <a href="/judge/login" className="text-blue-600 hover:underline">
+                Judge Login
+              </a>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Handle judge users who might not have teams
+  const isJudgeUser = user && !user.teamId && user.name.toLowerCase().includes('judge');
+  
+  if (isJudgeUser) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
+        <div className="max-w-md w-full mx-4 rounded-lg border bg-white p-8 text-center">
+          <Trophy className="h-12 w-12 text-purple-500 mx-auto mb-4" />
+          <h2 className="text-xl font-bold mb-2">Judge Account Detected</h2>
+          <p className="mb-4 text-gray-600">
+            Judge accounts cannot participate in team voting. Please use the judge console for scoring.
+          </p>
+          <div className="space-y-3">
+            <a 
+              href="/judge" 
+              className="block w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
+            >
+              Go to Judge Console
+            </a>
+            <a 
+              href="/dashboard" 
+              className="block w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Back to Dashboard
+            </a>
+          </div>
         </div>
       </div>
     );
   }
 
   const canVoteForCurrentTeam = currentPitchTeam && 
-                               (votingActive || (pitchCycleActive && currentPhase === 'voting')) && 
                                userTeamId !== currentPitchTeam.id &&
                                !votingStatus?.votedTeams?.includes(currentPitchTeam.id) &&
-                               (votingTimeLeft === null || votingTimeLeft > 0 || pitchCycleActive);
+                               (() => {
+                                 // In pitch cycle mode, check if we're in voting phase with time left
+                                 if (pitchCycleActive) {
+                                   return currentPhase === 'voting' && phaseTimeLeft > 0;
+                                 }
+                                 // In legacy mode, check if voting is active with time left
+                                 return votingActive && (votingTimeLeft === null || votingTimeLeft > 0);
+                               })();
 
   const canDownvote = voteValue === -1 && votingStatus && votingStatus.remainingDownvotes > 0;
 
   return (
     <PageLock roundType="VOTING" isCompleted={isVotingCompleted || votingRoundCompleted}>
       <div className="max-w-3xl mx-auto px-6 pt-6 transition-all duration-300 ease-in-out">
-      <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline mb-4 transition-colors">
-        <ArrowLeft className="h-4 w-4" />
-        Back to Dashboard
-      </Link>
+      <div className="flex items-center justify-between mb-4">
+        <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline transition-colors">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Link>
+        <ThemeToggle />
+      </div>
+      
+      {/* SSE Connection Status */}
+      <div className={`mb-4 p-2 rounded-md text-xs font-medium ${
+        sseConnected 
+          ? 'bg-green-50 text-green-700 border border-green-200' 
+          : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+      }`}>
+        {sseConnected ? '🟢 Real-time updates connected' : '🟡 Connecting to real-time updates...'}
+      </div>
+      
       <VotingLayout
         header="Team Voting Portal"
         subheader="Peer evaluation • 1 token from each category = 1 vote • Unlimited Yes • Max 3 No"
@@ -547,9 +721,14 @@ export default function VotingPage() {
             <p className="text-sm text-blue-700">
               <strong>Your Team:</strong> {userTeam ? `${userTeam.name} (#${userTeam.id})` : 'Not assigned to a team'}
             </p>
-            {!userTeam && (
+            {!userTeam && !user?.isAdmin && (
               <p className="text-xs text-orange-600 mt-1">
                 ⚠️ You need to be assigned to a team to participate in voting. Please contact an administrator.
+              </p>
+            )}
+            {user?.isAdmin && (
+              <p className="text-xs text-green-600 mt-1">
+                👑 Admin account - Contact organizers to get a team assignment for voting participation.
               </p>
             )}
             {votingStatus && userTeam && (
@@ -622,22 +801,49 @@ export default function VotingPage() {
           </div>
 
           {/* Voting Countdown Timer */}
-          {votingActive && votingTimeLeft !== null && (
-            <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
-              <div className="flex items-center gap-2">
-                <Timer className="h-4 w-4 text-orange-600" />
-                <span className="text-sm font-medium text-orange-800">
-                  Voting closes in: <span className="font-bold text-lg">{votingTimeLeft}s</span>
-                </span>
-              </div>
-              <div className="mt-2 w-full bg-orange-200 rounded-full h-2">
-                <div 
-                  className="bg-orange-600 h-2 rounded-full transition-all duration-1000"
-                  style={{ width: `${(votingTimeLeft / 30) * 100}%` }}
-                ></div>
-              </div>
-            </div>
-          )}
+          {(() => {
+            // Show pitch cycle timer if active
+            if (pitchCycleActive && currentPhase === 'voting') {
+              return (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <Timer className="h-4 w-4 text-red-600" />
+                    <span className="text-sm font-medium text-red-800">
+                      Voting closes in: <span className="font-bold text-lg">{phaseTimeLeft}s</span>
+                    </span>
+                  </div>
+                  <div className="mt-2 w-full bg-red-200 rounded-full h-2">
+                    <div 
+                      className="bg-red-600 h-2 rounded-full transition-all duration-1000"
+                      style={{ width: `${(phaseTimeLeft / 30) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            }
+            
+            // Show legacy timer if voting active and not in pitch cycle
+            if (votingActive && votingTimeLeft !== null && !pitchCycleActive) {
+              return (
+                <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
+                  <div className="flex items-center gap-2">
+                    <Timer className="h-4 w-4 text-orange-600" />
+                    <span className="text-sm font-medium text-orange-800">
+                      Voting closes in: <span className="font-bold text-lg">{votingTimeLeft}s</span>
+                    </span>
+                  </div>
+                  <div className="mt-2 w-full bg-orange-200 rounded-full h-2">
+                    <div 
+                      className="bg-orange-600 h-2 rounded-full transition-all duration-1000"
+                      style={{ width: `${(votingTimeLeft / 30) * 100}%` }}
+                    ></div>
+                  </div>
+                </div>
+              );
+            }
+            
+            return null;
+          })()}
 
           <button
             onClick={castVote}
@@ -679,23 +885,70 @@ export default function VotingPage() {
         <div className="flex-1 rounded-xl border bg-card p-6 shadow transition-all duration-300 hover:shadow-lg">
           <h2 className="text-xl font-bold mb-4">Convert Tokens</h2>
           <p className="mb-4 text-sm text-gray-600">
-            Convert 1 token from each category (Marketing, Capital, Team, Strategy) to get 1 vote.
+            Convert tokens from each category (Marketing, Capital, Team, Strategy) to get votes. Each conversion uses 1 token from each category to get 1 vote.
           </p>
           
           {tokenStatus && (
             <div className="mb-4 p-3 bg-gray-50 rounded-md text-sm transition-all duration-200">
               <h4 className="font-medium mb-2 text-black">Available Tokens:</h4>
-              <div className="grid grid-cols-2 gap-2 text-black">
+              <div className="grid grid-cols-2 gap-2 text-black mb-3">
                 <div>Marketing: {tokenStatus.availableTokens.marketing}</div>
                 <div>Capital: {tokenStatus.availableTokens.capital}</div>
                 <div>Team: {tokenStatus.availableTokens.team}</div>
                 <div>Strategy: {tokenStatus.availableTokens.strategy}</div>
               </div>
+              <div className="text-blue-600 font-medium">
+                Maximum possible conversions: {tokenStatus.maxPossibleConversions}
+              </div>
               {tokenStatus.totalVotesGained > 0 && (
                 <p className="mt-2 text-green-600 font-medium">
-                  ✓ Tokens already converted ({tokenStatus.totalVotesGained} vote gained)
+                  ✓ Total votes gained so far: {tokenStatus.totalVotesGained}
                 </p>
               )}
+            </div>
+          )}
+
+          {/* Quantity Selector */}
+          {tokenStatus?.canConvert && (
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">
+                How many tokens do you want to convert?
+              </label>
+              <div className="flex items-center gap-3">
+                <input
+                  type="number"
+                  min="1"
+                  max={tokenStatus.maxPossibleConversions}
+                  value={conversionQuantity}
+                  onChange={(e) => {
+                    const value = parseInt(e.target.value) || 1;
+                    setConversionQuantity(Math.min(Math.max(1, value), tokenStatus.maxPossibleConversions));
+                  }}
+                  className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                />
+                <span className="text-sm text-gray-600">
+                  (max: {tokenStatus.maxPossibleConversions})
+                </span>
+              </div>
+              
+              {/* Conversion Preview */}
+              <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-md">
+                <h5 className="font-medium text-purple-800 mb-1">Conversion Preview:</h5>
+                <div className="text-sm text-purple-700">
+                  <div>• Will use: {conversionQuantity} token from each category</div>
+                  <div>• Total tokens used: {conversionQuantity * 4}</div>
+                  <div>• Votes you'll gain: {conversionQuantity}</div>
+                </div>
+                <div className="mt-2 text-xs text-purple-600">
+                  <strong>Remaining after conversion:</strong>
+                  <div className="grid grid-cols-2 gap-1 mt-1">
+                    <div>Marketing: {tokenStatus.availableTokens.marketing - conversionQuantity}</div>
+                    <div>Capital: {tokenStatus.availableTokens.capital - conversionQuantity}</div>
+                    <div>Team: {tokenStatus.availableTokens.team - conversionQuantity}</div>
+                    <div>Strategy: {tokenStatus.availableTokens.strategy - conversionQuantity}</div>
+                  </div>
+                </div>
+              </div>
             </div>
           )}
           
@@ -710,7 +963,7 @@ export default function VotingPage() {
                 Converting...
               </span>
             ) : (
-              "Convert Tokens → Vote"
+              `Convert ${conversionQuantity} Token${conversionQuantity > 1 ? 's' : ''} → ${conversionQuantity} Vote${conversionQuantity > 1 ? 's' : ''}`
             )}
           </button>
 
@@ -718,9 +971,7 @@ export default function VotingPage() {
             <div className="mt-2 text-xs text-gray-500">
               {!tokenStatus.hasQuizSubmission 
                 ? "Complete the quiz first to earn tokens"
-                : tokenStatus.totalVotesGained > 0
-                ? "Tokens have already been converted"
-                : "Need at least 1 token in each category"
+                : "Need at least 1 token in each category to convert"
               }
             </div>
           )}

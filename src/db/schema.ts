@@ -8,6 +8,16 @@ export const admins = pgTable("admins", {
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
 });
+
+// Judges table for dedicated judge management
+export const judges = pgTable("judges", {
+  id: varchar("id", { length: 36 }).primaryKey(),
+  username: text("username").notNull().unique(),
+  name: text("name").notNull(),
+  password: text("password").notNull(),
+  createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
+  updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
+});
 import { pgTable, integer, text, varchar, timestamp, boolean, json, serial } from 'drizzle-orm/pg-core';
 
 
@@ -172,6 +182,25 @@ export const judgeScores = pgTable('judge_scores', {
   judgeName: text('judge_name').notNull(),
   teamId: integer('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
   score: integer('score').notNull(),
+  round: text('round').notNull().default('FINAL'), // 'FINAL' | 'ROUND3'
+  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow()
+});
+
+// Round 3 judge ratings (0-100) - separate from final judgeScores
+export const round3JudgeRatings = pgTable('round3_judge_ratings', {
+  id: serial('id').primaryKey(),
+  judgeName: text('judge_name').notNull(),
+  teamId: integer('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
+  rating: integer('rating').notNull(), // 0-100
+  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow()
+});
+
+// Round 3 peer ratings (3-10) - separate from final peerRatings
+export const round3PeerRatings = pgTable('round3_peer_ratings', {
+  id: serial('id').primaryKey(),
+  fromTeamId: integer('from_team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
+  toTeamId: integer('to_team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
+  rating: integer('rating').notNull(), // 3-10
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow()
 });
 
