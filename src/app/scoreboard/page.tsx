@@ -2,54 +2,61 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 
-interface ScoreboardTeam {
+interface LeaderboardTeam {
   rank: number;
   teamId: number;
   teamName: string;
   college: string;
-  quizScore: number;
-  originalVotes: number;
-  tokenVotes: number;
-  totalVotes: number;
-  upvotes: number;
-  downvotes: number;
-  peerRatingAvg: number;
-  peerRatingCount: number;
-  judgeScoreTotal: number;
-  judgeScoreAvg: number;
-  judgeCount: number;
-  finalScore: number;
-  hasQuizSubmission: boolean;
-  hasTokenConversion: boolean;
-  components: {
-    quiz: { score: number; weight: number; contribution: number };
-    voting: { originalVotes: number; tokenVotes: number; totalVotes: number; normalizedVotes: number; weight: number; contribution: number };
-    peerRating: { average: number; normalized: number; count: number; weight: number; contribution: number };
-    judgeScore: { total: number; average: number; count: number; weight: number; contribution: number };
+  tokens: {
+    marketing: number;
+    capital: number;
+    team: number;
+    strategy: number;
+    total: number;
   };
+  tokenActivity: {
+    earned: number;
+    spent: number;
+    remaining: number;
+  };
+  voting: {
+    originalVotes: number;
+    votesFromTokens: number;
+    totalVotes: number;
+  };
+  peerRating: {
+    average: number;
+    count: number;
+  };
+  judgeScores: {
+    total: number;
+    average: number;
+    count: number;
+  };
+  finalCumulativeScore: number;
+  hasQuizSubmission: boolean;
 }
 
-interface ScoreboardData {
-  scoreboard: ScoreboardTeam[];
+interface LeaderboardData {
+  leaderboard: LeaderboardTeam[];
   metadata: {
     totalTeams: number;
     generatedAt: string;
-    weights: Record<string, number>;
-    tieBreakers: string[];
+    focus: string;
+    rankingCriteria: string[];
     participation: {
       quizSubmissions: number;
       votingParticipation: number;
       peerRatings: number;
-      judgeScores: number;
+      tokenSpending: number;
     };
-    scoringExplanation: Record<string, string>;
+    explanation: Record<string, string>;
   };
 }
 
 export default function ScoreboardPage() {
-  const [data, setData] = useState<ScoreboardData | null>(null);
+  const [data, setData] = useState<LeaderboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showDetails, setShowDetails] = useState(false);
@@ -154,7 +161,7 @@ export default function ScoreboardPage() {
     );
   }
 
-  if (!data || !data.scoreboard || data.scoreboard.length === 0) {
+  if (!data || !data.leaderboard || data.leaderboard.length === 0) {
     return (
       <div className="min-h-screen bg-background text-foreground p-6">
         <div className="text-center py-12">
@@ -172,21 +179,13 @@ export default function ScoreboardPage() {
     );
   }
 
-  const topTeams = data.scoreboard.slice(0, 3);
-  const remainingTeams = data.scoreboard.slice(3);
-  const maxFinalScore = data.scoreboard[0]?.finalScore || 0;
+  const topTeams = data.leaderboard.slice(0, 3);
+  const remainingTeams = data.leaderboard.slice(3);
+  const maxFinalScore = data.leaderboard[0]?.finalCumulativeScore || 0;
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-7xl mx-auto">
-        {/* Back to Dashboard Button */}
-        <div className="mb-4">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Link>
-        </div>
-
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
@@ -198,6 +197,12 @@ export default function ScoreboardPage() {
             </p>
           </div>
           <div className="flex items-center gap-4 mt-4 md:mt-0">
+            <Link
+              href="/dashboard"
+              className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/90 text-sm flex items-center gap-2"
+            >
+              ← Back to Dashboard
+            </Link>
             <div className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -253,13 +258,13 @@ export default function ScoreboardPage() {
                   <h3 className="font-bold text-lg mb-1">{team.teamName}</h3>
                   <p className="text-sm text-muted-foreground mb-4">{team.college}</p>
                   <div className="text-3xl font-bold mb-2 text-primary">
-                    {team.finalScore.toFixed(1)}
+                    {team.finalCumulativeScore.toFixed(1)}
                   </div>
                   <div className="text-xs text-muted-foreground space-y-1">
-                    <div>Quiz: {team.quizScore}</div>
-                    <div>Votes: {team.totalVotes}</div>
-                    <div>Peer: {team.peerRatingAvg.toFixed(1)}</div>
-                    <div>Judge: {team.judgeScoreTotal}</div>
+                    <div>Tokens: {team.tokens.total}</div>
+                    <div>Votes: {team.voting.totalVotes}</div>
+                    <div>Peer: {team.peerRating.average.toFixed(1)}</div>
+                    <div>Judge: {team.judgeScores.total}</div>
                   </div>
                 </div>
               </div>
@@ -276,15 +281,18 @@ export default function ScoreboardPage() {
                   <th className="text-left p-4 font-semibold">Rank</th>
                   <th className="text-left p-4 font-semibold">Team</th>
                   <th className="text-left p-4 font-semibold">College</th>
-                  <th className="text-center p-4 font-semibold">Quiz</th>
-                  <th className="text-center p-4 font-semibold">Votes</th>
-                  <th className="text-center p-4 font-semibold">Peer Avg</th>
-                  <th className="text-center p-4 font-semibold">Judge Total</th>
+                  <th className="text-center p-4 font-semibold">Marketing</th>
+                  <th className="text-center p-4 font-semibold">Capital</th>
+                  <th className="text-center p-4 font-semibold">Team Tokens</th>
+                  <th className="text-center p-4 font-semibold">Strategy</th>
+                  <th className="text-center p-4 font-semibold">Total Votes</th>
+                  <th className="text-center p-4 font-semibold">Peer Rating</th>
+                  <th className="text-center p-4 font-semibold">Judge Score</th>
                   <th className="text-center p-4 font-semibold">Final Score</th>
                 </tr>
               </thead>
               <tbody>
-                {data.scoreboard.map((team, index) => (
+                {data.leaderboard.map((team: LeaderboardTeam, index: number) => (
                   <tr key={team.teamId} className={`border-t ${index < 3 ? 'bg-accent/20' : ''}`}>
                     <td className="p-4">
                       <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${getRankBadgeColor(team.rank)}`}>
@@ -299,40 +307,54 @@ export default function ScoreboardPage() {
                     </td>
                     <td className="p-4 text-muted-foreground">{team.college}</td>
                     <td className="p-4 text-center">
-                      <div className={`font-medium ${getScoreColor(team.quizScore, 60)}`}>
-                        {team.quizScore}
+                      <div className="font-medium text-blue-500">
+                        {team.tokens.marketing}
                       </div>
-                      {showDetails && <div className="text-xs text-muted-foreground">/60</div>}
                     </td>
                     <td className="p-4 text-center">
-                      <div className="font-medium">{team.totalVotes}</div>
+                      <div className="font-medium text-green-500">
+                        {team.tokens.capital}
+                      </div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <div className="font-medium text-purple-500">
+                        {team.tokens.team}
+                      </div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <div className="font-medium text-orange-500">
+                        {team.tokens.strategy}
+                      </div>
+                    </td>
+                    <td className="p-4 text-center">
+                      <div className="font-medium">{team.voting.totalVotes}</div>
                       {showDetails && (
                         <div className="text-xs text-muted-foreground">
-                          {team.originalVotes}+{team.tokenVotes}
+                          {team.voting.originalVotes}+{team.voting.votesFromTokens}
                         </div>
                       )}
                     </td>
                     <td className="p-4 text-center">
-                      <div className={`font-medium ${getScoreColor(team.peerRatingAvg, 10)}`}>
-                        {team.peerRatingAvg > 0 ? team.peerRatingAvg.toFixed(1) : '-'}
+                      <div className="font-medium">
+                        {team.peerRating.average > 0 ? team.peerRating.average.toFixed(1) : '-'}
                       </div>
                       {showDetails && (
                         <div className="text-xs text-muted-foreground">
-                          ({team.peerRatingCount} ratings)
+                          ({team.peerRating.count} ratings)
                         </div>
                       )}
                     </td>
                     <td className="p-4 text-center">
-                      <div className="font-medium">{team.judgeScoreTotal}</div>
+                      <div className="font-medium">{team.judgeScores.total}</div>
                       {showDetails && (
                         <div className="text-xs text-muted-foreground">
-                          ({team.judgeCount} judges)
+                          ({team.judgeScores.count} judges)
                         </div>
                       )}
                     </td>
                     <td className="p-4 text-center">
-                      <div className={`text-lg font-bold ${getScoreColor(team.finalScore, maxFinalScore)}`}>
-                        {team.finalScore.toFixed(1)}
+                      <div className={`text-lg font-bold ${getScoreColor(team.finalCumulativeScore, maxFinalScore)}`}>
+                        {team.finalCumulativeScore.toFixed(1)}
                       </div>
                     </td>
                   </tr>
@@ -346,23 +368,19 @@ export default function ScoreboardPage() {
         {showDetails && data.metadata && (
           <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
             <div className="rounded-lg border bg-card p-6">
-              <h3 className="font-semibold mb-4">Scoring Weights</h3>
+              <h3 className="font-semibold mb-4">Scoring System</h3>
               <div className="space-y-2 text-sm">
                 <div className="flex justify-between">
-                  <span>Quiz Score</span>
-                  <span className="font-medium">×{data.metadata.weights.quiz}</span>
+                  <span>Token Categories</span>
+                  <span className="font-medium">Marketing + Capital + Team + Strategy</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Voting</span>
-                  <span className="font-medium">×{data.metadata.weights.voting}</span>
+                  <span>Judge Scores</span>
+                  <span className="font-medium">Total judge evaluation</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Peer Rating</span>
-                  <span className="font-medium">×{data.metadata.weights.peerRating}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span>Judge Score</span>
-                  <span className="font-medium">×{data.metadata.weights.judgeScore}</span>
+                  <span>Final Score</span>
+                  <span className="font-medium">Token Score + Judge Score</span>
                 </div>
               </div>
             </div>
@@ -383,8 +401,8 @@ export default function ScoreboardPage() {
                   <span className="font-medium">{data.metadata.participation.peerRatings}</span>
                 </div>
                 <div className="flex justify-between">
-                  <span>Judge Scores</span>
-                  <span className="font-medium">{data.metadata.participation.judgeScores}</span>
+                  <span>Token Activity</span>
+                  <span className="font-medium">{data.metadata.participation.tokenSpending}</span>
                 </div>
               </div>
             </div>
@@ -394,7 +412,7 @@ export default function ScoreboardPage() {
         {/* Footer */}
         <div className="text-center mt-12 text-muted-foreground space-y-2">
           <p className="text-sm">
-            Tie-breakers: {data.metadata.tieBreakers?.join(' • ') || 'Quiz score, then original votes'}
+            Ranking: {data.metadata.rankingCriteria?.join(' • ') || 'Cumulative score, then total votes'}
           </p>
           <p className="text-xs">
             Generated at: {new Date(data.metadata.generatedAt).toLocaleString()}

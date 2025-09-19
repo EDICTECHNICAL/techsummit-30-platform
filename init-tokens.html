@@ -1,0 +1,207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Initialize Remaining Tokens</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background-color: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        button {
+            background-color: #007cba;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 10px 5px;
+        }
+        button:hover {
+            background-color: #005a87;
+        }
+        button:disabled {
+            background-color: #ccc;
+            cursor: not-allowed;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 4px;
+            white-space: pre-wrap;
+            font-family: monospace;
+        }
+        .success {
+            background-color: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background-color: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background-color: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .loading {
+            background-color: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎯 TechSummit Platform - Token Initialization</h1>
+        <p>This tool will initialize remaining token values for existing quiz submissions.</p>
+        
+        <div>
+            <button id="checkStatus" onclick="checkTokenStatus()">📊 Check Current Token Status</button>
+            <button id="initTokens" onclick="initializeTokens()">🚀 Initialize Remaining Tokens</button>
+            <button id="testConversion" onclick="testTokenConversion()" disabled>🔄 Test Token Conversion</button>
+        </div>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        const SERVER_URL = 'http://localhost:3000';
+        
+        function showResult(message, type = 'info') {
+            const resultDiv = document.getElementById('result');
+            resultDiv.textContent = message;
+            resultDiv.className = `result ${type}`;
+        }
+
+        async function checkTokenStatus() {
+            showResult('Checking token status...', 'loading');
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/admin/token-status`, {
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    let message = `Token Status Summary:\n`;
+                    message += `Total Teams: ${data.summary.totalTeams}\n`;
+                    message += `Teams with Quiz: ${data.summary.teamsWithQuiz}\n`;
+                    message += `Teams with Conversions: ${data.summary.teamsWithConversions}\n\n`;
+                    
+                    message += `Team Details:\n`;
+                    data.teams.forEach(team => {
+                        message += `\n${team.team.name} (${team.team.college}):\n`;
+                        if (team.hasQuizSubmission) {
+                            message += `  Original Tokens: M:${team.originalTokens.marketing} C:${team.originalTokens.capital} T:${team.originalTokens.team} S:${team.originalTokens.strategy}\n`;
+                            message += `  Remaining Tokens: M:${team.remainingTokens.marketing} C:${team.remainingTokens.capital} T:${team.remainingTokens.team} S:${team.remainingTokens.strategy}\n`;
+                            if (team.hasConvertedTokens) {
+                                message += `  Total Votes Gained: ${team.totalVotesGained}\n`;
+                                message += `  Tokens Spent: M:${team.tokensSpent.marketing} C:${team.tokensSpent.capital} T:${team.tokensSpent.team} S:${team.tokensSpent.strategy}\n`;
+                            }
+                        } else {
+                            message += `  No quiz submission yet\n`;
+                        }
+                    });
+                    
+                    showResult(message, 'success');
+                } else {
+                    showResult(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult(`Failed to check token status: ${error.message}`, 'error');
+            }
+        }
+
+        async function initializeTokens() {
+            if (!confirm('This will initialize remaining token values for all existing quiz submissions. Continue?')) {
+                return;
+            }
+
+            showResult('Initializing remaining tokens...', 'loading');
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/admin/init-remaining-tokens`, {
+                    method: 'POST',
+                    credentials: 'include'
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showResult(`✅ Success! Updated ${data.updatedCount} quiz submissions with remaining token values.`, 'success');
+                    document.getElementById('testConversion').disabled = false;
+                } else {
+                    showResult(`Error: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult(`Failed to initialize tokens: ${error.message}`, 'error');
+            }
+        }
+
+        async function testTokenConversion() {
+            const teamId = prompt('Enter team ID to test conversion (or leave empty for team 1):') || '1';
+            const category = prompt('Enter category (marketing/capital/team/strategy):') || 'marketing';
+            const tokens = prompt('Enter tokens to convert:') || '2';
+
+            showResult(`Testing token conversion for team ${teamId}...`, 'loading');
+            
+            try {
+                const response = await fetch(`${SERVER_URL}/api/tokens/convert`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    credentials: 'include',
+                    body: JSON.stringify({
+                        teamId: parseInt(teamId),
+                        category: category,
+                        tokensToConvert: parseInt(tokens)
+                    })
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                
+                if (data.success) {
+                    showResult(`✅ Conversion successful!\nTokens used: ${data.tokensUsed}\nVotes gained: ${data.votesGained}\nRemaining tokens: ${JSON.stringify(data.remainingTokens, null, 2)}`, 'success');
+                } else {
+                    showResult(`Conversion failed: ${data.error}`, 'error');
+                }
+            } catch (error) {
+                showResult(`Failed to test conversion: ${error.message}`, 'error');
+            }
+        }
+
+        // Check status on page load
+        window.onload = function() {
+            setTimeout(checkTokenStatus, 500);
+        };
+    </script>
+</body>
+</html>

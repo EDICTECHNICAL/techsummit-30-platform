@@ -3,13 +3,13 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { judgeScores, rounds, teams } from '@/db/schema';
 import { eq, and, sum, avg, count } from 'drizzle-orm';
-import { requireAdmin } from '@/lib/auth-middleware';
+import { requireJudgeAuth } from '@/lib/auth-middleware';
 
-// POST handler - Submit judge score (Admin only during final round)
+// POST handler - Submit judge score (Judge authentication required during final round)
 export async function POST(request: NextRequest) {
   try {
-    // Require admin authentication
-    const authUser = await requireAdmin(request);
+    // Require judge authentication
+    await requireJudgeAuth(request);
     
     const { judgeName, teamId, score } = await request.json();
     
@@ -107,10 +107,10 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
     
-    if (error.message === 'Admin access required') {
+    if (error.message === 'Judge authentication required') {
       return NextResponse.json({ 
-        error: 'Admin access required', 
-        code: 'ADMIN_REQUIRED' 
+        error: 'Judge authentication required', 
+        code: 'JUDGE_AUTH_REQUIRED' 
       }, { status: 403 });
     }
 

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { BackButton } from "@/components/BackButton";
 import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useTheme } from "@/components/ThemeProvider";
 
 const navItems = [
   { href: "/", label: "Gallery" },
@@ -24,16 +24,7 @@ const navItems = [
 
 export function Navigation() {
   const pathname = usePathname();
-  const [theme, setTheme] = useState<'light' | 'dark'>(
-    typeof window !== 'undefined' && window.localStorage.getItem('theme') === 'dark' ? 'dark' : 'light'
-  );
-
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      document.documentElement.classList.toggle('dark', theme === 'dark');
-      window.localStorage.setItem('theme', theme);
-    }
-  }, [theme]);
+  const { theme, setTheme } = useTheme();
 
   return (
     <nav className="sticky top-0 z-50 bg-white/80 dark:bg-gray-900/80 backdrop-blur-md border-b border-gray-200 dark:border-gray-800">

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 
@@ -17,6 +17,33 @@ export default function SignUpPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [registrationStatus, setRegistrationStatus] = useState<{
+    isOpen: boolean;
+    deadline?: string;
+    message?: string;
+  }>({ isOpen: true });
+
+  // Check registration deadline on component mount
+  useEffect(() => {
+    const checkRegistrationStatus = async () => {
+      try {
+        const response = await fetch('/api/registration-status');
+        if (response.ok) {
+          const status = await response.json();
+          setRegistrationStatus(status);
+        } else {
+          // If endpoint fails, assume registration is open
+          setRegistrationStatus({ isOpen: true });
+        }
+      } catch (err) {
+        console.error('Failed to check registration status:', err);
+        // If we can't check the status, assume registration is open
+        setRegistrationStatus({ isOpen: true });
+      }
+    };
+
+    checkRegistrationStatus();
+  }, []);
 
   const validateForm = () => {
     const errors: Record<string, string> = {};
@@ -123,12 +150,53 @@ export default function SignUpPage() {
           <h1 className="text-3xl font-bold">Create Account</h1>
           <p className="text-muted-foreground mt-2">Join the competition</p>
         </div>
-        
-        {error && (
-          <div className="mb-4 p-3 rounded-md bg-destructive/10 border border-destructive/20">
-            <p className="text-sm text-destructive">{error}</p>
+
+        {/* Registration Status */}
+        {registrationStatus.message && (
+          <div className={`mb-4 p-3 rounded-md border ${
+            registrationStatus.isOpen 
+              ? 'bg-blue-50 border-blue-200 text-blue-800' 
+              : 'bg-red-50 border-red-200 text-red-800'
+          }`}>
+            <p className="text-sm font-medium">
+              {registrationStatus.isOpen ? '🟢 Registration Open' : '🔴 Registration Closed'}
+            </p>
+            <p className="text-xs mt-1">{registrationStatus.message}</p>
           </div>
         )}
+
+        {/* Registration Closed Message */}
+        {!registrationStatus.isOpen ? (
+          <div className="text-center space-y-4">
+            <div className="p-6 rounded-lg bg-muted">
+              <div className="text-4xl mb-2">⏰</div>
+              <h2 className="text-xl font-semibold mb-2">Registration Closed</h2>
+              <p className="text-muted-foreground">
+                The registration deadline has passed. New team registrations are no longer accepted.
+              </p>
+            </div>
+            <div className="space-y-2">
+              <p className="text-sm text-muted-foreground">
+                Already have an account?{" "}
+                <Link href="/sign-in" className="text-primary hover:underline font-medium">
+                  Sign in here
+                </Link>
+              </p>
+              <Link 
+                href="/" 
+                className="text-sm text-muted-foreground hover:text-foreground underline"
+              >
+                ← Back to Home
+              </Link>
+            </div>
+          </div>
+        ) : (
+          <>
+            {error && (
+              <div className="mb-4 p-3 rounded-md bg-destructive/10 border border-destructive/20">
+                <p className="text-sm text-destructive">{error}</p>
+              </div>
+            )}
         
         <form className="space-y-4" onSubmit={onSubmit}>
           <div>
@@ -287,6 +355,8 @@ export default function SignUpPage() {
             ← Back to Home
           </Link>
         </div>
+          </>
+        )}
       </div>
     </div>
   );

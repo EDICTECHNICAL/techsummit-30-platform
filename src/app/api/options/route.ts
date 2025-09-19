@@ -24,8 +24,7 @@ export async function POST(request: NextRequest) {
       tokenDeltaMarketing = 0,
       tokenDeltaCapital = 0,
       tokenDeltaTeam = 0,
-      tokenDeltaStrategy = 0,
-      totalScoreDelta = 0
+      tokenDeltaStrategy = 0
     } = await request.json();
     
     if (!questionId || !text || order === undefined) {
@@ -63,7 +62,6 @@ export async function POST(request: NextRequest) {
         tokenDeltaCapital: tokenDeltaCapital,
         tokenDeltaTeam: tokenDeltaTeam,
         tokenDeltaStrategy: tokenDeltaStrategy,
-        totalScoreDelta: totalScoreDelta,
         createdAt: new Date(),
       }
     ]).returning();

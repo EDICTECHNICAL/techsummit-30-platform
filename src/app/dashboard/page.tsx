@@ -42,6 +42,15 @@ export default function DashboardPage() {
   const [quizCompleted, setQuizCompleted] = useState(false);
   const [votingCompleted, setVotingCompleted] = useState(false);
   const [finalCompleted, setFinalCompleted] = useState(false);
+  const [roundStatuses, setRoundStatuses] = useState<{
+    quiz: { status: string; isActive: boolean };
+    voting: { status: string; isActive: boolean };
+    final: { status: string; isActive: boolean };
+  }>({
+    quiz: { status: 'PENDING', isActive: false },
+    voting: { status: 'PENDING', isActive: false },
+    final: { status: 'PENDING', isActive: false }
+  });
   const router = useRouter();
 
   useEffect(() => {
@@ -72,13 +81,28 @@ export default function DashboardPage() {
       const res = await fetch("/api/rounds");
       if (res.ok) {
         const rounds = await res.json();
-        const quiz = rounds.find((r: any) => r.type === 'QUIZ');
-        const voting = rounds.find((r: any) => r.type === 'VOTING');
-        const final = rounds.find((r: any) => r.type === 'FINAL');
+        const quiz = rounds.find((r: any) => r.name === 'QUIZ');
+        const voting = rounds.find((r: any) => r.name === 'VOTING');
+        const final = rounds.find((r: any) => r.name === 'FINAL');
         
-        setQuizCompleted(quiz?.isCompleted || false);
-        setVotingCompleted(voting?.isCompleted || false);
-        setFinalCompleted(final?.isCompleted || false);
+        setQuizCompleted(quiz?.status === 'COMPLETED' || quiz?.isCompleted || false);
+        setVotingCompleted(voting?.status === 'COMPLETED' || voting?.isCompleted || false);
+        setFinalCompleted(final?.status === 'COMPLETED' || final?.isCompleted || false);
+        
+        setRoundStatuses({
+          quiz: { 
+            status: quiz?.status || 'PENDING', 
+            isActive: quiz?.status === 'ACTIVE' || quiz?.isActive || false 
+          },
+          voting: { 
+            status: voting?.status || 'PENDING', 
+            isActive: voting?.status === 'ACTIVE' || voting?.isActive || false 
+          },
+          final: { 
+            status: final?.status || 'PENDING', 
+            isActive: final?.status === 'ACTIVE' || final?.isActive || false 
+          }
+        });
       }
     } catch (e) {
       console.error("Failed to check round statuses:", e);
@@ -126,6 +150,11 @@ export default function DashboardPage() {
     if (user) {
       loadTeam();
       checkRoundStatuses();
+      
+      // Set up periodic refresh for round statuses
+      const interval = setInterval(checkRoundStatuses, 5000); // Refresh every 5 seconds
+      
+      return () => clearInterval(interval);
     }
   }, [user]);
 
@@ -274,10 +303,10 @@ export default function DashboardPage() {
           </div>
         </section>
 
-        {/* Team Information */}
+        {/* Team Leader Information */}
         {(user.team || team) && (
           <section className="mt-8 max-w-4xl mx-auto">
-            <h2 className="text-xl font-semibold mb-4">Team Information</h2>
+            <h2 className="text-xl font-semibold mb-4">Team Leader</h2>
             <div className="rounded-lg border border-border bg-card p-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
@@ -289,8 +318,8 @@ export default function DashboardPage() {
                   <p className="text-lg">{user.team?.college || team?.college}</p>
                 </div>
                 <div>
-                  <h3 className="font-medium text-sm text-muted-foreground">Your Role</h3>
-                  <p className="text-lg">{isLeader ? "Team Leader" : "Team Member"}</p>
+                  <h3 className="font-medium text-sm text-muted-foreground">Leader Name</h3>
+                  <p className="text-lg">{user.name}</p>
                 </div>
                 <div>
                   <h3 className="font-medium text-sm text-muted-foreground">Team ID</h3>
@@ -303,36 +332,68 @@ export default function DashboardPage() {
 
         {/* Competition Status */}
         <section className="mt-8 max-w-4xl mx-auto">
-          <h2 className="text-xl font-semibold mb-4">Competition Status</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Competition Status</h2>
+            <button 
+              onClick={checkRoundStatuses}
+              className="inline-flex items-center rounded-md border border-border px-3 py-1 text-sm hover:bg-accent transition-colors"
+            >
+              <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              Refresh
+            </button>
+          </div>
           <div className="bg-card text-card-foreground p-6 rounded-lg border">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full ${quizCompleted ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                <div className={`w-3 h-3 rounded-full ${
+                  roundStatuses.quiz.status === 'COMPLETED' ? 'bg-green-500' : 
+                  roundStatuses.quiz.status === 'ACTIVE' ? 'bg-blue-500' : 
+                  'bg-gray-400'
+                }`}></div>
                 <div>
                   <h3 className="font-medium">Quiz Round</h3>
                   <p className="text-sm text-muted-foreground">
-                    {quizCompleted ? 'Completed' : 'In Progress'}
+                    {roundStatuses.quiz.status === 'COMPLETED' ? 'Completed' : 
+                     roundStatuses.quiz.status === 'ACTIVE' ? 'Active Now' : 
+                     'Pending'}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full ${votingCompleted ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                <div className={`w-3 h-3 rounded-full ${
+                  roundStatuses.voting.status === 'COMPLETED' ? 'bg-green-500' : 
+                  roundStatuses.voting.status === 'ACTIVE' ? 'bg-blue-500' : 
+                  'bg-gray-400'
+                }`}></div>
                 <div>
                   <h3 className="font-medium">Voting Round</h3>
                   <p className="text-sm text-muted-foreground">
-                    {votingCompleted ? 'Completed' : 'In Progress'}
+                    {roundStatuses.voting.status === 'COMPLETED' ? 'Completed' : 
+                     roundStatuses.voting.status === 'ACTIVE' ? 'Active Now' : 
+                     'Pending'}
                   </p>
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <div className={`w-3 h-3 rounded-full ${finalCompleted ? 'bg-green-500' : 'bg-orange-500'}`}></div>
+                <div className={`w-3 h-3 rounded-full ${
+                  roundStatuses.final.status === 'COMPLETED' ? 'bg-green-500' : 
+                  roundStatuses.final.status === 'ACTIVE' ? 'bg-blue-500' : 
+                  'bg-gray-400'
+                }`}></div>
                 <div>
                   <h3 className="font-medium">Final Round</h3>
                   <p className="text-sm text-muted-foreground">
-                    {finalCompleted ? 'Completed' : 'In Progress'}
+                    {roundStatuses.final.status === 'COMPLETED' ? 'Completed' : 
+                     roundStatuses.final.status === 'ACTIVE' ? 'Active Now' : 
+                     'Pending'}
                   </p>
                 </div>
               </div>
+            </div>
+            <div className="mt-4 text-xs text-muted-foreground">
+              Status updates automatically every 5 seconds
             </div>
           </div>
         </section>

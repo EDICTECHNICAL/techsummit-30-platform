@@ -71,13 +71,19 @@ export async function POST(req: NextRequest) {
 
     const token = jwt.sign(tokenPayload, JWT_SECRET, { expiresIn: '7d' });
 
-    // Prepare user response
+    // Prepare user response with full team information
     const userResponse = {
       id: foundUser.id,
       username: foundUser.username,
       name: foundUser.name,
       isAdmin: foundUser.isAdmin,
       teamId: foundUser.teamId,
+      team: userTeam ? {
+        id: userTeam.id,
+        name: userTeam.name,
+        college: userTeam.college,
+        role: 'leader' // Since this user represents the team
+      } : null,
     };
 
     // Create response with secure httpOnly cookie
@@ -153,12 +159,32 @@ export async function GET(req: NextRequest) {
 
     const foundUser = foundUsers[0];
 
+    // Get user's team information from database
+    let userTeam = null;
+    if (foundUser.teamId) {
+      const teamResult = await db
+        .select()
+        .from(teams)
+        .where(eq(teams.id, foundUser.teamId))
+        .limit(1);
+      
+      if (teamResult.length > 0) {
+        userTeam = teamResult[0];
+      }
+    }
+
     const userResponse = {
       id: foundUser.id,
       username: foundUser.username,
       name: foundUser.name,
       isAdmin: foundUser.isAdmin,
       teamId: foundUser.teamId,
+      team: userTeam ? {
+        id: userTeam.id,
+        name: userTeam.name,
+        college: userTeam.college,
+        role: 'leader'
+      } : null,
     };
 
     return NextResponse.json({ 

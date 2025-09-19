@@ -2,8 +2,6 @@
 
 import { useState, useEffect } from "react";
 import { useSession } from "@/lib/auth-client";
-import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
 
 interface Team {
   id: number;
@@ -27,24 +25,21 @@ interface JudgeScore {
   createdAt: string;
 }
 
-interface FinalPitch {
-  id: number;
-  teamId: number;
-  teamName: string;
-  teamCollege: string;
-  presentedAt: string;
-  createdAt: string;
-}
-
 export default function FinalPage() {
   const { data: session, isPending } = useSession();
   const [teams, setTeams] = useState<Team[]>([]);
-  const [finalPitches, setFinalPitches] = useState<FinalPitch[]>([]);
   const [myRatings, setMyRatings] = useState<PeerRating[]>([]);
+  const [qualifiedTeams, setQualifiedTeams] = useState<any[]>([]);
+  const [nonQualifiedTeams, setNonQualifiedTeams] = useState<any[]>([]);
+  const [isQualified, setIsQualified] = useState<boolean>(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [finalRoundCompleted, setFinalRoundCompleted] = useState(false);
-  const [activeTab, setActiveTab] = useState<'rate' | 'register' | 'judge' | 'status'>('status');
+  const [activeTab, setActiveTab] = useState<'rate' | 'judge' | 'status'>('status');
+
+  // Round completion tracking
+  const [quizCompleted, setQuizCompleted] = useState<boolean>(false);
+  const [votingCompleted, setVotingCompleted] = useState<boolean>(false);
+  const [roundsLoading, setRoundsLoading] = useState<boolean>(true);
 
   // Rating form state
   const [toTeamId, setToTeamId] = useState<number | null>(null);
@@ -60,18 +55,82 @@ export default function FinalPage() {
 
   useEffect(() => {
     loadData();
+    checkRoundCompletion();
   }, [session]);
+
+  const checkRoundCompletion = async () => {
+    try {
+      setRoundsLoading(true);
+      
+      // Check if all teams have completed quiz and voting
+      const [teamsRes, quizRes, votingRes] = await Promise.all([
+        fetch('/api/teams'),
+        fetch('/api/quiz/submissions'),
+        fetch('/api/votes')
+      ]);
+
+      if (teamsRes.ok && quizRes.ok && votingRes.ok) {
+        const teams = await teamsRes.json();
+        const quizSubmissions = await quizRes.json();
+        const votes = await votingRes.json();
+
+        // Get all team IDs
+        const allTeamIds = teams.map((team: any) => team.id);
+        
+        // Check quiz completion - all teams should have submissions
+        const teamsWithQuizSubmissions = new Set(
+          quizSubmissions.submissions?.map((sub: any) => sub.teamId) || []
+        );
+        const allTeamsCompletedQuiz = allTeamIds.every((teamId: number) => 
+          teamsWithQuizSubmissions.has(teamId)
+        );
+
+        // Check voting completion - all teams should have voted
+        const teamsWithVotes = new Set(
+          votes.votes?.map((vote: any) => vote.fromTeamId) || []
+        );
+        const allTeamsCompletedVoting = allTeamIds.every((teamId: number) => 
+          teamsWithVotes.has(teamId)
+        );
+
+        setQuizCompleted(allTeamsCompletedQuiz);
+        setVotingCompleted(allTeamsCompletedVoting);
+      } else {
+        // Fallback to round status if submissions can't be checked
+        const roundsRes = await fetch('/api/rounds');
+        if (roundsRes.ok) {
+          const rounds = await roundsRes.json();
+          const quiz = rounds.find((r: any) => r.name === 'QUIZ');
+          const voting = rounds.find((r: any) => r.name === 'VOTING');
+          
+          setQuizCompleted(quiz?.status === 'COMPLETED' || quiz?.isCompleted || false);
+          setVotingCompleted(voting?.status === 'COMPLETED' || voting?.isCompleted || false);
+        }
+      }
+    } catch (error) {
+      console.error('Error checking round completion:', error);
+      // Default to locked state on error
+      setQuizCompleted(false);
+      setVotingCompleted(false);
+    } finally {
+      setRoundsLoading(false);
+    }
+  };
 
   const loadData = async () => {
     try {
       setLoading(true);
       
-      // Check final round status
-      const roundsRes = await fetch('/api/rounds');
-      if (roundsRes.ok) {
-        const rounds = await roundsRes.json();
-        const finalRound = rounds.find((r: any) => r.name === "FINAL");
-        setFinalRoundCompleted(finalRound?.status === "COMPLETED");
+      // Load qualified teams first
+      const qualifiedRes = await fetch('/api/final/qualified-teams');
+      if (qualifiedRes.ok) {
+        const qualifiedData = await qualifiedRes.json();
+        setQualifiedTeams(qualifiedData.qualifiedTeams || []);
+        setNonQualifiedTeams(qualifiedData.nonQualifiedTeams || []);
+        
+        // Check if current user's team is qualified
+        const userQualified = qualifiedData.qualifiedTeams.some((team: any) => team.teamId === userTeamId);
+        setIsQualified(userQualified);
       }
       
       // Load teams
@@ -81,15 +140,8 @@ export default function FinalPage() {
         setTeams(teamsData);
       }
 
-      // Load final pitches
-      const pitchesRes = await fetch('/api/final/pitches');
-      if (pitchesRes.ok) {
-        const pitchesData = await pitchesRes.json();
-        setFinalPitches(pitchesData.pitches || []);
-      }
-
-      // Load my ratings if user has a team
-      if (userTeamId) {
+      // Load my ratings if user has a team and is qualified
+      if (userTeamId && isQualified) {
         const ratingsRes = await fetch(`/api/final/ratings?fromTeamId=${userTeamId}`);
         if (ratingsRes.ok) {
           const ratingsData = await ratingsRes.json();
@@ -155,40 +207,6 @@ export default function FinalPage() {
     }
   };
 
-  const registerPitch = async () => {
-    if (!userTeamId) {
-      setMsg("You need to be part of a team to register for final pitch");
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await fetch("/api/final/pitches", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ teamId: userTeamId })
-      });
-
-      const data = await res.json();
-      
-      if (res.ok) {
-        setMsg("Final pitch registered successfully!");
-        // Reload pitches
-        const pitchesRes = await fetch('/api/final/pitches');
-        if (pitchesRes.ok) {
-          const pitchesData = await pitchesRes.json();
-          setFinalPitches(pitchesData.pitches || []);
-        }
-      } else {
-        setMsg(data?.error || "Failed to register pitch");
-      }
-    } catch (error) {
-      setMsg("Failed to register pitch");
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const submitJudgeScore = async () => {
     if (!judgeTeamId || !judgeScore || !judgeName.trim()) {
       setMsg("Please fill in all judge score fields");
@@ -223,33 +241,64 @@ export default function FinalPage() {
     }
   };
 
-  if (isPending || loading) return <div className="p-6">Loading...</div>;
+  if (isPending || loading || roundsLoading) return <div className="p-6">Loading...</div>;
   if (!session?.user) return <div className="p-6">Please sign in to access the final round.</div>;
 
-  // Show final round completed message
-  if (finalRoundCompleted) {
+  // Check if previous rounds are completed (only for non-admin users)
+  if (!isAdmin && (!quizCompleted || !votingCompleted)) {
     return (
       <div className="min-h-screen bg-background text-foreground p-6">
-        <div className="max-w-lg mx-auto">
-          <div className="rounded-lg border border-green-300 bg-green-50 p-8 text-center">
-            <div className="text-6xl mb-4">🏆</div>
-            <h2 className="text-2xl font-bold mb-4 text-green-800">Final Round Completed</h2>
-            <p className="text-green-700 mb-6">
-              The final round has been completed. No more registrations or ratings are being accepted.
-            </p>
-            <div className="space-y-3">
-              <Link
-                href="/dashboard"
-                className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-white hover:opacity-90"
-              >
-                Return to Dashboard
-              </Link>
-              <Link
-                href="/scoreboard"
-                className="inline-flex w-full items-center justify-center rounded-md border border-green-300 bg-white px-4 py-2 text-sm font-medium text-green-700 hover:bg-green-50"
-              >
-                View Final Results
-              </Link>
+        <div className="max-w-4xl mx-auto">
+          {/* Header with Back Button */}
+          <div className="flex items-center justify-between mb-6">
+            <div>
+              <h1 className="text-3xl font-bold mb-2">Round 3: Finals</h1>
+              <p className="text-muted-foreground">
+                Finals round is currently locked
+              </p>
+            </div>
+            <a 
+              href="/dashboard" 
+              className="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"
+            >
+              ← Back to Dashboard
+            </a>
+          </div>
+
+          {/* Lock Message */}
+          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <div className="flex items-center gap-3">
+              <div className="text-2xl">🔒</div>
+              <div>
+                <h2 className="text-lg font-semibold text-yellow-800 mb-2">Finals Round Locked</h2>
+                <p className="text-yellow-700 mb-4">
+                  The finals round will be unlocked once all teams have completed both the Quiz and Voting rounds.
+                </p>
+                
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${quizCompleted ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={quizCompleted ? 'text-green-700' : 'text-red-700'}>
+                      Quiz Round: {quizCompleted ? 'All teams completed ✓' : 'Waiting for all teams to complete ✗'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <div className={`w-3 h-3 rounded-full ${votingCompleted ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={votingCompleted ? 'text-green-700' : 'text-red-700'}>
+                      Voting Round: {votingCompleted ? 'All teams completed ✓' : 'Waiting for all teams to complete ✗'}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="mt-4">
+                  <button 
+                    onClick={checkRoundCompletion}
+                    className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                  >
+                    Check Again
+                  </button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -260,23 +309,57 @@ export default function FinalPage() {
   const availableTeams = teams.filter(team => team.id !== userTeamId);
   const ratedTeamIds = new Set(myRatings.map(r => r.toTeamId));
   const unratedTeams = availableTeams.filter(team => !ratedTeamIds.has(team.id));
-  const myTeamPitch = finalPitches.find(pitch => pitch.teamId === userTeamId);
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-6xl mx-auto">
-        {/* Back to Dashboard Button */}
-        <div className="mb-4">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Link>
+        {/* Header with Back Button */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-3xl font-bold mb-2">Round 3: Finals</h1>
+            <p className="text-muted-foreground">
+              {qualifiedTeams.length > 0 
+                ? `Top 5 qualified teams compete in the final round. ${teams.length - 5} teams in spectator mode.`
+                : "Submit 5-minute pitch presentations, rate peer teams (3-10), and receive judge scores."
+              }
+            </p>
+          </div>
+          <a 
+            href="/dashboard" 
+            className="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"
+          >
+            ← Back to Dashboard
+          </a>
         </div>
 
-        <h1 className="text-3xl font-bold mb-2">Round 3: Finals</h1>
-        <p className="text-muted-foreground mb-6">
-          Submit 5-minute pitch presentations, rate peer teams (3-10), and receive judge scores.
-        </p>
+        {/* Qualification Status Banner */}
+        {userTeamId && qualifiedTeams.length > 0 && (
+          <div className={`mb-6 p-4 rounded-lg border ${
+            isQualified 
+              ? 'bg-green-50 border-green-200 text-green-800' 
+              : 'bg-yellow-50 border-yellow-200 text-yellow-800'
+          }`}>
+            <div className="flex items-center gap-2">
+              <div className="text-xl">
+                {isQualified ? '🎉' : '👀'}
+              </div>
+              <div>
+                <p className="font-medium">
+                  {isQualified 
+                    ? '🏆 Congratulations! Your team qualified for the finals!' 
+                    : '📺 Spectator Mode - Your team can watch the final pitches'
+                  }
+                </p>
+                <p className="text-sm mt-1">
+                  {isQualified 
+                    ? 'You can register your pitch and rate other teams.'
+                    : 'Only the top 5 teams can participate and rate in the finals.'
+                  }
+                </p>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* Tab Navigation */}
         <div className="flex space-x-1 mb-6 bg-muted p-1 rounded-lg w-fit">
@@ -288,25 +371,15 @@ export default function FinalPage() {
           >
             Status Overview
           </button>
-          {userTeamId && (
-            <>
-              <button 
-                onClick={() => setActiveTab('register')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'register' ? 'bg-background shadow-sm' : 'hover:bg-background/50'
-                }`}
-              >
-                Register Pitch
-              </button>
-              <button 
-                onClick={() => setActiveTab('rate')}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                  activeTab === 'rate' ? 'bg-background shadow-sm' : 'hover:bg-background/50'
-                }`}
-              >
-                Rate Teams
-              </button>
-            </>
+          {userTeamId && isQualified && (
+            <button 
+              onClick={() => setActiveTab('rate')}
+              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                activeTab === 'rate' ? 'bg-background shadow-sm' : 'hover:bg-background/50'
+              }`}
+            >
+              Rate Teams
+            </button>
           )}
           {isAdmin && (
             <button 
@@ -323,54 +396,52 @@ export default function FinalPage() {
         {/* Status Overview Tab */}
         {activeTab === 'status' && (
           <div className="space-y-6">
-            {/* My Team Status */}
-            {userTeamId && (
+            {/* Qualified Teams */}
+            {qualifiedTeams.length > 0 && (
               <div className="rounded-lg border bg-card p-6">
-                <h2 className="text-xl font-semibold mb-4">Your Team Status</h2>
-                <div className="grid gap-4 md:grid-cols-2">
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Final Pitch Registration:</p>
-                    <p className={`text-sm ${myTeamPitch ? 'text-green-600' : 'text-orange-600'}`}>
-                      {myTeamPitch ? '✅ Registered' : '❌ Not registered'}
-                    </p>
-                    {myTeamPitch && (
-                      <p className="text-xs text-muted-foreground">
-                        Registered: {new Date(myTeamPitch.presentedAt).toLocaleString()}
-                      </p>
-                    )}
-                  </div>
-                  <div className="space-y-2">
-                    <p className="text-sm font-medium">Peer Ratings Submitted:</p>
-                    <p className="text-sm text-blue-600">
-                      {myRatings.length} rating{myRatings.length !== 1 ? 's' : ''} submitted
-                    </p>
-                    <p className="text-xs text-muted-foreground">
-                      {unratedTeams.length} team{unratedTeams.length !== 1 ? 's' : ''} available to rate
-                    </p>
-                  </div>
+                <h2 className="text-xl font-semibold mb-4">🏆 Top 5 Qualified Teams</h2>
+                <div className="grid gap-3">
+                  {qualifiedTeams.map((team, index) => (
+                    <div key={team.teamId} className="flex items-center justify-between p-3 rounded-lg bg-muted">
+                      <div className="flex items-center gap-3">
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                          index === 0 ? 'bg-yellow-500 text-white' :
+                          index === 1 ? 'bg-gray-400 text-white' :
+                          index === 2 ? 'bg-amber-600 text-white' :
+                          'bg-blue-500 text-white'
+                        }`}>
+                          #{team.rank}
+                        </div>
+                        <div>
+                          <p className="font-medium">{team.teamName}</p>
+                          <p className="text-sm text-muted-foreground">{team.college}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="font-medium">{team.combinedScore} pts</p>
+                        <p className="text-xs text-muted-foreground">Combined Score</p>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
             )}
 
-            {/* Final Pitches Status */}
-            <div className="rounded-lg border bg-card p-6">
-              <h2 className="text-xl font-semibold mb-4">Final Pitches ({finalPitches.length} teams registered)</h2>
-              {finalPitches.length > 0 ? (
-                <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
-                  {finalPitches.map((pitch) => (
-                    <div key={pitch.id} className="rounded-lg border bg-muted p-3">
-                      <h3 className="font-medium">{pitch.teamName}</h3>
-                      <p className="text-sm text-muted-foreground">{pitch.teamCollege}</p>
-                      <p className="text-xs text-muted-foreground mt-1">
-                        Registered: {new Date(pitch.presentedAt).toLocaleString()}
-                      </p>
-                    </div>
-                  ))}
+            {/* My Team Status */}
+            {userTeamId && isQualified && (
+              <div className="rounded-lg border bg-card p-6">
+                <h2 className="text-xl font-semibold mb-4">Your Team Status</h2>
+                <div className="space-y-2">
+                  <p className="text-sm font-medium">Peer Ratings Submitted:</p>
+                  <p className="text-sm text-blue-600">
+                    {myRatings.length} rating{myRatings.length !== 1 ? 's' : ''} submitted
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    {unratedTeams.length} team{unratedTeams.length !== 1 ? 's' : ''} available to rate
+                  </p>
                 </div>
-              ) : (
-                <p className="text-muted-foreground">No teams have registered for final pitches yet.</p>
-              )}
-            </div>
+              </div>
+            )}
 
             {/* My Ratings */}
             {userTeamId && myRatings.length > 0 && (
@@ -397,39 +468,6 @@ export default function FinalPage() {
                     );
                   })}
                 </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Register Pitch Tab */}
-        {activeTab === 'register' && userTeamId && (
-          <div className="rounded-lg border bg-card p-6">
-            <h2 className="text-xl font-semibold mb-4">Register Final Pitch</h2>
-            {myTeamPitch ? (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-                <div className="flex items-center">
-                  <div className="text-green-600 mr-3">✅</div>
-                  <div>
-                    <p className="font-medium text-green-800">Your team is already registered for the final pitch</p>
-                    <p className="text-sm text-green-600">
-                      Registered on: {new Date(myTeamPitch.presentedAt).toLocaleString()}
-                    </p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div>
-                <p className="text-muted-foreground mb-4">
-                  Click the button below to register your team for the 5-minute final pitch presentation.
-                </p>
-                <button 
-                  onClick={registerPitch}
-                  disabled={loading}
-                  className="bg-primary hover:bg-primary/90 text-primary-foreground px-6 py-2 rounded-md font-medium disabled:opacity-50"
-                >
-                  {loading ? 'Registering...' : 'Register for Final Pitch'}
-                </button>
               </div>
             )}
           </div>

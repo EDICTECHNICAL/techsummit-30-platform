@@ -49,8 +49,29 @@ export async function POST(request: NextRequest) {
     if (finalRound.length === 0) {
       return NextResponse.json({ 
         error: 'Final round is not currently active', 
-        code: 'FINAL_NOT_ACTIVE' 
-      }, { status: 400 });
+        code: 'FINAL_ROUND_NOT_ACTIVE' 
+      }, { status: 403 });
+    }
+
+    // Check if the rating team is qualified (only for non-admin users)
+    if (!authUser.isAdmin) {
+      try {
+        const qualifiedRes = await fetch(`${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/final/qualified-teams`);
+        if (qualifiedRes.ok) {
+          const qualifiedData = await qualifiedRes.json();
+          const isQualified = qualifiedData.qualifiedTeams.some((team: any) => team.teamId === fromTeamId);
+          
+          if (!isQualified) {
+            return NextResponse.json({ 
+              error: 'Only top 5 qualified teams can submit peer ratings', 
+              code: 'TEAM_NOT_QUALIFIED' 
+            }, { status: 403 });
+          }
+        }
+      } catch (error) {
+        console.error('Error checking team qualification:', error);
+        // Continue if qualification check fails (fallback to allow rating)
+      }
     }
 
     // Cannot rate own team

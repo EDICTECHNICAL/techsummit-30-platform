@@ -97,7 +97,6 @@ export const options = pgTable('options', {
   tokenDeltaCapital: integer('token_delta_capital').notNull().default(0),
   tokenDeltaTeam: integer('token_delta_team').notNull().default(0),
   tokenDeltaStrategy: integer('token_delta_strategy').notNull().default(0),
-  totalScoreDelta: integer('total_score_delta').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow()
 });
 
@@ -107,11 +106,16 @@ export const quizSubmissions = pgTable('quiz_submissions', {
   teamId: integer('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
   memberCount: integer('member_count').notNull().default(5),
   answers: json('answers').notNull(), // [{questionId, optionId}]
-  rawScore: integer('raw_score').notNull(),
-  tokensMarketing: integer('tokens_marketing').notNull().default(0),
+  rawScore: integer('raw_score').notNull(), // Total score from all questions
+  tokensMarketing: integer('tokens_marketing').notNull().default(0), // Original tokens earned
   tokensCapital: integer('tokens_capital').notNull().default(0),
   tokensTeam: integer('tokens_team').notNull().default(0),
   tokensStrategy: integer('tokens_strategy').notNull().default(0),
+  // Remaining tokens after conversions
+  remainingMarketing: integer('remaining_marketing').notNull().default(0),
+  remainingCapital: integer('remaining_capital').notNull().default(0),
+  remainingTeam: integer('remaining_team').notNull().default(0),
+  remainingStrategy: integer('remaining_strategy').notNull().default(0),
   durationSeconds: integer('duration_seconds').notNull(),
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow()
 });
@@ -162,11 +166,21 @@ export const peerRatings = pgTable('peer_ratings', {
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow()
 });
 
-// Judge scores
+// Judge scores for final evaluation
 export const judgeScores = pgTable('judge_scores', {
   id: serial('id').primaryKey(),
   judgeName: text('judge_name').notNull(),
   teamId: integer('team_id').notNull().references(() => teams.id, { onDelete: 'cascade' }),
   score: integer('score').notNull(),
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow()
+});
+
+// System settings for configuration management
+export const systemSettings = pgTable('system_settings', {
+  id: serial('id').primaryKey(),
+  key: text('key').notNull().unique(),
+  value: text('value').notNull(),
+  description: text('description'),
+  createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
+  updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow()
 });

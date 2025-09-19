@@ -135,44 +135,47 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Calculate score and tokens
-    let rawScore = 0;
+    // Calculate tokens and raw score
     let tokensMarketing = 0;
     let tokensCapital = 0;
     let tokensTeam = 0;
     let tokensStrategy = 0;
+    let rawScore = 0;
 
     for (const answer of answers) {
       const option = optionsData.find(o => o.id === answer.optionId);
       if (option) {
-        rawScore += option.totalScoreDelta;
         tokensMarketing += option.tokenDeltaMarketing;
         tokensCapital += option.tokenDeltaCapital;
         tokensTeam += option.tokenDeltaTeam;
         tokensStrategy += option.tokenDeltaStrategy;
+        
+        // Calculate raw score as sum of all token deltas
+        rawScore += option.tokenDeltaMarketing + option.tokenDeltaCapital + option.tokenDeltaTeam + option.tokenDeltaStrategy;
       }
     }
-
-    // Apply ceiling to raw score (max 60 points)
-    const finalScore = Math.min(Math.ceil(rawScore), 60);
 
     // Create quiz submission
     const newSubmission = await db.insert(quizSubmissions).values({
       teamId: teamId,
       memberCount: 5,
       answers: answers,
-      rawScore: finalScore,
+      rawScore: rawScore,
       tokensMarketing: tokensMarketing,
       tokensCapital: tokensCapital,
       tokensTeam: tokensTeam,
       tokensStrategy: tokensStrategy,
+      // Initialize remaining tokens to be same as earned tokens
+      remainingMarketing: tokensMarketing,
+      remainingCapital: tokensCapital,
+      remainingTeam: tokensTeam,
+      remainingStrategy: tokensStrategy,
       durationSeconds: durationSeconds,
       createdAt: new Date(),
     }).returning();
 
     return NextResponse.json({
       submission: newSubmission[0],
-      calculatedScore: finalScore,
       tokens: {
         marketing: tokensMarketing,
         capital: tokensCapital,

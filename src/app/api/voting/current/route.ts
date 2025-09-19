@@ -16,10 +16,36 @@ let votingState: {
   team: VotingTeam;
   votingActive: boolean;
   allPitchesCompleted: boolean;
+  // Pitch cycle state
+  pitchCycleActive: boolean;
+  currentPhase: 'idle' | 'pitching' | 'preparing' | 'voting';
+  phaseTimeLeft: number;
+  cycleStartTime: number | null;
 } = {
   team: null,
   votingActive: false,
   allPitchesCompleted: false,
+  pitchCycleActive: false,
+  currentPhase: 'idle',
+  phaseTimeLeft: 0,
+  cycleStartTime: null,
+};
+
+// Auto-timeout functionality
+let votingTimeout: NodeJS.Timeout | null = null;
+
+const autoDisableVoting = () => {
+  if (votingTimeout) {
+    clearTimeout(votingTimeout);
+  }
+  
+  votingTimeout = setTimeout(() => {
+    if (votingState.votingActive) {
+      votingState.votingActive = false;
+      console.log('Auto-disabled voting after 30 seconds timeout');
+    }
+    votingTimeout = null;
+  }, 30000); // 30 seconds
 };
 
 // GET handler - Get current voting state (public endpoint)
@@ -126,15 +152,45 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const { votingActive, allPitchesCompleted } = await request.json();
+    const { votingActive, allPitchesCompleted, pitchCycleActive, currentPhase, phaseTimeLeft, cycleStartTime } = await request.json();
     
     // Update voting state
     if (typeof votingActive === 'boolean') {
       votingState.votingActive = votingActive;
+      
+      // Start auto-timeout when voting is activated (only if not part of pitch cycle)
+      if (votingActive && !votingState.pitchCycleActive) {
+        autoDisableVoting();
+        console.log('Voting activated - auto-timeout set for 30 seconds');
+      } else {
+        // Clear timeout if voting is manually disabled
+        if (votingTimeout) {
+          clearTimeout(votingTimeout);
+          votingTimeout = null;
+          console.log('Voting manually disabled - auto-timeout cleared');
+        }
+      }
     }
     
     if (typeof allPitchesCompleted === 'boolean') {
       votingState.allPitchesCompleted = allPitchesCompleted;
+    }
+
+    // Update pitch cycle state
+    if (typeof pitchCycleActive === 'boolean') {
+      votingState.pitchCycleActive = pitchCycleActive;
+    }
+    
+    if (currentPhase && ['idle', 'pitching', 'preparing', 'voting'].includes(currentPhase)) {
+      votingState.currentPhase = currentPhase;
+    }
+    
+    if (typeof phaseTimeLeft === 'number') {
+      votingState.phaseTimeLeft = phaseTimeLeft;
+    }
+    
+    if (typeof cycleStartTime === 'number' || cycleStartTime === null) {
+      votingState.cycleStartTime = cycleStartTime;
     }
     
     return NextResponse.json({

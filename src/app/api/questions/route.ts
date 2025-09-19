@@ -20,7 +20,6 @@ export async function GET(request: NextRequest) {
         tokenDeltaCapital: options.tokenDeltaCapital,
         tokenDeltaTeam: options.tokenDeltaTeam,
         tokenDeltaStrategy: options.tokenDeltaStrategy,
-        totalScoreDelta: options.totalScoreDelta,
       })
       .from(questions)
       .leftJoin(options, eq(questions.id, options.questionId))
@@ -51,7 +50,6 @@ export async function GET(request: NextRequest) {
           tokenDeltaCapital: row.tokenDeltaCapital,
           tokenDeltaTeam: row.tokenDeltaTeam,
           tokenDeltaStrategy: row.tokenDeltaStrategy,
-          totalScoreDelta: row.totalScoreDelta,
         });
       }
     }

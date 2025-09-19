@@ -12,21 +12,29 @@ export default function AdminPage() {
   const [currentPitchTeamId, setCurrentPitchTeamId] = useState<number | null>(null);
   const [votingActive, setVotingActive] = useState(false);
   const [allPitchesCompleted, setAllPitchesCompleted] = useState(false);
+  
+  // Pitch cycle state
+  const [pitchCycleActive, setPitchCycleActive] = useState(false);
+  const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'preparing' | 'voting'>('idle');
+  const [phaseTimeLeft, setPhaseTimeLeft] = useState<number>(0);
+  const [cycleStartTime, setCycleStartTime] = useState<number | null>(null);
+  const [finalRoundStats, setFinalRoundStats] = useState<any>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [stats, setStats] = useState<any>({});
-  const [activeTab, setActiveTab] = useState<'rounds' | 'voting' | 'teams' | 'users' | 'quiz' | 'analytics' | 'system'>('rounds');
+  const [activeTab, setActiveTab] = useState<'rounds' | 'voting' | 'final' | 'teams' | 'users' | 'quiz' | 'analytics' | 'system'>('rounds');
   const [quizSettings, setQuizSettings] = useState<any>({});
   const [systemStatus, setSystemStatus] = useState<any>({});
+  const [systemSettings, setSystemSettings] = useState<any>({});
   const [showQuestionForm, setShowQuestionForm] = useState(false);
   const [editingQuestion, setEditingQuestion] = useState<any>(null);
   const [questionFormData, setQuestionFormData] = useState({
     text: '',
     maxTokenPerQuestion: 4,
     options: [
-      { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 },
-      { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 }
+      { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0 },
+      { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0 }
     ]
   });
 
@@ -55,7 +63,7 @@ export default function AdminPage() {
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      const [roundsRes, teamsRes, usersRes, questionsRes, votingRes, pitchRes, statsRes, quizRes, systemRes, adminQuestionsRes] = await Promise.all([
+      const [roundsRes, teamsRes, usersRes, questionsRes, votingRes, pitchRes, statsRes, quizRes, systemRes, adminQuestionsRes, finalStatsRes, systemSettingsRes] = await Promise.all([
         fetch("/api/rounds"),
         fetch("/api/teams"),
         fetch("/api/admin/users"),
@@ -65,7 +73,9 @@ export default function AdminPage() {
         fetch("/api/admin/stats"),
         fetch("/api/admin/quiz-settings"),
         fetch("/api/admin/system-status"),
-        fetch("/api/admin/questions")
+        fetch("/api/admin/questions"),
+        fetch("/api/admin/final-stats"),
+        fetch("/api/admin/system-settings")
       ]);
 
       if (roundsRes.ok) {
@@ -119,6 +129,18 @@ export default function AdminPage() {
         setSystemStatus(systemData || {});
       }
 
+      if (finalStatsRes.ok) {
+        const finalStatsData = await finalStatsRes.json();
+        setFinalRoundStats(finalStatsData || {});
+        // Merge final stats into main stats for display
+        setStats((prev: any) => ({ ...prev, ...finalStatsData }));
+      }
+
+      if (systemSettingsRes.ok) {
+        const systemSettingsData = await systemSettingsRes.json();
+        setSystemSettings(systemSettingsData || {});
+      }
+
       setSuccess("Data refreshed successfully");
     } catch (err) {
       setError("Failed to fetch data");
@@ -137,16 +159,6 @@ export default function AdminPage() {
     setLoading(true);
     setError(null);
     
-    // Check if trying to complete an already completed round
-    if (status === "COMPLETED") {
-      const currentRound = rounds.find(r => r.id === roundId);
-      if (currentRound && currentRound.status === "COMPLETED") {
-        setError(`Round "${currentRound.name}" is already completed`);
-        setLoading(false);
-        return;
-      }
-    }
-    
     try {
       const res = await fetch("/api/rounds", {
         method: "PATCH",
@@ -161,11 +173,7 @@ export default function AdminPage() {
       
       // Get round name for success message
       const roundName = rounds.find(r => r.id === roundId)?.name || `Round ${roundId}`;
-      if (status === "COMPLETED") {
-        setSuccess(`Round "${roundName}" has been completed successfully`);
-      } else {
-        setSuccess(`Round "${roundName}" status updated to ${status}`);
-      }
+      setSuccess(`Round "${roundName}" status updated to ${status}`);
     } catch (e: any) {
       setError(e?.message || "Failed to update round");
     } finally {
@@ -219,24 +227,119 @@ export default function AdminPage() {
   };
 
   const completeAllPitches = async () => {
-    // Check if pitches are already completed
-    if (allPitchesCompleted) {
-      setError("All pitches are already completed");
-      return;
-    }
-    
     try {
-      setAllPitchesCompleted(true);
+      const newStatus = !allPitchesCompleted;
+      setAllPitchesCompleted(newStatus);
       await fetch("/api/voting/current", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ allPitchesCompleted: true })
+        body: JSON.stringify({ allPitchesCompleted: newStatus })
       });
-      setSuccess("All pitches marked as completed successfully");
+      setSuccess(newStatus ? "All pitches marked as completed" : "All pitches marked as incomplete");
     } catch (err) {
-      setError("Failed to complete pitches");
+      setError("Failed to update pitch status");
     }
   };
+
+  // Pitch cycle management functions
+  const startPitchCycle = async () => {
+    if (!currentPitchTeamId) {
+      setError("Please select a team first");
+      return;
+    }
+
+    try {
+      setPitchCycleActive(true);
+      setCurrentPhase('pitching');
+      setPhaseTimeLeft(90);
+      setCycleStartTime(Date.now());
+      
+      // Update backend to start pitch cycle
+      await fetch("/api/voting/current", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          pitchCycleActive: true,
+          currentPhase: 'pitching',
+          phaseTimeLeft: 90,
+          cycleStartTime: Date.now()
+        })
+      });
+      
+      setSuccess("Pitch cycle started - 90 seconds for pitch presentation");
+    } catch (err) {
+      setError("Failed to start pitch cycle");
+      setPitchCycleActive(false);
+      setCurrentPhase('idle');
+    }
+  };
+
+  const endPitchCycle = async () => {
+    try {
+      setPitchCycleActive(false);
+      setCurrentPhase('idle');
+      setPhaseTimeLeft(0);
+      setCycleStartTime(null);
+      setVotingActive(false);
+      
+      // Update backend to end pitch cycle
+      await fetch("/api/voting/current", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          pitchCycleActive: false,
+          currentPhase: 'idle',
+          phaseTimeLeft: 0,
+          votingActive: false 
+        })
+      });
+      
+      setSuccess("Pitch cycle ended");
+    } catch (err) {
+      setError("Failed to end pitch cycle");
+    }
+  };
+
+  // Pitch cycle timer effect
+  useEffect(() => {
+    if (!pitchCycleActive || !cycleStartTime) return;
+
+    const timer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - cycleStartTime) / 1000);
+      
+      if (elapsed < 90) {
+        // Pitching phase (90 seconds)
+        setCurrentPhase('pitching');
+        setPhaseTimeLeft(90 - elapsed);
+      } else if (elapsed < 95) {
+        // Preparation phase (5 seconds)
+        if (currentPhase !== 'preparing') {
+          setCurrentPhase('preparing');
+          setSuccess("Preparation time - teams get ready to vote!");
+        }
+        setPhaseTimeLeft(95 - elapsed);
+      } else if (elapsed < 125) {
+        // Voting phase (30 seconds)
+        if (currentPhase !== 'voting') {
+          setCurrentPhase('voting');
+          setVotingActive(true);
+          // Start voting on backend
+          fetch("/api/voting/current", {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ votingActive: true })
+          }).catch(console.error);
+          setSuccess("Voting is now active - 30 seconds remaining!");
+        }
+        setPhaseTimeLeft(125 - elapsed);
+      } else {
+        // Cycle complete
+        endPitchCycle();
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [pitchCycleActive, cycleStartTime, currentPhase]);
 
   // Team management functions
   const updateTeamStatus = async (teamId: number, status: 'ACTIVE' | 'INACTIVE') => {
@@ -303,7 +406,7 @@ export default function AdminPage() {
   };
 
   const resetAllQuizzes = async () => {
-    if (!confirm("Are you sure you want to reset all quiz progress? This will clear all user answers and scores.")) return;
+    if (!confirm("Are you sure you want to reset all quiz progress? This will clear all user answers and token data.")) return;
     try {
       const res = await fetch("/api/admin/reset-quizzes", {
         method: "POST"
@@ -324,8 +427,8 @@ export default function AdminPage() {
         text: question.text,
         maxTokenPerQuestion: question.maxTokenPerQuestion,
         options: question.options.length > 0 ? question.options : [
-          { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 },
-          { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 }
+          { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0 },
+          { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0 }
         ]
       });
     } else {
@@ -334,8 +437,8 @@ export default function AdminPage() {
         text: '',
         maxTokenPerQuestion: 4,
         options: [
-          { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 },
-          { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 }
+          { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0 },
+          { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0 }
         ]
       });
     }
@@ -350,7 +453,7 @@ export default function AdminPage() {
   const addOption = () => {
     setQuestionFormData(prev => ({
       ...prev,
-      options: [...prev.options, { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0, totalScoreDelta: 0 }]
+      options: [...prev.options, { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0 }]
     }));
   };
 
@@ -433,6 +536,29 @@ export default function AdminPage() {
   };
 
   // System management functions
+  const updateSystemSetting = async (key: string, value: string) => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/admin/system-settings", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ key, value })
+      });
+      
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to update setting");
+      }
+      
+      await fetchAllData();
+      setSuccess(`Setting '${key}' updated successfully`);
+    } catch (err: any) {
+      setError(err.message || "Failed to update setting");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const clearAllCache = async () => {
     try {
       const res = await fetch("/api/admin/clear-cache", {
@@ -469,8 +595,8 @@ export default function AdminPage() {
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {rounds.map((r) => (
               <div key={r.id} className={`rounded-lg border p-4 ${
-                r.status === 'COMPLETED' ? 'border-green-300 bg-green-50' : 
-                r.status === 'ACTIVE' ? 'border-blue-300 bg-blue-50' : 
+                r.status === 'COMPLETED' ? 'border-green-300 bg-green-700' : 
+                r.status === 'ACTIVE' ? 'border-blue-300 bg-blue-700' : 
                 'border-border bg-card'
               }`}>
                 <div className="flex items-center justify-between">
@@ -491,34 +617,30 @@ export default function AdminPage() {
                 </div>
                 {r.status === 'COMPLETED' && (
                   <div className="mt-2 text-xs text-green-700 font-medium">
-                    This round has been completed
+                    This round is currently completed (can be changed)
                   </div>
                 )}
                 <div className="mt-4 flex flex-wrap gap-2">
                   <button 
-                    disabled={loading || r.status === 'COMPLETED'} 
+                    disabled={loading} 
                     onClick={() => updateRound(r.id, "PENDING")} 
-                    className="rounded-md border border-border px-3 py-1 text-sm text-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="rounded-md border border-border px-3 py-1 text-sm text-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Set Pending
                   </button>
                   <button 
-                    disabled={loading || r.status === 'COMPLETED'} 
+                    disabled={loading} 
                     onClick={() => updateRound(r.id, "ACTIVE")} 
-                    className="rounded-md border border-border px-3 py-1 text-sm text-black hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="rounded-md border border-border px-3 py-1 text-sm text-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     Start
                   </button>
                   <button 
-                    disabled={loading || r.status === 'COMPLETED'} 
+                    disabled={loading} 
                     onClick={() => updateRound(r.id, "COMPLETED")} 
-                    className={`rounded-md border px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed ${
-                      r.status === 'COMPLETED' 
-                        ? 'border-green-300 bg-green-100 text-green-700 cursor-not-allowed' 
-                        : 'border-border text-black hover:bg-gray-50'
-                    }`}
+                    className="rounded-md border border-border px-3 py-1 text-sm text-white hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {r.status === 'COMPLETED' ? 'Completed ✅' : 'Complete'}
+                    Complete
                   </button>
                 </div>
               </div>
@@ -530,7 +652,7 @@ export default function AdminPage() {
         return (
           <div className="space-y-6">
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="font-semibold mb-4">Voting Control</h3>
+              <h3 className="font-semibold mb-4">Pitch Cycle Control</h3>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
                   <label className="block text-sm mb-2">Select Pitching Team</label>
@@ -538,6 +660,7 @@ export default function AdminPage() {
                     value={currentPitchTeamId ?? ''} 
                     onChange={e => setPitchTeam(Number(e.target.value))} 
                     className="w-full rounded-md border px-3 py-2 bg-background"
+                    disabled={pitchCycleActive}
                   >
                     <option value={''}>-- Select Team --</option>
                     {teams.map(t => (
@@ -550,14 +673,74 @@ export default function AdminPage() {
                     Current: {currentPitchTeamId ? teams.find(t => t.id === currentPitchTeamId)?.name : 'None'}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Status: {votingActive ? '🟢 Voting Active' : '🔴 Voting Inactive'}
+                    Cycle Status: {pitchCycleActive ? '🟢 Active' : '🔴 Inactive'}
                   </div>
+                  {pitchCycleActive && (
+                    <div className="text-sm font-medium">
+                      Phase: <span className="capitalize">{currentPhase}</span> ({phaseTimeLeft}s remaining)
+                    </div>
+                  )}
                 </div>
               </div>
+
+              {/* Pitch Cycle Timer Display */}
+              {pitchCycleActive && (
+                <div className="mt-6 p-4 bg-blue-50 rounded-lg border">
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className="font-medium text-blue-900">
+                      {currentPhase === 'pitching' && '🎤 Pitch Presentation'}
+                      {currentPhase === 'preparing' && '⏳ Get Ready to Vote'}
+                      {currentPhase === 'voting' && '�️ Voting Time'}
+                    </h4>
+                    <div className="text-2xl font-bold text-blue-800">
+                      {phaseTimeLeft}s
+                    </div>
+                  </div>
+                  <div className="w-full bg-blue-200 rounded-full h-3">
+                    <div 
+                      className={`h-3 rounded-full transition-all duration-1000 ${
+                        currentPhase === 'pitching' ? 'bg-green-500' :
+                        currentPhase === 'preparing' ? 'bg-yellow-500' :
+                        'bg-blue-500'
+                      }`}
+                      style={{ 
+                        width: `${
+                          currentPhase === 'pitching' ? (phaseTimeLeft / 90) * 100 :
+                          currentPhase === 'preparing' ? (phaseTimeLeft / 5) * 100 :
+                          (phaseTimeLeft / 30) * 100
+                        }%` 
+                      }}
+                    ></div>
+                  </div>
+                  <div className="mt-2 text-xs text-blue-700">
+                    {currentPhase === 'pitching' && 'Team is presenting their pitch (90 seconds)'}
+                    {currentPhase === 'preparing' && 'Teams prepare to vote (5 seconds)'}
+                    {currentPhase === 'voting' && 'Teams can now vote (30 seconds)'}
+                  </div>
+                </div>
+              )}
+
               <div className="flex gap-2 mt-4">
-                <button onClick={startVoting} disabled={!currentPitchTeamId || votingActive} className="rounded-md bg-green-600 px-4 py-2 text-white font-bold disabled:opacity-50">Start 30s Voting</button>
-                <button onClick={endVoting} disabled={!votingActive} className="rounded-md bg-red-600 px-4 py-2 text-white font-bold disabled:opacity-50">End Voting</button>
-                <button onClick={completeAllPitches} disabled={allPitchesCompleted} className="rounded-md bg-purple-600 px-4 py-2 text-white font-bold disabled:opacity-50">Complete All Pitches</button>
+                <button 
+                  onClick={startPitchCycle} 
+                  disabled={!currentPitchTeamId || pitchCycleActive} 
+                  className="rounded-md bg-green-600 px-4 py-2 text-white font-bold disabled:opacity-50"
+                >
+                  Start Pitch Cycle
+                </button>
+                <button 
+                  onClick={endPitchCycle} 
+                  disabled={!pitchCycleActive} 
+                  className="rounded-md bg-red-600 px-4 py-2 text-white font-bold disabled:opacity-50"
+                >
+                  End Cycle
+                </button>
+                <button 
+                  onClick={completeAllPitches} 
+                  className="rounded-md bg-purple-600 px-4 py-2 text-white font-bold"
+                >
+                  {allPitchesCompleted ? 'Mark Pitches Incomplete' : 'Complete All Pitches'}
+                </button>
               </div>
             </div>
             
@@ -576,6 +759,79 @@ export default function AdminPage() {
                   <div className="text-2xl font-bold">{stats.completedPitches || 0}</div>
                   <div className="text-sm text-muted-foreground">Completed Pitches</div>
                 </div>
+              </div>
+            </div>
+          </div>
+        );
+
+      case 'final':
+        return (
+          <div className="space-y-6">
+            <div className="rounded-lg border border-border bg-card p-6">
+              <h3 className="font-semibold mb-4">Final Round Control</h3>
+              <div className="grid gap-4">
+                <div>
+                  <h4 className="font-medium mb-2">Round Status</h4>
+                  <div className="text-sm text-muted-foreground">
+                    Final Round: {rounds.find(r => r.name === 'FINAL')?.status || 'Not Found'}
+                  </div>
+                </div>
+                
+                <div className="flex gap-2">
+                  <button 
+                    onClick={() => {
+                      const finalRound = rounds.find(r => r.name === 'FINAL');
+                      if (finalRound) updateRound(finalRound.id, 'ACTIVE');
+                    }}
+                    disabled={loading || rounds.find(r => r.name === 'FINAL')?.status === 'ACTIVE'}
+                    className="rounded-md bg-green-600 px-4 py-2 text-white font-bold disabled:opacity-50"
+                  >
+                    Activate Final Round
+                  </button>
+                  <button 
+                    onClick={() => {
+                      const finalRound = rounds.find(r => r.name === 'FINAL');
+                      if (finalRound) updateRound(finalRound.id, 'COMPLETED');
+                    }}
+                    disabled={loading || rounds.find(r => r.name === 'FINAL')?.status === 'COMPLETED'}
+                    className="rounded-md bg-purple-600 px-4 py-2 text-white font-bold disabled:opacity-50"
+                  >
+                    Complete Final Round
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-6">
+              <h3 className="font-semibold mb-4">Final Pitch Registration</h3>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{stats.finalPitches || 0}</div>
+                  <div className="text-sm text-muted-foreground">Registered Teams</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{stats.peerRatings || 0}</div>
+                  <div className="text-sm text-muted-foreground">Peer Ratings</div>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{stats.judgeScores || 0}</div>
+                  <div className="text-sm text-muted-foreground">Judge Scores</div>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border bg-card p-6">
+              <h3 className="font-semibold mb-4">Quick Actions</h3>
+              <div className="flex flex-wrap gap-2">
+                <a href="/final" className="rounded-md bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700">
+                  View Final Round
+                </a>
+                <a href="/judge" className="rounded-md bg-green-600 px-4 py-2 text-white font-medium hover:bg-green-700">
+                  Judge Console
+                </a>
+                <a href="/scoreboard" className="rounded-md bg-purple-600 px-4 py-2 text-white font-medium hover:bg-purple-700">
+                  Final Scoreboard
+                </a>
               </div>
             </div>
           </div>
@@ -739,7 +995,7 @@ export default function AdminPage() {
 
             <div className="rounded-lg border border-border bg-card p-6">
               <h3 className="font-semibold mb-4 text-white">Quiz Statistics</h3>
-              <div className="grid gap-4 md:grid-cols-4">
+              <div className="grid gap-4 md:grid-cols-2">
                 <div className="text-center">
                   <div className="text-2xl font-bold text-white">{stats.quizAttempts || 0}</div>
                   <div className="text-sm text-white">Quiz Attempts</div>
@@ -747,14 +1003,6 @@ export default function AdminPage() {
                 <div className="text-center">
                   <div className="text-2xl font-bold text-white">{stats.completedQuizzes || 0}</div>
                   <div className="text-sm text-white">Completed</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-white">{stats.averageScore || 0}%</div>
-                  <div className="text-sm text-white">Average Score</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold text-white">{stats.highestScore || 0}%</div>
-                  <div className="text-sm text-white">Highest Score</div>
                 </div>
               </div>
             </div>
@@ -866,15 +1114,6 @@ export default function AdminPage() {
                                     className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
                                   />
                                 </div>
-                                <div>
-                                  <label className="block text-xs mb-1 text-black">Score</label>
-                                  <input 
-                                    type="number"
-                                    value={option.totalScoreDelta}
-                                    onChange={e => updateOption(index, 'totalScoreDelta', Number(e.target.value))}
-                                    className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
-                                  />
-                                </div>
                               </div>
                             </div>
                           </div>
@@ -957,6 +1196,51 @@ export default function AdminPage() {
       case 'system':
         return (
           <div className="space-y-6">
+            <div className="rounded-lg border border-border bg-card p-6">
+              <h3 className="font-semibold mb-4">Registration Settings</h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-sm font-medium mb-2">
+                    Team Registration Deadline
+                  </label>
+                  <div className="flex gap-2">
+                    <input
+                      type="datetime-local"
+                      value={systemSettings.registration_deadline?.value || ''}
+                      onChange={(e) => {
+                        const value = e.target.value;
+                        updateSystemSetting('registration_deadline', value);
+                      }}
+                      className="flex-1 rounded-md border px-3 py-2 bg-background"
+                    />
+                    <button
+                      onClick={() => updateSystemSetting('registration_deadline', '')}
+                      className="rounded-md border border-border px-3 py-2 text-sm hover:bg-accent"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {systemSettings.registration_deadline?.value 
+                      ? `Registration closes on ${new Date(systemSettings.registration_deadline.value).toLocaleString()}`
+                      : 'Registration is currently open indefinitely'
+                    }
+                  </p>
+                </div>
+                <div className="rounded-lg bg-muted p-3">
+                  <h4 className="font-medium text-sm">Registration Status</h4>
+                  <p className="text-sm text-muted-foreground mt-1">
+                    {systemSettings.registration_deadline?.value 
+                      ? (new Date() > new Date(systemSettings.registration_deadline.value)
+                          ? '🔴 Registration Closed - Deadline has passed'
+                          : '🟢 Registration Open - Deadline set')
+                      : '🟢 Registration Open - No deadline set'
+                    }
+                  </p>
+                </div>
+              </div>
+            </div>
+            
             <div className="rounded-lg border border-border bg-card p-6">
               <h3 className="font-semibold mb-4">System Operations</h3>
               <div className="grid gap-4 md:grid-cols-2">
@@ -1046,6 +1330,7 @@ export default function AdminPage() {
             {[
               { id: 'rounds', label: 'Rounds', icon: '🎯' },
               { id: 'voting', label: 'Voting', icon: '🗳️' },
+              { id: 'final', label: 'Final Round', icon: '🏆' },
               { id: 'teams', label: 'Teams', icon: '👥' },
               { id: 'users', label: 'Users', icon: '👤' },
               { id: 'quiz', label: 'Quiz', icon: '❓' },

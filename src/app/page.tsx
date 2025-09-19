@@ -81,6 +81,10 @@ export default function HomePage() {
             <h4 className="font-semibold">Admin Console</h4>
             <p className="mt-2 text-sm text-muted-foreground">Control round status, manage questions, and oversee the event.</p>
           </Link>
+          <Link href="/judge" className="group rounded-lg border border-border p-6 hover:bg-accent">
+            <h4 className="font-semibold">Judge Console</h4>
+            <p className="mt-2 text-sm text-muted-foreground">Score team presentations and evaluate final round performances.</p>
+          </Link>
         </div>
       </section>
 

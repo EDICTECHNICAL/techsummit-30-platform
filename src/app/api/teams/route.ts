@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '../../../db/index';
-import { teams, user } from '../../../db/schema';
+import { teams, user, systemSettings } from '../../../db/schema';
 import { eq, sql } from 'drizzle-orm';
 import { authenticateRequest } from '@/lib/auth-middleware';
 
@@ -46,6 +46,26 @@ export async function POST(request: NextRequest) {
         error: 'Authentication required', 
         code: 'UNAUTHENTICATED' 
       }, { status: 401 });
+    }
+
+    // Check registration deadline
+    const deadlineSetting = await db
+      .select()
+      .from(systemSettings)
+      .where(eq(systemSettings.key, 'registration_deadline'))
+      .limit(1);
+
+    if (deadlineSetting.length > 0 && deadlineSetting[0].value) {
+      const deadline = new Date(deadlineSetting[0].value);
+      const now = new Date();
+      
+      if (!isNaN(deadline.getTime()) && now > deadline) {
+        return NextResponse.json({ 
+          error: 'Team registration deadline has passed. Registration is now closed.', 
+          code: 'REGISTRATION_DEADLINE_PASSED',
+          deadline: deadline.toISOString()
+        }, { status: 403 });
+      }
     }
 
     const { name, college } = await request.json();

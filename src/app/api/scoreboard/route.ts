@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { teams, quizSubmissions, votes, tokenConversions, peerRatings, judgeScores } from '@/db/schema';
 import { eq, sum, count, avg, sql } from 'drizzle-orm';
 
-// GET handler - Generate comprehensive scoreboard
+// GET handler - Generate token-based leaderboard with cumulative scoring
 export async function GET(request: NextRequest) {
   try {
     // Get all teams
@@ -11,26 +11,37 @@ export async function GET(request: NextRequest) {
     
     if (allTeams.length === 0) {
       return NextResponse.json({
-        scoreboard: [],
+        leaderboard: [],
         metadata: {
           totalTeams: 0,
           generatedAt: new Date().toISOString(),
-          message: 'No teams found',
+          focus: 'Token-based competition with cumulative scoring',
+          rankingCriteria: ['Total cumulative score from tokens and judge scores', 'Total votes as tiebreaker'],
+          participation: {
+            quizSubmissions: 0,
+            votingParticipation: 0,
+            peerRatings: 0,
+            tokenSpending: 0,
+          },
+          explanation: {
+            tokens: 'Cumulative score from 4 token categories earned in quiz',
+            voting: 'Original votes plus votes gained from token conversions',
+            judgeScores: 'Scores given by judges in final evaluation',
+          }
         }
       });
     }
 
-    // Initialize scoreboard data
-    const scoreboard = [];
+    // Initialize leaderboard data
+    const leaderboard = [];
 
     for (const team of allTeams) {
       const teamId = team.id;
       
       try {
-        // Get quiz score
+        // Get quiz tokens - these form the base cumulative score
         const quizData = await db
           .select({
-            rawScore: quizSubmissions.rawScore,
             tokensMarketing: quizSubmissions.tokensMarketing,
             tokensCapital: quizSubmissions.tokensCapital,
             tokensTeam: quizSubmissions.tokensTeam,
@@ -40,39 +51,41 @@ export async function GET(request: NextRequest) {
           .where(eq(quizSubmissions.teamId, teamId))
           .limit(1);
         
-        const quizScore = quizData.length > 0 ? (quizData[0].rawScore || 0) : 0;
         const tokens = quizData.length > 0 ? {
           marketing: quizData[0].tokensMarketing || 0,
           capital: quizData[0].tokensCapital || 0,
           team: quizData[0].tokensTeam || 0,
           strategy: quizData[0].tokensStrategy || 0,
         } : { marketing: 0, capital: 0, team: 0, strategy: 0 };
+        
+        // Calculate cumulative token score (sum of all 4 categories)
+        const cumulativeTokenScore = tokens.marketing + tokens.capital + tokens.team + tokens.strategy;
 
         // Get voting data (original votes)
         const voteData = await db
           .select({
             totalVotes: sql<number>`COALESCE(SUM(${votes.value}), 0)`,
-            upvotes: sql<number>`COALESCE(SUM(CASE WHEN ${votes.value} = 1 THEN 1 ELSE 0 END), 0)`,
-            downvotes: sql<number>`COALESCE(SUM(CASE WHEN ${votes.value} = -1 THEN 1 ELSE 0 END), 0)`,
           })
           .from(votes)
           .where(eq(votes.toTeamId, teamId));
 
         const originalVotes = Number(voteData[0]?.totalVotes) || 0;
-        const upvotes = Number(voteData[0]?.upvotes) || 0;
-        const downvotes = Number(voteData[0]?.downvotes) || 0;
 
         // Get token conversion votes
         const tokenVoteData = await db
           .select({
             totalTokenVotes: sql<number>`COALESCE(SUM(${tokenConversions.votesGained}), 0)`,
-            conversions: sql<number>`COALESCE(COUNT(${tokenConversions.id}), 0)`,
+            tokensSpent: sql<number>`COALESCE(SUM(${tokenConversions.tokensUsed}), 0)`,
           })
           .from(tokenConversions)
           .where(eq(tokenConversions.teamId, teamId));
 
-        const tokenVotes = Number(tokenVoteData[0]?.totalTokenVotes) || 0;
-        const totalVotes = originalVotes + tokenVotes;
+        const votesFromTokens = Number(tokenVoteData[0]?.totalTokenVotes) || 0;
+        const tokensSpent = Number(tokenVoteData[0]?.tokensSpent) || 0;
+        const totalVotes = originalVotes + votesFromTokens;
+
+        // Calculate remaining tokens
+        const tokensRemaining = cumulativeTokenScore - tokensSpent;
 
         // Get peer ratings
         const peerRatingData = await db
@@ -96,163 +109,108 @@ export async function GET(request: NextRequest) {
           .from(judgeScores)
           .where(eq(judgeScores.teamId, teamId));
 
-        const judgeScoreTotal = Number(judgeScoreData[0]?.totalJudgeScore) || 0;
-        const judgeScoreAvg = Number(judgeScoreData[0]?.avgJudgeScore) || 0;
+        const totalJudgeScore = Number(judgeScoreData[0]?.totalJudgeScore) || 0;
+        const avgJudgeScore = Number(judgeScoreData[0]?.avgJudgeScore) || 0;
         const judgeCount = Number(judgeScoreData[0]?.judgeCount) || 0;
 
-        // Calculate final score with configurable weights
-        const weights = {
-          quiz: 1.0,
-          voting: 0.5, // Reduced weight for votes
-          peerRating: 2.0, // Higher weight for peer ratings
-          judgeScore: 3.0, // Highest weight for judge scores
-        };
+        // Calculate final cumulative score: Token Score + Judge Score
+        const finalCumulativeScore = cumulativeTokenScore + totalJudgeScore;
 
-        const normalizedPeerRating = peerRatingCount > 0 ? peerRatingAvg * 10 : 0; // Scale 3-10 rating to 30-100
-        const normalizedVotes = Math.max(0, totalVotes); // Ensure non-negative
-
-        const finalScore = 
-          (quizScore * weights.quiz) +
-          (normalizedVotes * weights.voting) +
-          (normalizedPeerRating * weights.peerRating) +
-          (judgeScoreTotal * weights.judgeScore);
-
-        scoreboard.push({
+        leaderboard.push({
+          rank: 0, // Will be set after sorting
           teamId: teamId,
           teamName: team.name,
           college: team.college,
-          // Raw scores
-          quizScore: quizScore,
-          originalVotes: originalVotes,
-          tokenVotes: tokenVotes,
-          totalVotes: totalVotes,
-          upvotes: upvotes,
-          downvotes: downvotes,
-          peerRatingAvg: Math.round(peerRatingAvg * 100) / 100,
-          peerRatingCount: peerRatingCount,
-          judgeScoreTotal: judgeScoreTotal,
-          judgeScoreAvg: Math.round(judgeScoreAvg * 100) / 100,
-          judgeCount: judgeCount,
-          finalScore: Math.round(finalScore * 100) / 100,
-          // Additional data
-          tokens: tokens,
+          tokens: {
+            marketing: tokens.marketing,
+            capital: tokens.capital,
+            team: tokens.team,
+            strategy: tokens.strategy,
+            total: cumulativeTokenScore,
+          },
+          tokenActivity: {
+            earned: cumulativeTokenScore,
+            spent: tokensSpent,
+            remaining: tokensRemaining,
+          },
+          voting: {
+            originalVotes: originalVotes,
+            votesFromTokens: votesFromTokens,
+            totalVotes: totalVotes,
+          },
+          peerRating: {
+            average: Math.round(peerRatingAvg * 100) / 100,
+            count: peerRatingCount,
+          },
+          judgeScores: {
+            total: totalJudgeScore,
+            average: Math.round(avgJudgeScore * 100) / 100,
+            count: judgeCount,
+          },
+          finalCumulativeScore: finalCumulativeScore,
           hasQuizSubmission: quizData.length > 0,
-          hasTokenConversion: Number(tokenVoteData[0]?.conversions) > 0,
-          // Weighted components for transparency
-          components: {
-            quiz: {
-              score: quizScore,
-              weight: weights.quiz,
-              contribution: Math.round(quizScore * weights.quiz * 100) / 100,
-            },
-            voting: {
-              originalVotes: originalVotes,
-              tokenVotes: tokenVotes,
-              totalVotes: totalVotes,
-              normalizedVotes: normalizedVotes,
-              weight: weights.voting,
-              contribution: Math.round(normalizedVotes * weights.voting * 100) / 100,
-            },
-            peerRating: {
-              average: Math.round(peerRatingAvg * 100) / 100,
-              normalized: Math.round(normalizedPeerRating * 100) / 100,
-              count: peerRatingCount,
-              weight: weights.peerRating,
-              contribution: Math.round(normalizedPeerRating * weights.peerRating * 100) / 100,
-            },
-            judgeScore: {
-              total: judgeScoreTotal,
-              average: Math.round(judgeScoreAvg * 100) / 100,
-              count: judgeCount,
-              weight: weights.judgeScore,
-              contribution: Math.round(judgeScoreTotal * weights.judgeScore * 100) / 100,
-            },
-          }
         });
       } catch (teamError) {
         console.error(`Error processing team ${teamId}:`, teamError);
         // Add team with zero scores if there's an error
-        scoreboard.push({
+        leaderboard.push({
+          rank: 0,
           teamId: teamId,
           teamName: team.name,
           college: team.college,
-          quizScore: 0,
-          originalVotes: 0,
-          tokenVotes: 0,
-          totalVotes: 0,
-          upvotes: 0,
-          downvotes: 0,
-          peerRatingAvg: 0,
-          peerRatingCount: 0,
-          judgeScoreTotal: 0,
-          judgeScoreAvg: 0,
-          judgeCount: 0,
-          finalScore: 0,
-          tokens: { marketing: 0, capital: 0, team: 0, strategy: 0 },
+          tokens: { marketing: 0, capital: 0, team: 0, strategy: 0, total: 0 },
+          tokenActivity: { earned: 0, spent: 0, remaining: 0 },
+          voting: { originalVotes: 0, votesFromTokens: 0, totalVotes: 0 },
+          peerRating: { average: 0, count: 0 },
+          judgeScores: { total: 0, average: 0, count: 0 },
+          finalCumulativeScore: 0,
           hasQuizSubmission: false,
-          hasTokenConversion: false,
-          error: 'Error calculating scores',
-          components: {
-            quiz: { score: 0, weight: 1.0, contribution: 0 },
-            voting: { originalVotes: 0, tokenVotes: 0, totalVotes: 0, normalizedVotes: 0, weight: 0.5, contribution: 0 },
-            peerRating: { average: 0, normalized: 0, count: 0, weight: 2.0, contribution: 0 },
-            judgeScore: { total: 0, average: 0, count: 0, weight: 3.0, contribution: 0 },
-          }
         });
       }
     }
 
-    // Sort by final score DESC, then by quiz score DESC (primary tie-breaker), then by original votes DESC (secondary tie-breaker)
-    scoreboard.sort((a, b) => {
-      if (b.finalScore !== a.finalScore) {
-        return b.finalScore - a.finalScore;
+    // Sort by final cumulative score DESC, then by total votes DESC (tiebreaker)
+    leaderboard.sort((a, b) => {
+      if (b.finalCumulativeScore !== a.finalCumulativeScore) {
+        return b.finalCumulativeScore - a.finalCumulativeScore;
       }
-      // Primary tie-breaker: quiz score
-      if (b.quizScore !== a.quizScore) {
-        return b.quizScore - a.quizScore;
-      }
-      // Secondary tie-breaker: original votes
-      return b.originalVotes - a.originalVotes;
+      // Tiebreaker: total votes
+      return b.voting.totalVotes - a.voting.totalVotes;
     });
 
     // Add rankings
-    const rankedScoreboard = scoreboard.map((team, index) => ({
+    const rankedLeaderboard = leaderboard.map((team, index) => ({
       ...team,
       rank: index + 1,
     }));
 
-    // Calculate summary statistics
-    const totalQuizSubmissions = scoreboard.filter(t => t.hasQuizSubmission).length;
-    const totalVotingParticipation = scoreboard.filter(t => t.originalVotes > 0 || t.tokenVotes > 0).length;
-    const totalPeerRatings = scoreboard.reduce((sum, t) => sum + t.peerRatingCount, 0);
-    const totalJudgeScores = scoreboard.reduce((sum, t) => sum + t.judgeCount, 0);
+    // Calculate participation statistics
+    const totalQuizSubmissions = leaderboard.filter(t => t.hasQuizSubmission).length;
+    const totalVotingParticipation = leaderboard.filter(t => t.voting.originalVotes > 0 || t.voting.votesFromTokens > 0).length;
+    const totalPeerRatings = leaderboard.reduce((sum, t) => sum + t.peerRating.count, 0);
+    const totalTokenSpending = leaderboard.filter(t => t.tokenActivity.spent > 0).length;
 
     return NextResponse.json({
-      scoreboard: rankedScoreboard,
+      leaderboard: rankedLeaderboard,
       metadata: {
         totalTeams: allTeams.length,
         generatedAt: new Date().toISOString(),
-        weights: {
-          quiz: 1.0,
-          voting: 0.5,
-          peerRating: 2.0,
-          judgeScore: 3.0,
-        },
-        tieBreakers: [
-          'Quiz score (higher wins)',
-          'Original votes without token conversions (higher wins)'
+        focus: 'Token-based competition with cumulative scoring from 4 categories plus judge evaluation',
+        rankingCriteria: [
+          'Final cumulative score (token score + judge score)',
+          'Total votes received (original + token conversions) as tiebreaker',
         ],
         participation: {
           quizSubmissions: totalQuizSubmissions,
           votingParticipation: totalVotingParticipation,
           peerRatings: totalPeerRatings,
-          judgeScores: totalJudgeScores,
+          tokenSpending: totalTokenSpending,
         },
-        scoringExplanation: {
-          quiz: 'Raw quiz score (0-60 points)',
-          voting: 'Net votes (upvotes - downvotes + token conversions) × 0.5',
-          peerRating: 'Average peer rating (3-10) × 10 × 2.0',
-          judgeScore: 'Sum of all judge scores × 3.0',
+        explanation: {
+          tokens: 'Cumulative sum of Marketing + Capital + Team + Strategy tokens earned through quiz',
+          voting: 'Original votes received plus additional votes gained from strategic token conversions',
+          judgeScores: 'Total scores awarded by judges during final evaluation round',
+          finalScore: 'Sum of cumulative token score and total judge score',
         }
       }
     });
@@ -261,7 +219,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ 
       error: 'Failed to generate scoreboard',
       details: error instanceof Error ? error.message : 'Unknown error',
-      scoreboard: [],
+      leaderboard: [],
       metadata: {
         totalTeams: 0,
         generatedAt: new Date().toISOString(),

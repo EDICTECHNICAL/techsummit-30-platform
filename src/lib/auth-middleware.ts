@@ -49,6 +49,7 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthUser | 
         username: user.username,
         name: user.name,
         isAdmin: user.isAdmin,
+        teamId: user.teamId,
       })
       .from(user)
       .where(eq(user.id, decoded.userId))
@@ -60,26 +61,33 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthUser | 
 
     const foundUser = foundUsers[0];
 
-    // Get user's team information
-    const userTeam = await db
-      .select({
-        teamId: teams.id,
-        teamName: teams.name,
-        college: teams.college,
-      })
-      .from(teams)
-      .where(eq(teams.name, foundUser.name)) // Assuming team name matches user name
-      .limit(1);
+    // Get user's team information using teamId
+    let userTeam = null;
+    if (foundUser.teamId) {
+      const teamResult = await db
+        .select({
+          teamId: teams.id,
+          teamName: teams.name,
+          college: teams.college,
+        })
+        .from(teams)
+        .where(eq(teams.id, foundUser.teamId))
+        .limit(1);
+
+      if (teamResult.length > 0) {
+        userTeam = teamResult[0];
+      }
+    }
 
     return {
       id: foundUser.id,
       username: foundUser.username,
       name: foundUser.name,
       isAdmin: foundUser.isAdmin,
-      team: userTeam.length > 0 ? {
-        id: userTeam[0].teamId,
-        name: userTeam[0].teamName,
-        college: userTeam[0].college,
+      team: userTeam ? {
+        id: userTeam.teamId,
+        name: userTeam.teamName,
+        college: userTeam.college,
       } : null
     };
 
@@ -107,6 +115,27 @@ export async function requireAdmin(req: NextRequest): Promise<AuthUser> {
   }
 
   return authUser;
+}
+
+export async function requireJudge(req: NextRequest): Promise<boolean> {
+  try {
+    // Check for judge authentication cookie
+    const judgeAuth = req.cookies.get('judge-auth')?.value;
+    const adminAuth = req.cookies.get('admin-auth')?.value;
+    
+    return judgeAuth === 'true' || adminAuth === 'true';
+  } catch (error) {
+    console.error('Judge authentication error:', error);
+    return false;
+  }
+}
+
+export async function requireJudgeAuth(req: NextRequest): Promise<void> {
+  const isJudge = await requireJudge(req);
+  
+  if (!isJudge) {
+    throw new Error('Judge authentication required');
+  }
 }
 
 // Helper function to check if user is team leader (can be used if needed)

@@ -73,10 +73,10 @@ export async function POST(request: NextRequest) {
 
     const submission = quizSubmission[0];
     const available = {
-      marketing: submission.tokensMarketing,
-      capital: submission.tokensCapital,
-      team: submission.tokensTeam,
-      strategy: submission.tokensStrategy,
+      marketing: submission.remainingMarketing ?? submission.tokensMarketing,
+      capital: submission.remainingCapital ?? submission.tokensCapital,
+      team: submission.remainingTeam ?? submission.tokensTeam,
+      strategy: submission.remainingStrategy ?? submission.tokensStrategy,
     };
 
     // Require at least 1 token in each category
@@ -99,13 +99,34 @@ export async function POST(request: NextRequest) {
       }
     ]).returning();
 
+    // Deduct tokens from team's remaining balance
+    const updatedSubmission = await db
+      .update(quizSubmissions)
+      .set({
+        remainingMarketing: Math.max(0, available.marketing - 1),
+        remainingCapital: Math.max(0, available.capital - 1),
+        remainingTeam: Math.max(0, available.team - 1),
+        remainingStrategy: Math.max(0, available.strategy - 1),
+      })
+      .where(eq(quizSubmissions.teamId, teamId))
+      .returning();
+
+    // Calculate new remaining tokens after deduction
+    const newRemainingTokens = {
+      marketing: Math.max(0, available.marketing - 1),
+      capital: Math.max(0, available.capital - 1),
+      team: Math.max(0, available.team - 1),
+      strategy: Math.max(0, available.strategy - 1),
+    };
+
     return NextResponse.json({
       success: true,
       conversion: newConversion[0],
       tokensUsed: 4,
       votesGained: 1,
-      availableTokens: available,
-      message: 'Successfully converted 1 token from each category → 1 vote'
+      tokensBeforeConversion: available,
+      remainingTokens: newRemainingTokens,
+      message: 'Successfully converted 1 token from each category → 1 vote. Tokens have been deducted from your balance.'
     }, { status: 201 });
 
   } catch (error: any) {
@@ -153,6 +174,18 @@ export async function GET(request: NextRequest) {
       .limit(1);
 
     const availableTokens = quizSubmission.length > 0 ? {
+      marketing: quizSubmission[0].remainingMarketing ?? quizSubmission[0].tokensMarketing,
+      capital: quizSubmission[0].remainingCapital ?? quizSubmission[0].tokensCapital,
+      team: quizSubmission[0].remainingTeam ?? quizSubmission[0].tokensTeam,
+      strategy: quizSubmission[0].remainingStrategy ?? quizSubmission[0].tokensStrategy,
+    } : {
+      marketing: 0,
+      capital: 0,
+      team: 0,
+      strategy: 0,
+    };
+
+    const originalTokens = quizSubmission.length > 0 ? {
       marketing: quizSubmission[0].tokensMarketing,
       capital: quizSubmission[0].tokensCapital,
       team: quizSubmission[0].tokensTeam,
@@ -177,6 +210,7 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       teamId: parseInt(teamId),
       conversions: conversions,
+      originalTokens: originalTokens,
       availableTokens: availableTokens,
       totalVotesGained: totalVotesGained,
       canConvert: canConvert,

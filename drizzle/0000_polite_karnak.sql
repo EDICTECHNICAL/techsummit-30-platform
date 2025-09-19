@@ -42,7 +42,6 @@ CREATE TABLE "options" (
 	"token_delta_capital" integer DEFAULT 0 NOT NULL,
 	"token_delta_team" integer DEFAULT 0 NOT NULL,
 	"token_delta_strategy" integer DEFAULT 0 NOT NULL,
-	"total_score_delta" integer DEFAULT 0 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
@@ -82,6 +81,10 @@ CREATE TABLE "quiz_submissions" (
 	"tokens_capital" integer DEFAULT 0 NOT NULL,
 	"tokens_team" integer DEFAULT 0 NOT NULL,
 	"tokens_strategy" integer DEFAULT 0 NOT NULL,
+	"remaining_marketing" integer DEFAULT 0 NOT NULL,
+	"remaining_capital" integer DEFAULT 0 NOT NULL,
+	"remaining_team" integer DEFAULT 0 NOT NULL,
+	"remaining_strategy" integer DEFAULT 0 NOT NULL,
 	"duration_seconds" integer NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
 );

@@ -24,8 +24,7 @@ export async function GET(req: NextRequest) {
       totalTeams,
       totalVotes,
       quizAttempts,
-      averageScore,
-      highestScore,
+      totalTokens,
       peerRatingsCount,
       judgeScoresCount
     ] = await Promise.all([
@@ -33,10 +32,18 @@ export async function GET(req: NextRequest) {
       db.select({ count: sql<number>`count(*)` }).from(teams),
       db.select({ count: sql<number>`count(*)` }).from(votes),
       db.select({ count: sql<number>`count(*)` }).from(quizSubmissions),
-      db.select({ avg: sql<number>`avg(raw_score)` }).from(quizSubmissions),
-      db.select({ max: sql<number>`max(raw_score)` }).from(quizSubmissions),
+      db.select({ 
+        totalMarketing: sql<number>`COALESCE(SUM(tokens_marketing), 0)`,
+        totalCapital: sql<number>`COALESCE(SUM(tokens_capital), 0)`,
+        totalTeam: sql<number>`COALESCE(SUM(tokens_team), 0)`,
+        totalStrategy: sql<number>`COALESCE(SUM(tokens_strategy), 0)`
+      }).from(quizSubmissions),
       db.select({ count: sql<number>`count(*)` }).from(peerRatings),
-      db.select({ count: sql<number>`count(*)` }).from(judgeScores)
+      db.select({ 
+        count: sql<number>`count(*)`,
+        totalScore: sql<number>`COALESCE(SUM(score), 0)`,
+        avgScore: sql<number>`COALESCE(AVG(CAST(score AS DECIMAL)), 0)`
+      }).from(judgeScores)
     ]);
 
     const stats = {
@@ -45,12 +52,24 @@ export async function GET(req: NextRequest) {
       totalVotes: totalVotes[0]?.count || 0,
       quizAttempts: quizAttempts[0]?.count || 0,
       completedQuizzes: quizAttempts[0]?.count || 0,
-      averageScore: Math.round(averageScore[0]?.avg || 0),
-      highestScore: highestScore[0]?.max || 0,
       activeVoters: totalVotes[0]?.count || 0,
       completedPitches: peerRatingsCount[0]?.count || 0,
       peerRatings: peerRatingsCount[0]?.count || 0,
-      judgeScores: judgeScoresCount[0]?.count || 0
+      judgeScores: {
+        count: judgeScoresCount[0]?.count || 0,
+        totalScore: Number(judgeScoresCount[0]?.totalScore) || 0,
+        averageScore: Number(judgeScoresCount[0]?.avgScore) || 0
+      },
+      tokenDistribution: {
+        marketing: Number(totalTokens[0]?.totalMarketing) || 0,
+        capital: Number(totalTokens[0]?.totalCapital) || 0,
+        team: Number(totalTokens[0]?.totalTeam) || 0,
+        strategy: Number(totalTokens[0]?.totalStrategy) || 0,
+        total: Number(totalTokens[0]?.totalMarketing || 0) + 
+               Number(totalTokens[0]?.totalCapital || 0) + 
+               Number(totalTokens[0]?.totalTeam || 0) + 
+               Number(totalTokens[0]?.totalStrategy || 0)
+      }
     };
 
     return NextResponse.json(stats);

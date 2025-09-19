@@ -179,8 +179,8 @@ export async function PATCH(request: NextRequest) {
     if (existingRound[0].name === 'QUIZ' && status === 'ACTIVE') {
       // Check if there are questions available
       const { questions } = await import('@/db/schema');
-      const questionCountArr = await db.select({ count: db.$count(questions.id) }).from(questions);
-      const questionCount = questionCountArr[0]?.count ?? 0;
+      const questionCountResult = await db.select().from(questions);
+      const questionCount = questionCountResult.length;
       if (questionCount < 15) {
         return NextResponse.json({ 
           error: 'Cannot activate quiz round: Need at least 15 questions', 

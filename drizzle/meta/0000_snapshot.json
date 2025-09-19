@@ -1,5 +1,5 @@
 {
-  "id": "3901a735-b9c9-4b7e-aad7-5bac892fa3e1",
+  "id": "e48c078d-6ded-435d-958c-7a4d56bdd9e4",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "version": "7",
   "dialect": "postgresql",
@@ -300,13 +300,6 @@
           "notNull": true,
           "default": 0
         },
-        "total_score_delta": {
-          "name": "total_score_delta",
-          "type": "integer",
-          "primaryKey": false,
-          "notNull": true,
-          "default": 0
-        },
         "created_at": {
           "name": "created_at",
           "type": "timestamp",
@@ -582,6 +575,34 @@
         },
         "tokens_strategy": {
           "name": "tokens_strategy",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "remaining_marketing": {
+          "name": "remaining_marketing",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "remaining_capital": {
+          "name": "remaining_capital",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "remaining_team": {
+          "name": "remaining_team",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "default": 0
+        },
+        "remaining_strategy": {
+          "name": "remaining_strategy",
           "type": "integer",
           "primaryKey": false,
           "notNull": true,

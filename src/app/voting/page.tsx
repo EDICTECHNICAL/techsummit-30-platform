@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { Timer, Users, Trophy, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import VotingLayout from '@/components/ui/VotingLayout';
+import PageLock from "@/components/ui/PageLock";
+import { useRoundStatus } from "@/hooks/useRoundStatus";
 
 interface User {
   id: string;
@@ -23,6 +25,11 @@ interface CurrentPitchData {
   team: Team | null;
   votingActive: boolean;
   allPitchesCompleted: boolean;
+  // Pitch cycle properties
+  pitchCycleActive?: boolean;
+  currentPhase?: 'idle' | 'pitching' | 'preparing' | 'voting';
+  phaseTimeLeft?: number;
+  cycleStartTime?: number | null;
 }
 
 interface VoteResponse {
@@ -55,6 +62,9 @@ interface VotingStatus {
 }
 
 export default function VotingPage() {
+  // Page lock functionality
+  const { isCompleted: isVotingCompleted, loading: roundLoading } = useRoundStatus('VOTING');
+
   const [user, setUser] = useState<User | null>(null);
   const [isPending, setIsPending] = useState(true);
   const [teams, setTeams] = useState<Team[]>([]);
@@ -70,6 +80,16 @@ export default function VotingPage() {
   const [isConvertingTokens, setIsConvertingTokens] = useState(false);
   const [tokenStatus, setTokenStatus] = useState<TokenStatus | null>(null);
   const [votingStatus, setVotingStatus] = useState<VotingStatus | null>(null);
+  
+  // Auto-timeout functionality
+  const [votingTimeLeft, setVotingTimeLeft] = useState<number | null>(null);
+  const [votingStartTime, setVotingStartTime] = useState<number | null>(null);
+  
+  // Pitch cycle state
+  const [pitchCycleActive, setPitchCycleActive] = useState<boolean>(false);
+  const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'preparing' | 'voting'>('idle');
+  const [phaseTimeLeft, setPhaseTimeLeft] = useState<number>(0);
+  const [cycleStartTime, setCycleStartTime] = useState<number | null>(null);
 
   // Load user from localStorage
   useEffect(() => {
@@ -208,7 +228,34 @@ export default function VotingPage() {
         
         const data: CurrentPitchData = await res.json();
         setCurrentPitchTeam(data?.team ?? null);
-        setVotingActive(data?.votingActive ?? false);
+        
+        // Handle pitch cycle state
+        const newPitchCycleActive = data?.pitchCycleActive ?? false;
+        const newCurrentPhase = data?.currentPhase ?? 'idle';
+        const newPhaseTimeLeft = data?.phaseTimeLeft ?? 0;
+        const newCycleStartTime = data?.cycleStartTime ?? null;
+        
+        setPitchCycleActive(newPitchCycleActive);
+        setCurrentPhase(newCurrentPhase);
+        setPhaseTimeLeft(newPhaseTimeLeft);
+        setCycleStartTime(newCycleStartTime);
+        
+        // Handle voting activation timing
+        const newVotingActive = data?.votingActive ?? false;
+        if (newVotingActive && !votingActive) {
+          // Voting just got activated
+          if (!newPitchCycleActive) {
+            // Only set legacy voting timer if not in pitch cycle
+            setVotingStartTime(Date.now());
+            setVotingTimeLeft(30);
+          }
+        } else if (!newVotingActive && votingActive) {
+          // Voting just got deactivated
+          setVotingStartTime(null);
+          setVotingTimeLeft(null);
+        }
+        
+        setVotingActive(newVotingActive);
         setAllPitchesCompleted(data?.allPitchesCompleted ?? false);
         
         // Check voting round status
@@ -234,6 +281,27 @@ export default function VotingPage() {
     
     return () => clearInterval(interval);
   }, []);
+
+  // Countdown timer effect
+  useEffect(() => {
+    if (!votingActive || !votingStartTime) {
+      return;
+    }
+
+    const timer = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - votingStartTime) / 1000);
+      const remaining = Math.max(0, 30 - elapsed);
+      setVotingTimeLeft(remaining);
+      
+      if (remaining === 0) {
+        // Time's up - voting should be disabled
+        setVotingTimeLeft(null);
+        setVotingStartTime(null);
+      }
+    }, 1000);
+
+    return () => clearInterval(timer);
+  }, [votingActive, votingStartTime]);
 
   // Cast vote function
   const castVote = async () => {
@@ -405,56 +473,17 @@ export default function VotingPage() {
     );
   }
 
-  // Show voting completed message
-  if (votingRoundCompleted) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 transition-all duration-500 ease-in-out">
-        <div className="max-w-md w-full mx-4 rounded-lg border border-green-300 bg-green-50 p-8 text-center shadow-lg animate-in fade-in-50 slide-in-from-bottom-4 duration-700">
-          <div className="text-6xl mb-4 animate-pulse">🗳️</div>
-          <h2 className="text-2xl font-bold mb-4 text-green-800">Voting Round Completed</h2>
-          <p className="text-green-700 mb-6">
-            The voting round has been completed by the admin and is no longer accepting votes.
-            <br />
-            <span className="text-sm mt-2 block text-green-600">
-              The page will automatically reactivate when voting is resumed.
-            </span>
-          </p>
-          <div className="space-y-3">
-            <Link
-              href="/dashboard"
-              className="block w-full px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary/90 transition-colors"
-            >
-              Return to Dashboard
-            </Link>
-            <Link
-              href="/scoreboard"
-              className="block w-full px-4 py-2 border border-green-300 bg-white text-green-700 rounded-lg hover:bg-green-50 transition-colors"
-            >
-              View Scoreboard
-            </Link>
-          </div>
-          <div className="mt-6 text-xs text-gray-500">
-            <div className="flex items-center justify-center space-x-1">
-              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
-              <span>Monitoring for voting resumption...</span>
-            </div>
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-
-
   const canVoteForCurrentTeam = currentPitchTeam && 
-                               votingActive && 
+                               (votingActive || (pitchCycleActive && currentPhase === 'voting')) && 
                                userTeamId !== currentPitchTeam.id &&
-                               !votingStatus?.votedTeams?.includes(currentPitchTeam.id);
+                               !votingStatus?.votedTeams?.includes(currentPitchTeam.id) &&
+                               (votingTimeLeft === null || votingTimeLeft > 0 || pitchCycleActive);
 
   const canDownvote = voteValue === -1 && votingStatus && votingStatus.remainingDownvotes > 0;
 
   return (
-    <div className="max-w-3xl mx-auto px-6 pt-6 transition-all duration-300 ease-in-out">
+    <PageLock roundType="VOTING" isCompleted={isVotingCompleted || votingRoundCompleted}>
+      <div className="max-w-3xl mx-auto px-6 pt-6 transition-all duration-300 ease-in-out">
       <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline mb-4 transition-colors">
         <ArrowLeft className="h-4 w-4" />
         Back to Dashboard
@@ -466,6 +495,48 @@ export default function VotingPage() {
         teamMembers={undefined}
         showRules={true}
       >
+      
+      {/* Pitch Cycle Timer Display */}
+      {pitchCycleActive && (
+        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-lg font-bold text-blue-900">
+              {currentPhase === 'pitching' && '🎤 Team is Pitching'}
+              {currentPhase === 'preparing' && '⏳ Get Ready to Vote'}
+              {currentPhase === 'voting' && '🗳️ Voting is Active'}
+              {currentPhase === 'idle' && '⏸️ Pitch Cycle Idle'}
+            </h3>
+            <div className="text-3xl font-bold text-blue-800">
+              {phaseTimeLeft}s
+            </div>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-4 mb-2">
+            <div 
+              className={`h-4 rounded-full transition-all duration-1000 ${
+                currentPhase === 'pitching' ? 'bg-green-500' :
+                currentPhase === 'preparing' ? 'bg-yellow-500' :
+                currentPhase === 'voting' ? 'bg-red-500' :
+                'bg-gray-400'
+              }`}
+              style={{ 
+                width: `${
+                  currentPhase === 'pitching' ? (phaseTimeLeft / 90) * 100 :
+                  currentPhase === 'preparing' ? (phaseTimeLeft / 5) * 100 :
+                  currentPhase === 'voting' ? (phaseTimeLeft / 30) * 100 :
+                  0
+                }%` 
+              }}
+            ></div>
+          </div>
+          <div className="text-sm text-blue-700">
+            {currentPhase === 'pitching' && 'Listen to the team presentation (90 seconds total)'}
+            {currentPhase === 'preparing' && 'Prepare to make your voting decision (5 seconds)'}
+            {currentPhase === 'voting' && 'Vote now! Time is running out (30 seconds total)'}
+            {currentPhase === 'idle' && 'Waiting for admin to start the next pitch cycle'}
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col gap-8 md:flex-row md:gap-12 animate-in fade-in-50 slide-in-from-bottom-4 duration-500">
         {/* Cast Vote Card */}
         <div className="flex-1 rounded-xl border bg-card p-6 shadow transition-all duration-300 hover:shadow-lg">
@@ -550,6 +621,24 @@ export default function VotingPage() {
             )}
           </div>
 
+          {/* Voting Countdown Timer */}
+          {votingActive && votingTimeLeft !== null && (
+            <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
+              <div className="flex items-center gap-2">
+                <Timer className="h-4 w-4 text-orange-600" />
+                <span className="text-sm font-medium text-orange-800">
+                  Voting closes in: <span className="font-bold text-lg">{votingTimeLeft}s</span>
+                </span>
+              </div>
+              <div className="mt-2 w-full bg-orange-200 rounded-full h-2">
+                <div 
+                  className="bg-orange-600 h-2 rounded-full transition-all duration-1000"
+                  style={{ width: `${(votingTimeLeft / 30) * 100}%` }}
+                ></div>
+              </div>
+            </div>
+          )}
+
           <button
             onClick={castVote}
             disabled={!canVoteForCurrentTeam || isLoading || (voteValue === -1 && !canDownvote)}
@@ -565,9 +654,23 @@ export default function VotingPage() {
             )}
           </button>
 
-          {!votingActive && (
+          {!votingActive && !pitchCycleActive && (
             <div className="mt-2 text-xs text-gray-500 animate-pulse">
               Voting will be enabled by admin during each pitch.
+            </div>
+          )}
+          
+          {!votingActive && pitchCycleActive && currentPhase !== 'voting' && (
+            <div className="mt-2 text-xs text-blue-600 font-medium">
+              {currentPhase === 'pitching' && '🎤 Listen to the pitch presentation...'}
+              {currentPhase === 'preparing' && '⏳ Get ready to vote...'}
+              {currentPhase === 'idle' && 'Waiting for next pitch cycle...'}
+            </div>
+          )}
+          
+          {votingActive && votingTimeLeft === 0 && !pitchCycleActive && (
+            <div className="mt-2 text-xs text-red-600 font-medium">
+              ⏰ Voting time has expired for this pitch.
             </div>
           )}
         </div>
@@ -686,5 +789,6 @@ export default function VotingPage() {
       )}
       </VotingLayout>
     </div>
+    </PageLock>
   );
 }
