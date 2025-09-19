@@ -16,8 +16,13 @@ const nextConfig: NextConfig = {
     ],
   },
 
-  // Trace all project files correctly (monorepo safe)
-  outputFileTracingRoot: path.resolve(__dirname, "../../"),
+  // Remove this line if you're not in a monorepo or if it's causing issues
+  // outputFileTracingRoot: path.resolve(__dirname, "../../"),
+  
+  // Alternative: Only set this if you're actually in a monorepo
+  ...(process.env.MONOREPO_MODE === "true" && {
+    outputFileTracingRoot: path.resolve(__dirname, "../../"),
+  }),
 
   // Enable custom turbopack loader
   turbopack: {
