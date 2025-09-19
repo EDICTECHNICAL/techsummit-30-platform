@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { votingEmitter } from '../../sse/voting/route';
+import { votingEmitter } from '@/lib/voting-emitter';
 
 // Helper function to check admin authentication (both JWT and cookie-based)
 function checkAdminAuth(req: NextRequest): boolean {

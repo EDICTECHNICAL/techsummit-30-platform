@@ -19,6 +19,15 @@ interface JudgeScore {
   createdAt: string;
 }
 
+interface RatingCycleEvent {
+  type: 'pitch-started' | 'phase-changed' | 'pitch-ended';
+  data: {
+    team?: Team;
+    phase?: 'idle' | 'pitching' | 'judges-rating' | 'peers-rating';
+    timeLeft?: number;
+  };
+}
+
 export default function JudgePage() {
   const { data: session, isPending } = useSession();
   const [teams, setTeams] = useState<Team[]>([]);
@@ -27,10 +36,16 @@ export default function JudgePage() {
   const [loading, setLoading] = useState(false);
   const [isJudgeAuthenticated, setIsJudgeAuthenticated] = useState(false);
 
-  // Form state
-  const [selectedTeamId, setSelectedTeamId] = useState<number | null>(null);
-  const [judgeScore, setJudgeScore] = useState<number>(80);
+  // Form state for real-time rating
+  const [realTimeRating, setRealTimeRating] = useState<string>('80');
   const [judgeName, setJudgeName] = useState<string>('');
+  const [ratingTimeout, setRatingTimeout] = useState<NodeJS.Timeout | null>(null);
+
+  // Real-time rating cycle state
+  const [currentPitchTeam, setCurrentPitchTeam] = useState<Team | null>(null);
+  const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'judges-rating' | 'peers-rating'>('idle');
+  const [phaseTimeLeft, setPhaseTimeLeft] = useState<number>(0);
+  const [ratingCycleActive, setRatingCycleActive] = useState(false);
 
   const isAdmin = session?.user?.isAdmin;
 
@@ -44,6 +59,84 @@ export default function JudgePage() {
       }
     }
   }, []);
+
+  // SSE Connection for real-time rating cycle updates
+  useEffect(() => {
+    if (!isJudgeAuthenticated) return;
+
+    let eventSource: EventSource | null = null;
+    
+    const connectSSE = () => {
+      try {
+        eventSource = new EventSource('/api/sse/rating');
+        
+        eventSource.onmessage = (event) => {
+          try {
+            const data: RatingCycleEvent = JSON.parse(event.data);
+            
+            if (data.type === 'pitch-started' && data.data.team) {
+              setCurrentPitchTeam(data.data.team);
+              setRatingCycleActive(true);
+            } else if (data.type === 'phase-changed') {
+              setCurrentPhase(data.data.phase || 'idle');
+              setPhaseTimeLeft(data.data.timeLeft || 0);
+            } else if (data.type === 'pitch-ended') {
+              setCurrentPitchTeam(null);
+              setCurrentPhase('idle');
+              setRatingCycleActive(false);
+              setPhaseTimeLeft(0);
+            }
+          } catch (error) {
+            console.error('Error parsing SSE data:', error);
+          }
+        };
+
+        eventSource.onerror = (error) => {
+          console.log('SSE connection error, reconnecting...', error);
+          eventSource?.close();
+          setTimeout(connectSSE, 3000);
+        };
+
+      } catch (error) {
+        console.error('Failed to connect to SSE:', error);
+        setTimeout(connectSSE, 5000);
+      }
+    };
+
+    connectSSE();
+
+    // Cleanup on unmount
+    return () => {
+      eventSource?.close();
+    };
+  }, [isJudgeAuthenticated]);
+
+  // Load current rating cycle state with polling
+  useEffect(() => {
+    if (isJudgeAuthenticated) {
+      loadCurrentRatingState();
+      
+      // Poll every 1 second for real-time updates
+      const interval = setInterval(loadCurrentRatingState, 1000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isJudgeAuthenticated]);
+
+  const loadCurrentRatingState = async () => {
+    try {
+      const res = await fetch('/api/rating/current');
+      if (res.ok) {
+        const data = await res.json();
+        setCurrentPitchTeam(data?.team ?? null);
+        setCurrentPhase(data?.currentPhase ?? 'idle');
+        setPhaseTimeLeft(data?.phaseTimeLeft ?? 0);
+        setRatingCycleActive(data?.ratingCycleActive ?? false);
+      }
+    } catch (error) {
+      console.error('Error loading rating state:', error);
+    }
+  };
 
   useEffect(() => {
     if (session?.user?.name) {
@@ -83,46 +176,63 @@ export default function JudgePage() {
     }
   };
 
-  const submitScore = async () => {
-    if (!selectedTeamId || !judgeScore || !judgeName.trim()) {
-      setMsg("Please fill in all fields");
+  // Real-time judge rating with auto-submit
+  const submitRealTimeRating = async (rating: number) => {
+    if (!currentPitchTeam || !judgeName.trim() || rating < 0 || rating > 100) {
       return;
     }
 
     try {
-      setLoading(true);
       const res = await fetch("/api/judges/scores", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           judgeName: judgeName.trim(), 
-          teamId: selectedTeamId, 
-          score: judgeScore 
+          teamId: currentPitchTeam.id, 
+          score: rating
         })
       });
 
       const data = await res.json();
       
       if (res.ok) {
-        setMsg(`Score submitted successfully: ${judgeScore} points`);
-        setSelectedTeamId(null);
-        setJudgeScore(80);
-        
-        // Reload scores
-        const scoresRes = await fetch('/api/judges/scores');
-        if (scoresRes.ok) {
-          const scoresData = await scoresRes.json();
-          setScores(scoresData.scores || []);
-        }
+        setMsg(`✅ Rating submitted: ${rating}/100 for ${currentPitchTeam.name}`);
+        // Clear message after 2 seconds
+        setTimeout(() => setMsg(null), 2000);
       } else {
-        setMsg(data?.error || "Failed to submit score");
+        setMsg(data?.error || "Failed to submit rating");
       }
     } catch (error) {
-      setMsg("Failed to submit score");
-    } finally {
-      setLoading(false);
+      console.error("Error submitting rating:", error);
+      setMsg("Failed to submit rating");
     }
   };
+
+  // Handle real-time rating input change
+  const handleRatingChange = (value: string) => {
+    setRealTimeRating(value);
+    
+    // Auto-submit if it's a valid number between 0-100
+    const numValue = parseInt(value);
+    if (!isNaN(numValue) && numValue >= 0 && numValue <= 100 && canRateRealTime) {
+      // Debounce the submission to avoid too many requests
+      if (ratingTimeout) {
+        clearTimeout(ratingTimeout);
+      }
+      const newTimeout = setTimeout(() => {
+        submitRealTimeRating(numValue);
+      }, 500);
+      setRatingTimeout(newTimeout);
+    }
+  };
+
+  // Check if judge can rate in real-time
+  const canRateRealTime = isJudgeAuthenticated && 
+                         ratingCycleActive && 
+                         currentPhase === 'judges-rating' && 
+                         phaseTimeLeft > 0 && 
+                         currentPitchTeam && 
+                         judgeName.trim().length > 0;
 
   const handleLogout = () => {
     // Clear judge authentication cookie
@@ -167,61 +277,84 @@ export default function JudgePage() {
           Submit scores for team presentations during the final round.
         </p>
 
-        {/* Submit Score Form */}
+        {/* Real-Time Rating Section */}
         <div className="rounded-lg border bg-card p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Submit Judge Score</h2>
+          <h2 className="text-xl font-semibold mb-4">🎯 Real-Time Final Round Rating</h2>
           
-          <div className="grid gap-4 md:grid-cols-4">
+          {/* Current pitch team status */}
+          {currentPitchTeam ? (
+            <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+              <div className="flex items-center justify-between">
+                <div>
+                  <p className="text-lg font-medium text-green-800 dark:text-green-200">
+                    📽️ Currently Presenting: {currentPitchTeam.name} (#{currentPitchTeam.id})
+                  </p>
+                  <p className="text-sm text-green-600 dark:text-green-300">{currentPitchTeam.college}</p>
+                </div>
+                <div className="text-right">
+                  <p className="text-sm font-medium text-green-700 dark:text-green-300">
+                    Phase: {currentPhase}
+                  </p>
+                  {phaseTimeLeft > 0 && (
+                    <p className="text-xs text-green-600 dark:text-green-400">
+                      Time left: {Math.ceil(phaseTimeLeft)}s
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="mb-4 p-4 bg-muted rounded-lg border">
+              <p className="text-muted-foreground">
+                🕐 No team is currently presenting. Waiting for pitch to start...
+              </p>
+            </div>
+          )}
+
+          {/* Rating form for current pitch */}
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="block text-sm font-medium mb-2">Judge Name</label>
               <input 
                 type="text" 
                 value={judgeName} 
                 onChange={(e) => setJudgeName(e.target.value)}
-                placeholder="Enter judge name"
+                placeholder="Enter your judge name"
                 className="w-full rounded-md border border-input bg-background px-3 py-2"
               />
             </div>
             <div>
-              <label className="block text-sm font-medium mb-2">Team</label>
-              <select 
-                value={selectedTeamId || ''} 
-                onChange={(e) => setSelectedTeamId(e.target.value ? parseInt(e.target.value) : null)}
-                className="w-full rounded-md border border-input bg-background px-3 py-2"
-              >
-                <option value="">Select team...</option>
-                {availableTeams.map(team => (
-                  <option key={team.id} value={team.id}>
-                    {team.name} ({team.college})
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <label className="block text-sm font-medium mb-2">Score (Integer)</label>
-              <input 
-                type="number" 
-                value={judgeScore} 
-                onChange={(e) => setJudgeScore(parseInt(e.target.value) || 0)}
-                placeholder="Enter score"
-                className="w-full rounded-md border border-input bg-background px-3 py-2"
-              />
-            </div>
-            <div className="flex items-end">
-              <button 
-                onClick={submitScore}
-                disabled={loading || !selectedTeamId || !judgeScore || !judgeName.trim()}
-                className="w-full bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md font-medium disabled:opacity-50"
-              >
-                {loading ? 'Submitting...' : 'Submit Score'}
-              </button>
+              <label className="block text-sm font-medium mb-2">
+                Real-Time Rating (0-100)
+              </label>
+              <div className="relative">
+                <input
+                  type="number"
+                  min="0"
+                  max="100"
+                  value={realTimeRating}
+                  onChange={(e) => handleRatingChange(e.target.value)}
+                  placeholder="80"
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 pr-12"
+                  disabled={!canRateRealTime}
+                />
+                <span className="absolute right-3 top-2 text-sm text-muted-foreground">/100</span>
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                {canRateRealTime ? 'Auto-saves as you type' : 'Wait for judges rating phase'}
+              </p>
             </div>
           </div>
 
-          {availableTeams.length === 0 && (
-            <div className="mt-4 bg-blue-50 border border-blue-200 rounded-lg p-4">
-              <p className="text-blue-800">
-                You have scored all available teams as judge "{judgeName}".
+          {/* Real-time rating restrictions */}
+          {!canRateRealTime && (
+            <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-md border border-yellow-200 dark:border-yellow-800">
+              <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                {!ratingCycleActive && '⏳ Waiting for rating cycle to start...'}
+                {ratingCycleActive && currentPhase !== 'judges-rating' && '⏱️ Wait for judges rating phase...'}
+                {ratingCycleActive && currentPhase === 'judges-rating' && phaseTimeLeft <= 0 && '⏰ Judges rating time has ended.'}
+                {!currentPitchTeam && '👥 No team is currently presenting.'}
+                {!judgeName.trim() && currentPitchTeam && '📝 Please enter your judge name.'}
               </p>
             </div>
           )}

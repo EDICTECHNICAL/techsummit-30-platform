@@ -559,10 +559,10 @@ export default function VotingPage() {
   if (isPending) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="max-w-md w-full mx-4 rounded-lg border bg-white p-8 text-center">
+        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold mb-2">Loading...</h2>
-          <p className="text-gray-600">Checking authentication status</p>
+          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Loading...</h2>
+          <p className="text-muted-foreground">Checking authentication status</p>
         </div>
       </div>
     );
@@ -572,10 +572,10 @@ export default function VotingPage() {
   if (!user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="max-w-md w-full mx-4 rounded-lg border bg-white p-8 text-center">
+        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">
           <Trophy className="h-12 w-12 text-orange-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">Authentication Required</h2>
-          <p className="mb-4 text-gray-600">
+          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Authentication Required</h2>
+          <p className="mb-4 text-muted-foreground">
             You need to be signed in with a team account to participate in voting.
           </p>
           <div className="space-y-3">
@@ -585,7 +585,7 @@ export default function VotingPage() {
             >
               Sign In to Team
             </a>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-muted-foreground">
               <span>Are you a judge? </span>
               <a href="/judge/login" className="text-blue-600 hover:underline">
                 Judge Login
@@ -603,10 +603,10 @@ export default function VotingPage() {
   if (isJudgeUser) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="max-w-md w-full mx-4 rounded-lg border bg-white p-8 text-center">
+        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">
           <Trophy className="h-12 w-12 text-purple-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">Judge Account Detected</h2>
-          <p className="mb-4 text-gray-600">
+          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Judge Account Detected</h2>
+          <p className="mb-4 text-muted-foreground">
             Judge accounts cannot participate in team voting. Please use the judge console for scoring.
           </p>
           <div className="space-y-3">
@@ -618,7 +618,7 @@ export default function VotingPage() {
             </a>
             <a 
               href="/dashboard" 
-              className="block w-full px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
+              className="block w-full px-4 py-2 border border-border text-foreground rounded-lg hover:bg-accent transition-colors"
             >
               Back to Dashboard
             </a>
@@ -760,8 +760,8 @@ export default function VotingPage() {
               )}
             </div>
           ) : (
-            <div className="mb-4 p-3 bg-gray-100 rounded-md">
-              <p className="text-gray-600">No team is currently pitching.</p>
+            <div className="mb-4 p-3 bg-muted rounded-md">
+              <p className="text-muted-foreground">No team is currently pitching.</p>
             </div>
           )}
 
@@ -775,7 +775,7 @@ export default function VotingPage() {
                 className={`rounded-md border px-4 py-2 text-sm font-semibold transition-colors ${
                   voteValue === 1
                     ? "bg-green-600 border-green-600 text-white"
-                    : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                    : "border-border text-foreground hover:bg-accent"
                 }`}
                 disabled={isLoading}
               >
@@ -786,7 +786,7 @@ export default function VotingPage() {
                 className={`rounded-md border px-4 py-2 text-sm font-semibold transition-colors ${
                   voteValue === -1
                     ? "bg-red-600 border-red-600 text-white"
-                    : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                    : "border-border text-foreground hover:bg-accent"
                 }`}
                 disabled={isLoading || !!(votingStatus && votingStatus.remainingDownvotes <= 0)}
               >
@@ -861,7 +861,7 @@ export default function VotingPage() {
           </button>
 
           {!votingActive && !pitchCycleActive && (
-            <div className="mt-2 text-xs text-gray-500 animate-pulse">
+            <div className="mt-2 text-xs text-muted-foreground animate-pulse">
               Voting will be enabled by admin during each pitch.
             </div>
           )}
@@ -884,14 +884,14 @@ export default function VotingPage() {
         {/* Convert Tokens Card */}
         <div className="flex-1 rounded-xl border bg-card p-6 shadow transition-all duration-300 hover:shadow-lg">
           <h2 className="text-xl font-bold mb-4">Convert Tokens</h2>
-          <p className="mb-4 text-sm text-gray-600">
+          <p className="mb-4 text-sm text-muted-foreground">
             Convert tokens from each category (Marketing, Capital, Team, Strategy) to get votes. Each conversion uses 1 token from each category to get 1 vote.
           </p>
           
           {tokenStatus && (
-            <div className="mb-4 p-3 bg-gray-50 rounded-md text-sm transition-all duration-200">
-              <h4 className="font-medium mb-2 text-black">Available Tokens:</h4>
-              <div className="grid grid-cols-2 gap-2 text-black mb-3">
+            <div className="mb-4 p-3 bg-muted rounded-md text-sm transition-all duration-200">
+              <h4 className="font-medium mb-2 text-foreground">Available Tokens:</h4>
+              <div className="grid grid-cols-2 gap-2 text-foreground mb-3">
                 <div>Marketing: {tokenStatus.availableTokens.marketing}</div>
                 <div>Capital: {tokenStatus.availableTokens.capital}</div>
                 <div>Team: {tokenStatus.availableTokens.team}</div>
@@ -924,9 +924,9 @@ export default function VotingPage() {
                     const value = parseInt(e.target.value) || 1;
                     setConversionQuantity(Math.min(Math.max(1, value), tokenStatus.maxPossibleConversions));
                   }}
-                  className="w-20 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                  className="w-20 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
                 />
-                <span className="text-sm text-gray-600">
+                <span className="text-sm text-muted-foreground">
                   (max: {tokenStatus.maxPossibleConversions})
                 </span>
               </div>
@@ -968,7 +968,7 @@ export default function VotingPage() {
           </button>
 
           {tokenStatus && !tokenStatus.canConvert && (
-            <div className="mt-2 text-xs text-gray-500">
+            <div className="mt-2 text-xs text-muted-foreground">
               {!tokenStatus.hasQuizSubmission 
                 ? "Complete the quiz first to earn tokens"
                 : "Need at least 1 token in each category to convert"

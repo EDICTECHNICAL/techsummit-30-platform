@@ -16,10 +16,17 @@ export default function AdminPage() {
   
   // Pitch cycle state
   const [pitchCycleActive, setPitchCycleActive] = useState(false);
-  const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'preparing' | 'voting'>('idle');
+  const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'judges-rating' | 'peers-rating'>('idle');
+  const [votingPhase, setVotingPhase] = useState<'preparing' | 'voting'>('preparing');
   const [phaseTimeLeft, setPhaseTimeLeft] = useState<number>(0);
   const [cycleStartTime, setCycleStartTime] = useState<number | null>(null);
-  const [finalRoundStats, setFinalRoundStats] = useState<any>({});
+  
+  // Rating cycle state (for finals)
+  const [ratingCycleActive, setRatingCycleActive] = useState<boolean>(false);
+  const [ratingPhase, setRatingPhase] = useState<'idle' | 'pitching' | 'judges-rating' | 'peers-rating'>('idle');
+  const [ratingPhaseTimeLeft, setRatingPhaseTimeLeft] = useState<number>(0);
+  const [ratingCycleStartTime, setRatingCycleStartTime] = useState<number | null>(null);
+  
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -60,91 +67,151 @@ export default function AdminPage() {
     }
   }, [error, success]);
 
-  // Comprehensive data fetching
+  // Comprehensive data fetching with timeout and fallback
   const fetchAllData = async () => {
     try {
       setLoading(true);
-      const [roundsRes, teamsRes, usersRes, questionsRes, votingRes, pitchRes, statsRes, quizRes, systemRes, adminQuestionsRes, finalStatsRes, systemSettingsRes] = await Promise.all([
-        fetch("/api/rounds"),
-        fetch("/api/teams"),
-        fetch("/api/admin/users"),
-        fetch("/api/questions"),
-        fetch("/api/votes/active"),
-        fetch("/api/final/pitches/current"),
-        fetch("/api/admin/stats"),
-        fetch("/api/admin/quiz-settings"),
-        fetch("/api/admin/system-status"),
-        fetch("/api/admin/questions"),
-        fetch("/api/admin/final-stats"),
-        fetch("/api/admin/system-settings")
+      
+      // Helper function to fetch with timeout
+      const fetchWithTimeout = async (url: string, timeout = 5000) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), timeout);
+        
+        try {
+          const response = await fetch(url, { 
+            signal: controller.signal,
+            headers: {
+              'Cache-Control': 'no-cache'
+            }
+          });
+          clearTimeout(timeoutId);
+          return response;
+        } catch (error) {
+          clearTimeout(timeoutId);
+          throw error;
+        }
+      };
+
+      // Critical data first (shorter timeout, faster APIs)
+      const criticalCalls = await Promise.allSettled([
+        fetchWithTimeout("/api/rounds", 3000),
+        fetchWithTimeout("/api/teams", 3000),
+        fetchWithTimeout("/api/votes/active", 2000),
+        fetchWithTimeout("/api/final/pitches/current", 2000),
       ]);
 
-      if (roundsRes.ok) {
-        const roundsData = await roundsRes.json();
+      // Process critical data immediately
+      const [roundsRes, teamsRes, votingRes, pitchRes] = criticalCalls;
+
+      if (roundsRes.status === 'fulfilled' && roundsRes.value.ok) {
+        const roundsData = await roundsRes.value.json();
         setRounds(Array.isArray(roundsData) ? roundsData : []);
       }
 
-      if (teamsRes.ok) {
-        const teamsData = await teamsRes.json();
-        setTeams(Array.isArray(teamsData) ? teamsData : []);
+      if (teamsRes.status === 'fulfilled' && teamsRes.value.ok) {
+        const teamsData = await teamsRes.value.json();
+        let allTeams = Array.isArray(teamsData) ? teamsData : [];
+        setTeams(allTeams);
       }
 
-      if (usersRes.ok) {
-        const usersData = await usersRes.json();
-        setUsers(Array.isArray(usersData) ? usersData : []);
-      }
-
-      if (questionsRes.ok) {
-        const questionsData = await questionsRes.json();
-        setQuestions(Array.isArray(questionsData) ? questionsData : []);
-      }
-
-      if (adminQuestionsRes.ok) {
-        const adminQuestionsData = await adminQuestionsRes.json();
-        setQuestions(Array.isArray(adminQuestionsData) ? adminQuestionsData : []);
-      }
-
-      if (votingRes.ok) {
-        const votingData = await votingRes.json();
+      if (votingRes.status === 'fulfilled' && votingRes.value.ok) {
+        const votingData = await votingRes.value.json();
         setVotingActive(votingData.active || false);
       }
 
-      if (pitchRes.ok) {
-        const pitchData = await pitchRes.json();
+      if (pitchRes.status === 'fulfilled' && pitchRes.value.ok) {
+        const pitchData = await pitchRes.value.json();
         setCurrentPitchTeamId(pitchData.currentTeamId || null);
         setAllPitchesCompleted(pitchData.allCompleted || false);
       }
 
-      if (statsRes.ok) {
-        const statsData = await statsRes.json();
+      // Non-critical data (longer timeout, can fail gracefully)
+      const nonCriticalCalls = await Promise.allSettled([
+        fetchWithTimeout("/api/admin/users", 8000),
+        fetchWithTimeout("/api/questions", 8000),
+        fetchWithTimeout("/api/admin/stats", 8000),
+        fetchWithTimeout("/api/admin/quiz-settings", 5000),
+        fetchWithTimeout("/api/admin/system-status", 8000),
+        fetchWithTimeout("/api/admin/questions", 8000),
+        fetchWithTimeout("/api/admin/system-settings", 8000),
+        fetchWithTimeout("/api/final/qualified-teams", 8000)
+      ]);
+
+      const [usersRes, questionsRes, statsRes, quizRes, systemRes, adminQuestionsRes, systemSettingsRes, qualifiedTeamsRes] = nonCriticalCalls;
+
+      // Process non-critical data with fallbacks
+      if (usersRes.status === 'fulfilled' && usersRes.value.ok) {
+        const usersData = await usersRes.value.json();
+        setUsers(Array.isArray(usersData) ? usersData : []);
+      } else {
+        console.warn('Failed to load users data:', usersRes.status === 'rejected' ? usersRes.reason : 'Request failed');
+        setUsers([]);
+      }
+
+      if (questionsRes.status === 'fulfilled' && questionsRes.value.ok) {
+        const questionsData = await questionsRes.value.json();
+        setQuestions(Array.isArray(questionsData) ? questionsData : []);
+      } else {
+        console.warn('Failed to load questions data:', questionsRes.status === 'rejected' ? questionsRes.reason : 'Request failed');
+        setQuestions([]);
+      }
+
+      if (adminQuestionsRes.status === 'fulfilled' && adminQuestionsRes.value.ok) {
+        const adminQuestionsData = await adminQuestionsRes.value.json();
+        setQuestions(Array.isArray(adminQuestionsData) ? adminQuestionsData : []);
+      }
+
+      if (statsRes.status === 'fulfilled' && statsRes.value.ok) {
+        const statsData = await statsRes.value.json();
         setStats(statsData || {});
+      } else {
+        console.warn('Failed to load stats data:', statsRes.status === 'rejected' ? statsRes.reason : 'Request failed');
+        setStats({});
       }
 
-      if (quizRes.ok) {
-        const quizData = await quizRes.json();
+      if (quizRes.status === 'fulfilled' && quizRes.value.ok) {
+        const quizData = await quizRes.value.json();
         setQuizSettings(quizData || {});
+      } else {
+        console.warn('Failed to load quiz settings:', quizRes.status === 'rejected' ? quizRes.reason : 'Request failed');
+        setQuizSettings({});
       }
 
-      if (systemRes.ok) {
-        const systemData = await systemRes.json();
+      if (systemRes.status === 'fulfilled' && systemRes.value.ok) {
+        const systemData = await systemRes.value.json();
         setSystemStatus(systemData || {});
+      } else {
+        console.warn('Failed to load system status:', systemRes.status === 'rejected' ? systemRes.reason : 'Request failed');
+        setSystemStatus({});
       }
 
-      if (finalStatsRes.ok) {
-        const finalStatsData = await finalStatsRes.json();
-        setFinalRoundStats(finalStatsData || {});
-        // Merge final stats into main stats for display
-        setStats((prev: any) => ({ ...prev, ...finalStatsData }));
-      }
-
-      if (systemSettingsRes.ok) {
-        const systemSettingsData = await systemSettingsRes.json();
+      if (systemSettingsRes.status === 'fulfilled' && systemSettingsRes.value.ok) {
+        const systemSettingsData = await systemSettingsRes.value.json();
         setSystemSettings(systemSettingsData || {});
+      } else {
+        console.warn('Failed to load system settings:', systemSettingsRes.status === 'rejected' ? systemSettingsRes.reason : 'Request failed');
+        setSystemSettings({});
       }
 
-      setSuccess("Data refreshed successfully");
+      // Update teams with qualification status if available
+      if (qualifiedTeamsRes.status === 'fulfilled' && qualifiedTeamsRes.value.ok) {
+        try {
+          const qualifiedData = await qualifiedTeamsRes.value.json();
+          const qualifiedTeamIds = new Set(qualifiedData.qualifiedTeams?.map((t: any) => t.teamId) || []);
+          setTeams(prevTeams => prevTeams.map(team => ({
+            ...team,
+            qualifiedForFinal: qualifiedTeamIds.has(team.id)
+          })));
+        } catch (err) {
+          console.warn('Failed to process qualified teams data:', err);
+        }
+      } else {
+        console.warn('Failed to load qualified teams:', qualifiedTeamsRes.status === 'rejected' ? qualifiedTeamsRes.reason : 'Request failed');
+      }
+
+      setSuccess("Data loaded successfully");
     } catch (err) {
-      setError("Failed to fetch data");
+      setError("Failed to fetch some data - page may have limited functionality");
       console.error("Error fetching data:", err);
     } finally {
       setLoading(false);
@@ -154,6 +221,50 @@ export default function AdminPage() {
   useEffect(() => {
     fetchAllData();
   }, []);
+
+  // Rating cycle polling for real-time updates
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    
+    const pollRatingCycle = async () => {
+      try {
+        const res = await fetch('/api/rating/current', {
+          headers: { 'Cache-Control': 'no-cache' }
+        });
+        if (res.ok) {
+          const data = await res.json();
+          console.log('Polling rating cycle data:', data); // Debug log
+          setRatingCycleActive(data.ratingCycleActive || false);
+          setRatingPhase(data.currentPhase || 'idle');
+          setRatingPhaseTimeLeft(data.phaseTimeLeft || 0);
+          setRatingCycleStartTime(data.cycleStartTime || null);
+          
+          // Update current pitch team if changed
+          if (data.team?.id && data.team.id !== currentPitchTeamId) {
+            setCurrentPitchTeamId(data.team.id);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to poll rating cycle:', error);
+      }
+    };
+
+    // Poll every 1 second when on finals tab
+    if (activeTab === 'final') {
+      console.log('Starting rating cycle polling for finals tab'); // Debug log
+      pollRatingCycle(); // Initial fetch
+      interval = setInterval(pollRatingCycle, 1000);
+    } else {
+      console.log('Not on finals tab, stopping polling'); // Debug log
+    }
+
+    return () => {
+      if (interval) {
+        console.log('Cleaning up polling interval'); // Debug log
+        clearInterval(interval);
+      }
+    };
+  }, [activeTab, currentPitchTeamId]);
 
   // Round management functions
   const updateRound = async (roundId: number, status: "PENDING"|"ACTIVE"|"COMPLETED") => {
@@ -314,15 +425,15 @@ export default function AdminPage() {
         setPhaseTimeLeft(90 - elapsed);
       } else if (elapsed < 95) {
         // Preparation phase (5 seconds)
-        if (currentPhase !== 'preparing') {
-          setCurrentPhase('preparing');
+        if (votingPhase !== 'preparing') {
+          setVotingPhase('preparing');
           setSuccess("Preparation time - teams get ready to vote!");
         }
         setPhaseTimeLeft(95 - elapsed);
       } else if (elapsed < 125) {
         // Voting phase (30 seconds)
-        if (currentPhase !== 'voting') {
-          setCurrentPhase('voting');
+        if (votingPhase !== 'voting') {
+          setVotingPhase('voting');
           setVotingActive(true);
           // Start voting on backend
           fetch("/api/voting/current", {
@@ -536,6 +647,116 @@ export default function AdminPage() {
     }
   };
 
+  // Rating cycle control functions  
+  const fetchRatingCycleStatus = async () => {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 second timeout
+      
+      const res = await fetch("/api/rating/current", {
+        signal: controller.signal,
+        headers: {
+          'Cache-Control': 'no-cache'
+        }
+      });
+      
+      clearTimeout(timeoutId);
+      
+      if (res.ok) {
+        const status = await res.json();
+        // Update rating cycle state
+        setRatingCycleActive(status.ratingCycleActive || false);
+        setRatingPhase(status.currentPhase || 'idle');
+        setRatingPhaseTimeLeft(status.phaseTimeLeft || 0);
+        setRatingCycleStartTime(status.cycleStartTime || null);
+        
+        // Update current pitch team if needed
+        if (status.team?.id) {
+          setCurrentPitchTeamId(status.team.id);
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching rating cycle status:", error);
+      // Don't show error to user for rating cycle status as it's not critical
+    }
+  };
+
+  const startRatingCycle = async () => {
+    try {
+      setLoading(true);
+      
+      if (!currentPitchTeamId) {
+        setError("Please select a team before starting the rating cycle");
+        return;
+      }
+
+      const qualifiedTeams = teams.filter(team => team.qualifiedForFinal);
+      const finalTeams = qualifiedTeams.length > 0 ? qualifiedTeams : teams;
+      
+      // First set the current team
+      const selectedTeam = teams.find(t => t.id === currentPitchTeamId);
+      if (selectedTeam) {
+        await fetch("/api/rating/current", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ 
+            teamId: currentPitchTeamId,
+            teamName: selectedTeam.name
+          })
+        });
+      }
+      
+      // Then start the rating cycle
+      const res = await fetch("/api/rating/current", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          action: "start",
+          cycleType: "final",
+          teams: finalTeams.map((t: any) => t.id),
+          currentTeamId: currentPitchTeamId
+        })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to start rating cycle");
+      }
+
+      await fetchRatingCycleStatus();
+      setSuccess(`Rating cycle started for ${teams.find(t => t.id === currentPitchTeamId)?.name || 'selected team'}`);
+    } catch (error) {
+      console.error("Error starting rating cycle:", error);
+      setError("Failed to start rating cycle");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const stopRatingCycle = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/rating/current", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "stop" })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to stop rating cycle");
+      }
+
+      await fetchRatingCycleStatus();
+      setSuccess("Rating cycle stopped successfully");
+    } catch (error) {
+      console.error("Error stopping rating cycle:", error);
+      setError("Failed to stop rating cycle");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // System management functions
   const updateSystemSetting = async (key: string, value: string) => {
     try {
@@ -690,8 +911,8 @@ export default function AdminPage() {
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium text-blue-900">
                       {currentPhase === 'pitching' && '🎤 Pitch Presentation'}
-                      {currentPhase === 'preparing' && '⏳ Get Ready to Vote'}
-                      {currentPhase === 'voting' && '🗳️ Voting Time'}
+                      {votingPhase === 'preparing' && '⏳ Get Ready to Vote'}
+                      {votingPhase === 'voting' && '🗳️ Voting Time'}
                     </h4>
                     <div className="text-2xl font-bold text-blue-800">
                       {phaseTimeLeft}s
@@ -701,13 +922,13 @@ export default function AdminPage() {
                     <div 
                       className={`h-3 rounded-full transition-all duration-1000 ${
                         currentPhase === 'pitching' ? 'bg-green-500' :
-                        currentPhase === 'preparing' ? 'bg-yellow-500' :
+                        votingPhase === 'preparing' ? 'bg-yellow-500' :
                         'bg-red-500'
                       }`}
                       style={{ 
                         width: `${Math.max(0, Math.min(100,
                           currentPhase === 'pitching' ? (phaseTimeLeft / 90) * 100 :
-                          currentPhase === 'preparing' ? (phaseTimeLeft / 5) * 100 :
+                          votingPhase === 'preparing' ? (phaseTimeLeft / 5) * 100 :
                           (phaseTimeLeft / 30) * 100
                         ))}%` 
                       }}
@@ -715,8 +936,8 @@ export default function AdminPage() {
                   </div>
                   <div className="mt-2 text-xs text-blue-700">
                     {currentPhase === 'pitching' && 'Team is presenting their pitch (90 seconds)'}
-                    {currentPhase === 'preparing' && 'Teams prepare to vote (5 seconds)'}
-                    {currentPhase === 'voting' && 'Teams can now vote (30 seconds)'}
+                    {votingPhase === 'preparing' && 'Teams prepare to vote (5 seconds)'}
+                    {votingPhase === 'voting' && 'Teams can now vote (30 seconds)'}
                   </div>
                 </div>
               )}
@@ -768,55 +989,126 @@ export default function AdminPage() {
       case 'final':
         return (
           <div className="space-y-6">
+            {/* Rating Cycle Control */}
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="font-semibold mb-4">Final Round Control</h3>
-              <div className="grid gap-4">
-                <div>
-                  <h4 className="font-medium mb-2">Round Status</h4>
-                  <div className="text-sm text-muted-foreground">
-                    Final Round: {rounds.find(r => r.name === 'FINAL')?.status || 'Not Found'}
+              <h3 className="font-semibold mb-4">🎯 Real-Time Rating Cycle Control</h3>
+              
+              {/* Current Status Display */}
+              <div className="grid gap-4 md:grid-cols-3 mb-6">
+                <div className="text-center p-4 rounded-lg bg-muted">
+                  <div className={`text-2xl font-bold ${ratingCycleActive ? 'text-green-600' : 'text-gray-400'}`}>
+                    {ratingCycleActive ? '🟢 ACTIVE' : '⚪ IDLE'}
                   </div>
+                  <div className="text-sm text-muted-foreground">Cycle Status</div>
                 </div>
-                
-                <div className="flex gap-2">
-                  <button 
-                    onClick={() => {
-                      const finalRound = rounds.find(r => r.name === 'FINAL');
-                      if (finalRound) updateRound(finalRound.id, 'ACTIVE');
-                    }}
-                    disabled={loading || rounds.find(r => r.name === 'FINAL')?.status === 'ACTIVE'}
-                    className="rounded-md bg-green-600 px-4 py-2 text-white font-bold disabled:opacity-50"
-                  >
-                    Activate Final Round
-                  </button>
-                  <button 
-                    onClick={() => {
-                      const finalRound = rounds.find(r => r.name === 'FINAL');
-                      if (finalRound) updateRound(finalRound.id, 'COMPLETED');
-                    }}
-                    disabled={loading || rounds.find(r => r.name === 'FINAL')?.status === 'COMPLETED'}
-                    className="rounded-md bg-purple-600 px-4 py-2 text-white font-bold disabled:opacity-50"
-                  >
-                    Complete Final Round
-                  </button>
+                <div className="text-center p-4 rounded-lg bg-muted">
+                  <div className="text-2xl font-bold text-blue-600">
+                    {ratingPhase.toUpperCase()}
+                  </div>
+                  <div className="text-sm text-muted-foreground">Current Phase</div>
+                </div>
+                <div className="text-center p-4 rounded-lg bg-muted">
+                  <div className="text-2xl font-bold text-orange-600">
+                    {ratingPhaseTimeLeft > 0 ? Math.ceil(ratingPhaseTimeLeft) : 0}s
+                  </div>
+                  <div className="text-sm text-muted-foreground">Time Left</div>
                 </div>
               </div>
-            </div>
 
-            <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="font-semibold mb-4">Final Pitch Registration</h3>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{stats.finalPitches || 0}</div>
-                  <div className="text-sm text-muted-foreground">Registered Teams</div>
+              {/* Current Pitch Team */}
+              {currentPitchTeamId && (
+                <div className="mb-6 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+                  <h4 className="font-medium text-green-800 dark:text-green-200 mb-2">📽️ Currently Presenting:</h4>
+                  <p className="text-lg font-semibold text-green-900 dark:text-green-100">
+                    {teams.find(t => t.id === currentPitchTeamId)?.name || `Team #${currentPitchTeamId}`}
+                  </p>
+                  <p className="text-sm text-green-700 dark:text-green-300">
+                    {teams.find(t => t.id === currentPitchTeamId)?.college || 'Unknown College'}
+                  </p>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{stats.peerRatings || 0}</div>
-                  <div className="text-sm text-muted-foreground">Peer Ratings</div>
+              )}
+
+              {/* Team Selection */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium mb-2">Select Team for Pitch</label>
+                <select 
+                  value={currentPitchTeamId || ''} 
+                  onChange={(e) => setCurrentPitchTeamId(e.target.value ? parseInt(e.target.value) : null)}
+                  className="w-full rounded-md border border-input bg-background px-3 py-2"
+                  disabled={ratingCycleActive}
+                >
+                  <option value="">Select team...</option>
+                  {(() => {
+                    const qualifiedTeams = teams.filter(team => team.qualifiedForFinal);
+                    const teamsToShow = qualifiedTeams.length > 0 ? qualifiedTeams : teams;
+                    return teamsToShow.map(team => (
+                      <option key={team.id} value={team.id}>
+                        {team.name} ({team.college})
+                        {qualifiedTeams.length === 0 ? ' [All teams shown - no qualified teams yet]' : ''}
+                      </option>
+                    ));
+                  })()}
+                </select>
+              </div>
+
+              {/* Cycle Control Buttons - Simplified */}
+              <div className="grid gap-3 md:grid-cols-2 mb-6">
+                <button 
+                  onClick={startRatingCycle}
+                  disabled={loading || !currentPitchTeamId || ratingCycleActive}
+                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium disabled:opacity-50"
+                >
+                  🚀 Start Rating Cycle
+                </button>
+                <button 
+                  onClick={stopRatingCycle}
+                  disabled={loading || !ratingCycleActive}
+                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium disabled:opacity-50"
+                >
+                  ⏹️ Stop Cycle
+                </button>
+              </div>
+
+              {/* Phase Progress Bar */}
+              {ratingCycleActive && (
+                <div className="mb-6">
+                  <div className="flex justify-between text-sm text-muted-foreground mb-2">
+                    <span>Phase Progress</span>
+                    <span>{ratingPhase} ({ratingPhaseTimeLeft > 0 ? Math.ceil(ratingPhaseTimeLeft) : 0}s remaining)</span>
+                  </div>
+                  <div className="w-full bg-muted rounded-full h-3">
+                    <div 
+                      className={`h-3 rounded-full transition-all duration-1000 ${
+                        ratingPhase === 'pitching' ? 'bg-blue-600' :
+                        ratingPhase === 'judges-rating' ? 'bg-green-600' :
+                        ratingPhase === 'peers-rating' ? 'bg-purple-600' :
+                        'bg-gray-400'
+                      }`}
+                      style={{ 
+                        width: `${Math.max(0, (ratingPhaseTimeLeft / (
+                          ratingPhase === 'pitching' ? 300 : // 5 minutes = 300 seconds
+                          ratingPhase === 'judges-rating' ? 60 : // 1 minute = 60 seconds
+                          60 // 1 minute for peers = 60 seconds
+                        )) * 100)}%` 
+                      }}
+                    ></div>
+                  </div>
                 </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{stats.judgeScores?.count || 0}</div>
-                  <div className="text-sm text-muted-foreground">Judge Scores</div>
+              )}
+
+              {/* Quick Status Info */}
+              <div className="grid gap-3 md:grid-cols-3 text-sm">
+                <div className={`p-3 rounded-lg ${ratingPhase === 'pitching' ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800' : 'bg-muted'}`}>
+                  <div className="font-medium">📽️ Pitching Phase</div>
+                  <div className="text-muted-foreground">5 minutes presentation</div>
+                </div>
+                <div className={`p-3 rounded-lg ${ratingPhase === 'judges-rating' ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-muted'}`}>
+                  <div className="font-medium">⚖️ Judges Rating</div>
+                  <div className="text-muted-foreground">1 minute scoring</div>
+                </div>
+                <div className={`p-3 rounded-lg ${ratingPhase === 'peers-rating' ? 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800' : 'bg-muted'}`}>
+                  <div className="font-medium">👥 Peer Rating</div>
+                  <div className="text-muted-foreground">1 minute team scoring</div>
                 </div>
               </div>
             </div>
@@ -824,9 +1116,6 @@ export default function AdminPage() {
             <div className="rounded-lg border border-border bg-card p-6">
               <h3 className="font-semibold mb-4">Quick Actions</h3>
               <div className="flex flex-wrap gap-2">
-                <a href="/final" className="rounded-md bg-blue-600 px-4 py-2 text-white font-medium hover:bg-blue-700">
-                  View Final Round
-                </a>
                 <a href="/judge" className="rounded-md bg-green-600 px-4 py-2 text-white font-medium hover:bg-green-700">
                   Judge Console
                 </a>
@@ -900,24 +1189,24 @@ export default function AdminPage() {
         return (
           <div className="space-y-6">
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="font-semibold mb-4 text-white">Quiz Settings</h3>
+              <h3 className="font-semibold mb-4 text-foreground">Quiz Settings</h3>
               <div className="grid gap-4 md:grid-cols-2">
                 <div>
-                  <label className="block text-sm mb-2 text-white">Time Limit (minutes)</label>
+                  <label className="block text-sm mb-2 text-foreground">Time Limit (minutes)</label>
                   <input 
                     type="number" 
                     value={quizSettings.timeLimit || 30}
                     onChange={e => setQuizSettings({...quizSettings, timeLimit: Number(e.target.value)})}
-                    className="w-full rounded-md border px-3 py-2 bg-white text-black"
+                    className="w-full rounded-md border px-3 py-2 bg-background text-foreground"
                   />
                 </div>
                 <div>
-                  <label className="block text-sm mb-2 text-white">Total Questions</label>
+                  <label className="block text-sm mb-2 text-foreground">Total Questions</label>
                   <input 
                     type="number" 
                     value={questions.length}
                     readOnly
-                    className="w-full rounded-md border px-3 py-2 bg-gray-100 text-black opacity-75"
+                    className="w-full rounded-md border px-3 py-2 bg-muted text-muted-foreground opacity-75"
                   />
                 </div>
               </div>
@@ -939,7 +1228,7 @@ export default function AdminPage() {
 
             <div className="rounded-lg border border-border bg-card p-6">
               <div className="flex justify-between items-center mb-4">
-                <h3 className="font-semibold text-white">Question Management</h3>
+                <h3 className="font-semibold text-foreground">Question Management</h3>
                 <button 
                   onClick={() => openQuestionForm()}
                   disabled={questions.length >= 15}
@@ -951,17 +1240,17 @@ export default function AdminPage() {
               
               <div className="space-y-4">
                 {questions.map((question, index) => (
-                  <div key={question.id} className="border border-border rounded-lg p-4 bg-white">
+                  <div key={question.id} className="border border-border rounded-lg p-4 bg-background">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <h4 className="font-medium text-black">Q{index + 1}: {question.text}</h4>
-                        <p className="text-sm text-gray-600 mt-1">
+                        <h4 className="font-medium text-foreground">Q{index + 1}: {question.text}</h4>
+                        <p className="text-sm text-muted-foreground mt-1">
                           Max tokens: {question.maxTokenPerQuestion} • Options: {question.options?.length || 0}
                         </p>
                         {question.options && question.options.length > 0 && (
                           <div className="mt-2 grid gap-1">
                             {question.options.map((option: any, optIndex: number) => (
-                              <div key={optIndex} className="text-sm bg-gray-100 px-2 py-1 rounded text-black">
+                              <div key={optIndex} className="text-sm bg-muted px-2 py-1 rounded text-foreground">
                                 {String.fromCharCode(65 + optIndex)}. {option.text}
                               </div>
                             ))}
@@ -987,7 +1276,7 @@ export default function AdminPage() {
                 ))}
                 
                 {questions.length === 0 && (
-                  <div className="text-center py-8 text-gray-600">
+                  <div className="text-center py-8 text-muted-foreground">
                     No questions added yet. Click "Add Question" to get started.
                   </div>
                 )}
@@ -995,15 +1284,15 @@ export default function AdminPage() {
             </div>
 
             <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="font-semibold mb-4 text-white">Quiz Statistics</h3>
+              <h3 className="font-semibold mb-4 text-foreground">Quiz Statistics</h3>
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-white">{stats.quizAttempts || 0}</div>
-                  <div className="text-sm text-white">Quiz Attempts</div>
+                  <div className="text-2xl font-bold text-foreground">{stats.quizAttempts || 0}</div>
+                  <div className="text-sm text-muted-foreground">Quiz Attempts</div>
                 </div>
                 <div className="text-center">
-                  <div className="text-2xl font-bold text-white">{stats.completedQuizzes || 0}</div>
-                  <div className="text-sm text-white">Completed</div>
+                  <div className="text-2xl font-bold text-foreground">{stats.completedQuizzes || 0}</div>
+                  <div className="text-sm text-muted-foreground">Completed</div>
                 </div>
               </div>
             </div>
@@ -1011,30 +1300,30 @@ export default function AdminPage() {
             {/* Question Form Modal */}
             {showQuestionForm && (
               <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto text-black">
-                  <h3 className="text-lg font-semibold mb-4 text-black">
+                <div className="bg-background rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto text-foreground border border-border">
+                  <h3 className="text-lg font-semibold mb-4 text-foreground">
                     {editingQuestion ? 'Edit Question' : 'Add New Question'}
                   </h3>
                   
                   <div className="space-y-4">
                     <div>
-                      <label className="block text-sm mb-2 text-black">Question Text</label>
+                      <label className="block text-sm mb-2 text-foreground">Question Text</label>
                       <textarea 
                         value={questionFormData.text}
                         onChange={e => setQuestionFormData(prev => ({...prev, text: e.target.value}))}
-                        className="w-full rounded-md border px-3 py-2 bg-white text-black"
+                        className="w-full rounded-md border px-3 py-2 bg-background text-foreground"
                         rows={3}
                         placeholder="Enter the quiz question..."
                       />
                     </div>
 
                     <div>
-                      <label className="block text-sm mb-2 text-black">Max Tokens Per Question</label>
+                      <label className="block text-sm mb-2 text-foreground">Max Tokens Per Question</label>
                       <input 
                         type="number" 
                         value={questionFormData.maxTokenPerQuestion}
                         onChange={e => setQuestionFormData(prev => ({...prev, maxTokenPerQuestion: Number(e.target.value)}))}
-                        className="w-full rounded-md border px-3 py-2 bg-white text-black"
+                        className="w-full rounded-md border px-3 py-2 bg-background text-foreground"
                         min="1"
                         max="10"
                       />
@@ -1042,7 +1331,7 @@ export default function AdminPage() {
 
                     <div>
                       <div className="flex justify-between items-center mb-2">
-                        <label className="block text-sm text-black">Options</label>
+                        <label className="block text-sm text-foreground">Options</label>
                         <button 
                           onClick={addOption}
                           className="px-3 py-1 text-sm bg-green-100 text-green-800 rounded"
@@ -1053,9 +1342,9 @@ export default function AdminPage() {
                       
                       <div className="space-y-3">
                         {questionFormData.options.map((option, index) => (
-                          <div key={index} className="border border-gray-300 rounded-lg p-3 bg-gray-50">
+                          <div key={index} className="border border-border rounded-lg p-3 bg-muted">
                             <div className="flex justify-between items-center mb-2">
-                              <span className="font-medium text-black">Option {String.fromCharCode(65 + index)}</span>
+                              <span className="font-medium text-foreground">Option {String.fromCharCode(65 + index)}</span>
                               {questionFormData.options.length > 2 && (
                                 <button 
                                   onClick={() => removeOption(index)}
@@ -1068,51 +1357,51 @@ export default function AdminPage() {
                             
                             <div className="grid gap-3">
                               <div>
-                                <label className="block text-xs mb-1 text-black">Option Text</label>
+                                <label className="block text-xs mb-1 text-foreground">Option Text</label>
                                 <input 
                                   type="text"
                                   value={option.text}
                                   onChange={e => updateOption(index, 'text', e.target.value)}
-                                  className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
+                                  className="w-full rounded-md border px-2 py-1 text-sm bg-background text-foreground"
                                   placeholder="Enter option text..."
                                 />
                               </div>
                               
                               <div className="grid grid-cols-5 gap-2">
                                 <div>
-                                  <label className="block text-xs mb-1 text-black">Marketing</label>
+                                  <label className="block text-xs mb-1 text-foreground">Marketing</label>
                                   <input 
                                     type="number"
                                     value={option.tokenDeltaMarketing}
                                     onChange={e => updateOption(index, 'tokenDeltaMarketing', Number(e.target.value))}
-                                    className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
+                                    className="w-full rounded-md border px-2 py-1 text-sm bg-background text-foreground"
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-xs mb-1 text-black">Capital</label>
+                                  <label className="block text-xs mb-1 text-foreground">Capital</label>
                                   <input 
                                     type="number"
                                     value={option.tokenDeltaCapital}
                                     onChange={e => updateOption(index, 'tokenDeltaCapital', Number(e.target.value))}
-                                    className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
+                                    className="w-full rounded-md border px-2 py-1 text-sm bg-background text-foreground"
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-xs mb-1 text-black">Team</label>
+                                  <label className="block text-xs mb-1 text-foreground">Team</label>
                                   <input 
                                     type="number"
                                     value={option.tokenDeltaTeam}
                                     onChange={e => updateOption(index, 'tokenDeltaTeam', Number(e.target.value))}
-                                    className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
+                                    className="w-full rounded-md border px-2 py-1 text-sm bg-background text-foreground"
                                   />
                                 </div>
                                 <div>
-                                  <label className="block text-xs mb-1 text-black">Strategy</label>
+                                  <label className="block text-xs mb-1 text-foreground">Strategy</label>
                                   <input 
                                     type="number"
                                     value={option.tokenDeltaStrategy}
                                     onChange={e => updateOption(index, 'tokenDeltaStrategy', Number(e.target.value))}
-                                    className="w-full rounded-md border px-2 py-1 text-sm bg-white text-black"
+                                    className="w-full rounded-md border px-2 py-1 text-sm bg-background text-foreground"
                                   />
                                 </div>
                               </div>
@@ -1132,7 +1421,7 @@ export default function AdminPage() {
                     </button>
                     <button 
                       onClick={closeQuestionForm}
-                      className="px-4 py-2 bg-gray-300 text-gray-700 rounded-md"
+                      className="px-4 py-2 bg-muted text-foreground rounded-md border border-border"
                     >
                       Cancel
                     </button>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { ratingEmitter } from '../../sse/rating/route';
+import { ratingEmitter } from '@/lib/rating-emitter';
 
 // Helper function to check admin authentication (both JWT and cookie-based)
 function checkAdminAuth(req: NextRequest): boolean {
@@ -93,7 +93,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-// POST handler - Set current pitching team (Admin only)
+// POST handler - Set current pitching team or start rating cycle (Admin only)
 export async function POST(request: NextRequest) {
   try {
     // Check admin authentication (cookie-based or JWT-based)
@@ -111,7 +111,64 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { teamId, teamName } = await request.json();
+    const requestBody = await request.json();
+    
+    // Handle rating cycle actions
+    if (requestBody.action) {
+      switch (requestBody.action) {
+        case 'start':
+          // Start rating cycle
+          ratingState.ratingCycleActive = true;
+          ratingState.currentPhase = 'pitching';
+          ratingState.cycleStartTime = Date.now();
+          ratingState.phaseTimeLeft = 300; // 5 minutes
+          ratingState.ratingActive = false; // Will be enabled during judge/peer phases
+          
+          console.log('Started rating cycle:', ratingState);
+          
+          // Broadcast the change via SSE
+          ratingEmitter.broadcast({
+            type: 'ratingStateChanged',
+            data: ratingState
+          });
+          
+          return NextResponse.json({
+            success: true,
+            ratingState,
+            message: 'Rating cycle started successfully'
+          });
+          
+        case 'stop':
+          // Stop rating cycle
+          ratingState.ratingCycleActive = false;
+          ratingState.currentPhase = 'idle';
+          ratingState.cycleStartTime = null;
+          ratingState.phaseTimeLeft = 0;
+          ratingState.ratingActive = false;
+          
+          console.log('Stopped rating cycle:', ratingState);
+          
+          // Broadcast the change via SSE
+          ratingEmitter.broadcast({
+            type: 'ratingStateChanged',
+            data: ratingState
+          });
+          
+          return NextResponse.json({
+            success: true,
+            ratingState,
+            message: 'Rating cycle stopped successfully'
+          });
+          
+        default:
+          return NextResponse.json({
+            error: 'Invalid action. Supported actions: start, stop'
+          }, { status: 400 });
+      }
+    }
+    
+    // Handle setting current team (legacy functionality)
+    const { teamId, teamName } = requestBody;
     let name = teamName;
     
     // Try to get real team name from DB if not provided

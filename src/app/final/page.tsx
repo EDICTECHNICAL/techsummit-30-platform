@@ -65,7 +65,7 @@ export default function FinalPage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [msgType, setMsgType] = useState<'success' | 'error' | 'info'>('info');
   const [loading, setLoading] = useState(false);
-  const [activeTab, setActiveTab] = useState<'rate' | 'judge' | 'status'>('status');
+  const [activeTab, setActiveTab] = useState<'rate' | 'status'>('status');
 
   // Round completion tracking
   const [quizCompleted, setQuizCompleted] = useState<boolean>(false);
@@ -75,11 +75,9 @@ export default function FinalPage() {
   // Rating form state (updated for Round 3)
   const [toTeamId, setToTeamId] = useState<number | null>(null);
   const [rating, setRating] = useState<number>(5); // Changed default to 5 for peer ratings (3-10)
-
-  // Judge form state (updated for Round 3)
-  const [judgeTeamId, setJudgeTeamId] = useState<number | null>(null);
-  const [judgeScore, setJudgeScore] = useState<number>(50); // Changed default to 50 for judge ratings (0-100)
-  const [judgeName, setJudgeName] = useState<string>('');
+  
+  // Popup state for qualification status
+  const [showQualificationPopup, setShowQualificationPopup] = useState<boolean>(false);
 
   // Rating cycle state
   const [currentPitchTeam, setCurrentPitchTeam] = useState<Team | null>(null);
@@ -95,13 +93,6 @@ export default function FinalPage() {
 
   const userTeamId = session?.user?.team?.id;
   const isAdmin = session?.user?.isAdmin;
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const isJudge = document.cookie.includes("judge-auth=true") || document.cookie.includes("admin-auth=true");
-      setIsJudgeAuthenticated(isJudge);
-    }
-  }, []);
 
   // Show message with auto-dismiss
   const showMessage = useCallback((text: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -234,14 +225,12 @@ export default function FinalPage() {
     checkRoundCompletion();
   }, [session]);
 
-  // Set judge name
+  // Show qualification popup when qualification status is determined
   useEffect(() => {
-    if (session?.user?.name) {
-      setJudgeName(session.user.name);
-    } else if (isJudgeAuthenticated) {
-      setJudgeName('Judge');
+    if (userTeamId && qualifiedTeams.length > 0 && !loading) {
+      setShowQualificationPopup(true);
     }
-  }, [session, isJudgeAuthenticated]);
+  }, [userTeamId, qualifiedTeams.length, loading]);
 
   const checkRoundCompletion = async () => {
     try {
@@ -334,11 +323,6 @@ export default function FinalPage() {
         }
       }
 
-      // Set default judge name
-      if (session?.user?.name) {
-        setJudgeName(session.user.name);
-      }
-
     } catch (error) {
       console.error('Error loading data:', error);
       setMsg('Failed to load data');
@@ -348,25 +332,25 @@ export default function FinalPage() {
   };
 
   const submitRating = async () => {
-    if (!userTeamId || !toTeamId || rating < 3 || rating > 10) {
-      showMessage("Please select a team and provide a rating between 3-10", 'error');
+    if (!userTeamId || !currentPitchTeam || rating < 3 || rating > 10) {
+      showMessage("Please provide a rating between 3-10 for the current presenting team", 'error');
       return;
     }
 
-    if (userTeamId === toTeamId) {
+    if (userTeamId === currentPitchTeam.id) {
       showMessage("Cannot rate your own team", 'error');
       return;
     }
 
     try {
       setLoading(true);
-      const res = await fetch("/api/round3/peer-ratings", {
+      const res = await fetch("/api/final/ratings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: 'include',
         body: JSON.stringify({ 
           fromTeamId: userTeamId, 
-          toTeamId, 
+          toTeamId: currentPitchTeam.id, 
           rating 
         })
       });
@@ -374,8 +358,7 @@ export default function FinalPage() {
       const data: RatingResponse = await res.json();
       
       if (res.ok && data.success) {
-        showMessage(data.message || `Successfully rated team with ${rating}/10`, 'success');
-        setToTeamId(null);
+        showMessage(data.message || `Successfully rated ${currentPitchTeam.name} with ${rating}/10`, 'success');
         setRating(5); // Reset to default
         // Reload ratings
         const ratingsRes = await fetch(`/api/final/ratings?fromTeamId=${userTeamId}`);
@@ -394,61 +377,25 @@ export default function FinalPage() {
     }
   };
 
-  const submitJudgeScore = async () => {
-    if (!judgeTeamId || judgeScore < 0 || judgeScore > 100 || !judgeName.trim()) {
-      showMessage("Please fill in all judge score fields with valid data (0-100)", 'error');
-      return;
-    }
-
-    try {
-      setLoading(true);
-      const res = await fetch("/api/round3/judge-ratings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: 'include',
-        body: JSON.stringify({ 
-          judgeName: judgeName.trim(), 
-          teamId: judgeTeamId, 
-          rating: judgeScore 
-        })
-      });
-
-      const data: RatingResponse = await res.json();
-      
-      if (res.ok && data.success) {
-        showMessage(data.message || `Judge score submitted successfully: ${judgeScore}/100`, 'success');
-        setJudgeTeamId(null);
-        setJudgeScore(50); // Reset to default
-      } else {
-        showMessage(data?.error || "Failed to submit judge score", 'error');
-      }
-    } catch (error) {
-      console.error("Error submitting judge score:", error);
-      showMessage("Network error while submitting judge score", 'error');
-    } finally {
-      setLoading(false);
-    }
-  };
-
   if (isPending || loading || roundsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="max-w-md w-full mx-4 rounded-lg border bg-white p-8 text-center">
+        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold mb-2">Loading...</h2>
-          <p className="text-gray-600">Checking round status and loading data</p>
+          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Loading...</h2>
+          <p className="text-muted-foreground">Checking round status and loading data</p>
         </div>
       </div>
     );
   }
   
-  if (!session?.user && !isJudgeAuthenticated) {
+  if (!session?.user) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="max-w-md w-full mx-4 rounded-lg border bg-white p-8 text-center">
+        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">
           <Trophy className="h-12 w-12 text-orange-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2">Authentication Required</h2>
-          <p className="mb-4 text-gray-600">
+          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Authentication Required</h2>
+          <p className="mb-4 text-muted-foreground">
             You need to be signed in with a team account or judge account to participate in the finals.
           </p>
           <div className="space-y-3">
@@ -458,7 +405,7 @@ export default function FinalPage() {
             >
               Sign In to Team
             </a>
-            <div className="text-sm text-gray-500">
+            <div className="text-sm text-muted-foreground">
               <span>Are you a judge? </span>
               <a href="/judge/login" className="text-blue-600 hover:underline">
                 Judge Login
@@ -537,12 +484,6 @@ export default function FinalPage() {
   const unratedTeams = availableTeams.filter(team => !ratedTeamIds.has(team.id));
 
   // Rating permissions
-  const canRateAsJudge = isJudgeAuthenticated && 
-                        currentPitchTeam && 
-                        ratingCycleActive && 
-                        currentPhase === 'judges-rating' && 
-                        phaseTimeLeft > 0;
-
   const canRateAsPeer = session?.user && 
                         userTeamId && 
                         currentPitchTeam && 
@@ -561,6 +502,14 @@ export default function FinalPage() {
             Back to Dashboard
           </Link>
           <ThemeToggle />
+        </div>
+        
+        {/* Round Header */}
+        <div className="mb-6 text-center">
+          <h1 className="text-4xl font-bold mb-2">Round 3: Finals</h1>
+          <p className="text-lg text-muted-foreground">
+            Top 5 qualified teams compete in the final round. {teams.length > 5 ? `${teams.length - 5} teams in spectator mode.` : ''}
+          </p>
         </div>
         
         {/* SSE Connection Status */}
@@ -623,49 +572,13 @@ export default function FinalPage() {
           </div>
         ) : (
           <div className="mb-6 p-4 bg-gray-100 rounded-lg">
-            <p className="text-gray-600">No team is currently presenting.</p>
+            <p className="text-muted-foreground">No team is currently presenting.</p>
           </div>
         )}
 
-        {/* Header */}
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold mb-2">Round 3: Finals</h1>
-          <p className="text-gray-600 dark:text-gray-300">
-            {qualifiedTeams.length > 0 
-              ? `Top 5 qualified teams compete in the final round. ${teams.length - 5} teams in spectator mode.`
-              : "Submit 5-minute pitch presentations, rate peer teams (3-10), and receive judge scores."
-            }
-          </p>
-        </div>
+        {/* Header removed - moved to top */}
 
-        {/* Qualification Status Banner */}
-        {userTeamId && qualifiedTeams.length > 0 && (
-          <div className={`mb-6 p-4 rounded-lg border ${
-            isQualified 
-              ? 'bg-green-50 border-green-200 text-green-800' 
-              : 'bg-yellow-50 border-yellow-200 text-yellow-800'
-          }`}>
-            <div className="flex items-center gap-2">
-              <div className="text-xl">
-                {isQualified ? '🎉' : '👀'}
-              </div>
-              <div>
-                <p className="font-medium">
-                  {isQualified 
-                    ? '🏆 Congratulations! Your team qualified for the finals!' 
-                    : '📺 Spectator Mode - Your team can watch the final pitches'
-                  }
-                </p>
-                <p className="text-sm mt-1">
-                  {isQualified 
-                    ? 'You can register your pitch and rate other teams.'
-                    : 'Only the top 5 teams can participate and rate in the finals.'
-                  }
-                </p>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Qualification Status Banner removed - replaced with popup */}
 
         {/* Tab Navigation */}
         <div className="flex space-x-1 mb-6 bg-muted p-1 rounded-lg w-fit">
@@ -685,16 +598,6 @@ export default function FinalPage() {
               }`}
             >
               Rate Teams
-            </button>
-          )}
-          {isJudgeAuthenticated && (
-            <button 
-              onClick={() => setActiveTab('judge')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
-                activeTab === 'judge' ? 'bg-background shadow-sm' : 'hover:bg-background/50'
-              }`}
-            >
-              Judge Panel
             </button>
           )}
         </div>
@@ -726,6 +629,35 @@ export default function FinalPage() {
                       <div className="text-right">
                         <p className="font-medium">{team.combinedScore} pts</p>
                         <p className="text-xs text-muted-foreground">Combined Score</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Non-Qualified Teams (Spectators) */}
+            {nonQualifiedTeams.length > 0 && (
+              <div className="rounded-lg border bg-card p-6">
+                <h2 className="text-xl font-semibold mb-4">📺 Spectator Teams</h2>
+                <p className="text-sm text-muted-foreground mb-4">
+                  These teams didn't qualify for the final round but can watch the presentations.
+                </p>
+                <div className="grid gap-2">
+                  {nonQualifiedTeams.map((team) => (
+                    <div key={team.teamId} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                      <div className="flex items-center gap-3">
+                        <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-gray-300 text-gray-700">
+                          #{team.rank}
+                        </div>
+                        <div>
+                          <p className="text-sm font-medium">{team.teamName}</p>
+                          <p className="text-xs text-muted-foreground">{team.college}</p>
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-sm font-medium">{team.combinedScore} pts</p>
+                        <p className="text-xs text-muted-foreground">Final Score</p>
                       </div>
                     </div>
                   ))}
@@ -785,7 +717,7 @@ export default function FinalPage() {
             {/* Rating Form */}
             <div className="rounded-xl border bg-card p-6 shadow transition-all duration-300 hover:shadow-lg">
               <h2 className="text-xl font-semibold mb-4">Submit Peer Rating (3-10)</h2>
-              <p className="text-sm text-gray-600 mb-4">
+              <p className="text-sm text-muted-foreground mb-4">
                 Rate the currently presenting team on a scale of 3-10. You can only rate during the peers rating phase.
               </p>
               
@@ -824,7 +756,7 @@ export default function FinalPage() {
                   onChange={(e) => setRating(parseInt(e.target.value))}
                   className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
                 />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
+                <div className="flex justify-between text-xs text-muted-foreground mt-1">
                   <span>3 (Poor)</span>
                   <span>6</span>
                   <span>10 (Excellent)</span>
@@ -861,77 +793,6 @@ export default function FinalPage() {
           </div>
         )}
 
-        {/* Judge Panel Tab */}
-        {activeTab === 'judge' && isJudgeAuthenticated && (
-          <div className="rounded-xl border bg-card p-6 shadow transition-all duration-300 hover:shadow-lg">
-            <h2 className="text-xl font-semibold mb-4">Judge Rating (0-100)</h2>
-            <p className="text-sm text-gray-600 mb-4">
-              Rate the currently presenting team on a scale of 0-100. You can only rate during the judges rating phase.
-            </p>
-            
-            {/* Current presenting team info */}
-            {currentPitchTeam && (
-              <div className="mb-4 p-3 bg-blue-50 rounded-md border">
-                <p className="text-sm text-blue-700">
-                  <strong>Currently Presenting:</strong> {currentPitchTeam.name} (#{currentPitchTeam.id})
-                </p>
-              </div>
-            )}
-            
-            {/* Rating restrictions info */}
-            {!canRateAsJudge && (
-              <div className="mb-4 p-3 bg-yellow-50 rounded-md border border-yellow-200">
-                <p className="text-sm text-yellow-700">
-                  {!ratingCycleActive && 'Waiting for rating cycle to start...'}
-                  {ratingCycleActive && currentPhase !== 'judges-rating' && 'Wait for judges rating phase...'}
-                  {ratingCycleActive && currentPhase === 'judges-rating' && phaseTimeLeft <= 0 && 'Judges rating time has ended.'}
-                  {!currentPitchTeam && 'No team is currently presenting.'}
-                </p>
-              </div>
-            )}
-            
-            <div className="grid gap-4 md:grid-cols-2">
-              <div>
-                <label className="block text-sm font-medium mb-2">Judge Name</label>
-                <input 
-                  type="text" 
-                  value={judgeName} 
-                  onChange={(e) => setJudgeName(e.target.value)}
-                  placeholder="Enter judge name"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2"
-                />
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium mb-2">
-                  Score: {judgeScore}/100
-                </label>
-                <input
-                  type="range"
-                  min="0"
-                  max="100"
-                  value={judgeScore}
-                  onChange={(e) => setJudgeScore(parseInt(e.target.value))}
-                  className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
-                />
-                <div className="flex justify-between text-xs text-gray-500 mt-1">
-                  <span>0</span>
-                  <span>50</span>
-                  <span>100</span>
-                </div>
-              </div>
-            </div>
-            
-            <button 
-              onClick={submitJudgeScore}
-              disabled={!canRateAsJudge || loading || !judgeName.trim()}
-              className="w-full mt-4 rounded-md bg-green-600 px-4 py-2 text-white font-bold hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
-            >
-              {loading ? 'Submitting...' : `Submit Judge Rating (${judgeScore}/100)`}
-            </button>
-          </div>
-        )}
-
         {/* Message Display */}
         {msg && (
           <div className={`mb-6 rounded-md border px-4 py-3 text-center font-medium flex items-center justify-center gap-2 ${
@@ -962,7 +823,58 @@ export default function FinalPage() {
           >
             View Scoreboard
           </a>
+          <a 
+            href="/judge" 
+            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+          >
+            Judge Console
+          </a>
         </div>
+
+        {/* Qualification Status Popup */}
+        {showQualificationPopup && userTeamId && qualifiedTeams.length > 0 && (
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
+              <div className="text-center">
+                <div className="text-6xl mb-4">
+                  {isQualified ? '🎉' : '👀'}
+                </div>
+                <h2 className={`text-2xl font-bold mb-3 ${
+                  isQualified ? 'text-green-600' : 'text-yellow-600'
+                }`}>
+                  {isQualified 
+                    ? '🏆 Congratulations!' 
+                    : '📺 Spectator Mode'
+                  }
+                </h2>
+                <p className={`text-lg mb-4 ${
+                  isQualified ? 'text-green-700 dark:text-green-300' : 'text-yellow-700 dark:text-yellow-300'
+                }`}>
+                  {isQualified 
+                    ? 'Your team qualified for the finals!' 
+                    : 'Your team can watch the final pitches'
+                  }
+                </p>
+                <p className="text-sm text-muted-foreground mb-6">
+                  {isQualified 
+                    ? 'You can register your pitch and rate other teams.'
+                    : 'Only the top 5 teams can participate and rate in the finals.'
+                  }
+                </p>
+                <button
+                  onClick={() => setShowQualificationPopup(false)}
+                  className={`w-full px-4 py-2 rounded-md font-medium text-white transition-colors ${
+                    isQualified 
+                      ? 'bg-green-600 hover:bg-green-700' 
+                      : 'bg-yellow-600 hover:bg-yellow-700'
+                  }`}
+                >
+                  Continue to Finals
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </PageLock>
   );

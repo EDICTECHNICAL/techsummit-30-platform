@@ -34,7 +34,7 @@ const nextConfig: NextConfig = {
   compress: true,
   // Optimize images
   experimental: {
-    optimizeCss: true,
+    // optimizeCss: true, // Disabled due to critters module issue
     optimizePackageImports: ['lucide-react', '@radix-ui/react-icons']
   },
   // Headers for security and performance
