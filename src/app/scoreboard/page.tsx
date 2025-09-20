@@ -185,13 +185,13 @@ export default function ScoreboardPage() {
   const maxFinalScore = data.leaderboard[0]?.finalCumulativeScore || 0;
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6">
+    <div className="min-h-screen bg-background text-foreground p-6 event-section-bg">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3">
-              🏆 Live Scoreboard
+            <h1 className="text-3xl font-bold flex items-center gap-3 event-text-gradient">
+              🏆 Techpreneur Summit 3.0 - Live Scoreboard
             </h1>
             <p className="text-muted-foreground mt-1">
               Competition rankings • {data.metadata.totalTeams} teams competing
@@ -200,7 +200,7 @@ export default function ScoreboardPage() {
           <div className="flex items-center gap-4 mt-4 md:mt-0">
             <Link
               href="/dashboard"
-              className="bg-secondary text-secondary-foreground px-4 py-2 rounded-md hover:bg-secondary/90 text-sm flex items-center gap-2"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border bg-card/50 backdrop-blur-sm hover:bg-accent text-sm transition-colors"
             >
               ← Back to Dashboard
             </Link>
@@ -211,7 +211,7 @@ export default function ScoreboardPage() {
                 id="autoRefresh"
                 checked={autoRefresh}
                 onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="rounded border-input"
+                className="rounded border-input accent-primary"
               />
               <label htmlFor="autoRefresh" className="text-sm text-muted-foreground">
                 Auto-refresh

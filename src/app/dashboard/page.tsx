@@ -188,12 +188,15 @@ export default function DashboardPage() {
       <div className="pt-20 overflow-y-auto h-[calc(100vh-5rem)]">
         <div className="flex flex-col gap-2 items-start max-w-4xl mx-auto">
           {/* Welcome Card */}
-          <div className="w-full rounded-2xl bg-white/10 backdrop-blur-lg shadow-2xl border border-gray-200/20 px-10 py-8 mb-6" style={{ boxShadow: "0 8px 32px 0 rgba(30,32,38,0.18)" }}>
-            <h1 className={`text-4xl font-extrabold tracking-tight mb-2 ${theme === "dark" ? "text-white" : "text-black"}`} style={{ letterSpacing: "-0.02em" }}>
-              Dashboard
+          <div className="w-full event-card event-card-hover rounded-2xl backdrop-blur-lg shadow-2xl px-10 py-8 mb-6" style={{ background: 'var(--event-gradient-primary)', boxShadow: "0 8px 32px 0 rgba(70, 111, 137, 0.3)" }}>
+            <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-white" style={{ letterSpacing: "-0.02em" }}>
+              TECHPRENEUR SUMMIT 3.0
             </h1>
-            <p className={`text-lg mt-2 ${theme === "dark" ? "text-blue-400" : "text-blue-700"}`}>
-              Welcome, <span className={`font-semibold ${theme === "dark" ? "text-white" : "text-black"}`}>
+            <p className="text-sm mb-4 text-blue-100">
+              Real World Problem Solving and Ignite Entrepreneurial Thinking
+            </p>
+            <p className="text-lg mt-2 text-blue-100">
+              Welcome, <span className="font-semibold text-white">
                 {user.name || user.username}
               </span>
               {(user.team || team) && (
@@ -205,8 +208,8 @@ export default function DashboardPage() {
                   {isLeader && (
                     <>
                       <br />
-                      <span className={`inline-flex items-center rounded-full px-2 py-1 text-xs font-medium mt-2 ${theme === "dark" ? "bg-green-900/20 text-green-400" : "bg-green-100 text-green-800"}`}>
-                        Team Leader
+                      <span className="inline-flex items-center rounded-full bg-white/20 text-white px-3 py-1 text-xs font-medium mt-2 backdrop-blur-sm">
+                        Team Leader - The Startup Strategy League
                       </span>
                     </>
                   )}
@@ -217,7 +220,7 @@ export default function DashboardPage() {
 
           {/* Error Messages */}
           {error && (
-            <div className={`w-full mt-2 rounded-xl bg-red-400/10 px-5 py-4 text-base border border-red-400/20 shadow-lg ${theme === "dark" ? "text-red-400" : "text-red-700"}`}>
+            <div className="w-full mt-2 event-card rounded-xl bg-red-500/10 backdrop-blur-sm px-5 py-4 text-base border border-red-500/20 shadow-lg text-red-600 dark:text-red-400">
               {error}
               <button 
                 onClick={() => setError(null)}
@@ -230,7 +233,7 @@ export default function DashboardPage() {
           
           {/* Success Messages */}
           {msg && (
-            <div className={`w-full mt-2 rounded-xl border border-blue-400/20 bg-blue-400/10 px-5 py-4 text-base shadow-lg ${theme === "dark" ? "text-blue-400" : "text-blue-700"}`}>
+            <div className="w-full mt-2 event-card rounded-xl border border-green-500/20 bg-green-500/10 backdrop-blur-sm px-5 py-4 text-base shadow-lg text-green-600 dark:text-green-400">
               {msg}
               <button 
                 onClick={() => setMsg(null)}
@@ -244,57 +247,57 @@ export default function DashboardPage() {
 
         {/* Competition Portals */}
         <section className="mt-6 max-w-4xl mx-auto">
-          <h2 className="text-xl font-semibold mb-4">Competition Portals</h2>
+          <h2 className="text-xl font-semibold mb-4 event-text-gradient">Competition Portals</h2>
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Link href="/quiz" className="group rounded-lg border border-border p-6 hover:bg-accent transition-colors">
+            <Link href="/quiz" className="event-card event-card-hover group rounded-lg p-6 transition-colors">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-2 h-2 rounded-full bg-primary"></div>
-                <h4 className="font-semibold">Quiz Portal</h4>
+                <h4 className="font-semibold text-primary">🧠 Round 1: Quiz for Tokens</h4>
               </div>
               <p className="text-sm text-muted-foreground">
                 {isLeader 
-                  ? "Take the 30-minute quiz when the round is active. Leader access only."
+                  ? "DAY 1: Earn strategic tokens through 15 questions in 30 minutes. Max 60 points with trade-offs (Marketing, Capital, Team, Strategy)."
                   : "Quiz access is restricted to team leaders only."
                 }
               </p>
               {!isLeader && (
-                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 mt-2">
+                <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary mt-2">
                   Leader Only
                 </span>
               )}
             </Link>
 
-            <Link href="/voting" className="group rounded-lg border border-border p-6 hover:bg-accent transition-colors">
+            <Link href="/voting" className="event-card event-card-hover group rounded-lg p-6 transition-colors">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-2 h-2 rounded-full bg-primary"></div>
-                <h4 className="font-semibold">Voting Arena</h4>
+                <h4 className="font-semibold text-primary">🎤 Round 2: 90 Sec Pitch & Voting</h4>
               </div>
               <p className="text-sm text-muted-foreground">
                 {isLeader 
-                  ? "Vote for other teams and convert tokens to votes. Leader access only."
+                  ? "DAY 1: Customer Acquiring phase - Deliver 90-second pitch, vote for teams, convert tokens strategically. Max 3 downvotes per team."
                   : "Voting access is restricted to team leaders only."
                 }
               </p>
               {!isLeader && (
-                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 mt-2">
+                <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary mt-2">
                   Leader Only
                 </span>
               )}
             </Link>
 
-            <Link href="/final" className="group rounded-lg border border-border p-6 hover:bg-accent transition-colors">
+            <Link href="/final" className="event-card event-card-hover group rounded-lg p-6 transition-colors">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-2 h-2 rounded-full bg-primary"></div>
-                <h4 className="font-semibold">Finals Stage</h4>
+                <h4 className="font-semibold text-primary">🏆 Round 3: 5 Min Pitch & Evaluation</h4>
               </div>
               <p className="text-sm text-muted-foreground">
                 {isLeader 
-                  ? "Submit peer ratings (3-10) and view judge scores. Leader access only."
+                  ? "DAY 2: Comprehensive pitch with Q&A, peer ratings (3-10 scale), judge scoring, and final evaluation."
                   : "Finals access is restricted to team leaders only."
                 }
               </p>
               {!isLeader && (
-                <span className="inline-flex items-center rounded-full bg-yellow-100 px-2 py-1 text-xs font-medium text-yellow-800 mt-2">
+                <span className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary mt-2">
                   Leader Only
                 </span>
               )}
@@ -305,8 +308,8 @@ export default function DashboardPage() {
         {/* Team Leader Information */}
         {(user.team || team) && (
           <section className="mt-8 max-w-4xl mx-auto">
-            <h2 className="text-xl font-semibold mb-4">Team Leader</h2>
-            <div className="rounded-lg border border-border bg-card p-6">
+            <h2 className="text-xl font-semibold mb-4 event-text-gradient">Team Leader</h2>
+            <div className="event-card event-card-hover rounded-lg p-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
                   <h3 className="font-medium text-sm text-muted-foreground">Team Name</h3>
@@ -329,10 +332,10 @@ export default function DashboardPage() {
           </section>
         )}
 
-        {/* Competition Status */}
+        {/* Event Schedule & Competition Status */}
         <section className="mt-8 max-w-4xl mx-auto">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Competition Status</h2>
+            <h2 className="text-xl font-semibold event-text-gradient">Event Schedule & Competition Status</h2>
             <button 
               onClick={checkRoundStatuses}
               className="inline-flex items-center rounded-md border border-border px-3 py-1 text-sm hover:bg-accent transition-colors"
@@ -340,10 +343,30 @@ export default function DashboardPage() {
               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
               </svg>
-              Refresh
+              Refresh Status
             </button>
           </div>
-          <div className="bg-card text-card-foreground p-6 rounded-lg border">
+          
+          {/* Event Dates */}
+          <div className="event-card event-card-hover p-6 rounded-lg mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="text-center">
+                <h3 className="font-semibold text-primary mb-2 flex items-center justify-center gap-2">
+                  <span>📅</span> DAY 1 - 25 SEPTEMBER
+                </h3>
+                <p className="text-sm text-muted-foreground">Quiz for Tokens + 90 Sec Pitch & Voting</p>
+              </div>
+              <div className="text-center">
+                <h3 className="font-semibold text-primary mb-2 flex items-center justify-center gap-2">
+                  <span>📅</span> DAY 2 - 27 SEPTEMBER
+                </h3>
+                <p className="text-sm text-muted-foreground">5 Min Pitch + Q&A + Final Evaluation</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Round Status */}
+          <div className="event-card event-card-hover p-6 rounded-lg">
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="flex items-center gap-3">
                 <div className={`w-3 h-3 rounded-full ${
@@ -352,11 +375,11 @@ export default function DashboardPage() {
                   'bg-gray-400'
                 }`}></div>
                 <div>
-                  <h3 className="font-medium">Quiz Round</h3>
+                  <h3 className="font-medium text-primary">Round 1: Quiz for Tokens</h3>
                   <p className="text-sm text-muted-foreground">
-                    {roundStatuses.quiz.status === 'COMPLETED' ? 'Completed' : 
-                     roundStatuses.quiz.status === 'ACTIVE' ? 'Active Now' : 
-                     'Pending'}
+                    {roundStatuses.quiz.status === 'COMPLETED' ? 'Completed ✅' : 
+                     roundStatuses.quiz.status === 'ACTIVE' ? 'Active Now 🔴' : 
+                     'Pending ⏳'}
                   </p>
                 </div>
               </div>
@@ -367,11 +390,11 @@ export default function DashboardPage() {
                   'bg-gray-400'
                 }`}></div>
                 <div>
-                  <h3 className="font-medium">Voting Round</h3>
+                  <h3 className="font-medium text-primary">Round 2: Pitch & Voting</h3>
                   <p className="text-sm text-muted-foreground">
-                    {roundStatuses.voting.status === 'COMPLETED' ? 'Completed' : 
-                     roundStatuses.voting.status === 'ACTIVE' ? 'Active Now' : 
-                     'Pending'}
+                    {roundStatuses.voting.status === 'COMPLETED' ? 'Completed ✅' : 
+                     roundStatuses.voting.status === 'ACTIVE' ? 'Active Now 🔴' : 
+                     'Pending ⏳'}
                   </p>
                 </div>
               </div>
@@ -382,11 +405,11 @@ export default function DashboardPage() {
                   'bg-gray-400'
                 }`}></div>
                 <div>
-                  <h3 className="font-medium">Final Round</h3>
+                  <h3 className="font-medium text-primary">Round 3: Final Evaluation</h3>
                   <p className="text-sm text-muted-foreground">
-                    {roundStatuses.final.status === 'COMPLETED' ? 'Completed' : 
-                     roundStatuses.final.status === 'ACTIVE' ? 'Active Now' : 
-                     'Pending'}
+                    {roundStatuses.final.status === 'COMPLETED' ? 'Completed ✅' : 
+                     roundStatuses.final.status === 'ACTIVE' ? 'Active Now 🔴' : 
+                     'Pending ⏳'}
                   </p>
                 </div>
               </div>
@@ -399,12 +422,12 @@ export default function DashboardPage() {
 
         {/* Quick Links */}
         <section className="mt-8 max-w-4xl mx-auto">
-          <h2 className="text-xl font-semibold mb-4">Quick Links</h2>
+          <h2 className="text-xl font-semibold mb-4 event-text-gradient">Quick Links</h2>
           <div className="flex flex-wrap gap-3">
-            <Link href="/scoreboard" className="inline-flex items-center rounded-md border border-border px-3 py-2 text-sm hover:bg-accent transition-colors">
+            <Link href="/scoreboard" className="event-button-primary inline-flex items-center rounded-md px-4 py-2 text-sm transition-colors">
               View Scoreboard
             </Link>
-            <Link href="/rules" className="inline-flex items-center rounded-md border border-border px-3 py-2 text-sm hover:bg-accent transition-colors">
+            <Link href="/rules" className="inline-flex items-center rounded-md border border-border bg-card/50 backdrop-blur-sm px-4 py-2 text-sm hover:bg-accent transition-colors">
               Competition Rules
             </Link>
             {user.isAdmin && (

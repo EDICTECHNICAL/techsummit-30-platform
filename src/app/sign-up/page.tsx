@@ -144,19 +144,19 @@ export default function SignUpPage() {
                      Object.keys(fieldErrors).length === 0;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-8 event-section-bg">
+      <div className="w-full max-w-md event-card event-card-hover rounded-xl shadow-2xl p-8">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold">Create Account</h1>
-          <p className="text-muted-foreground mt-2">Join the competition</p>
+          <h1 className="text-3xl font-bold event-text-gradient">Create Account</h1>
+          <p className="text-muted-foreground mt-2">Join Techpreneur Summit 3.0</p>
         </div>
 
         {/* Registration Status */}
         {registrationStatus.message && (
-          <div className={`mb-4 p-3 rounded-md border ${
+          <div className={`mb-4 p-4 rounded-md border backdrop-blur-sm ${
             registrationStatus.isOpen 
-              ? 'bg-blue-50 border-blue-200 text-blue-800' 
-              : 'bg-red-50 border-red-200 text-red-800'
+              ? 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400' 
+              : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
           }`}>
             <p className="text-sm font-medium">
               {registrationStatus.isOpen ? '🟢 Registration Open' : '🔴 Registration Closed'}
@@ -168,9 +168,9 @@ export default function SignUpPage() {
         {/* Registration Closed Message */}
         {!registrationStatus.isOpen ? (
           <div className="text-center space-y-4">
-            <div className="p-6 rounded-lg bg-muted">
+            <div className="event-card p-6 rounded-lg">
               <div className="text-4xl mb-2">⏰</div>
-              <h2 className="text-xl font-semibold mb-2">Registration Closed</h2>
+              <h2 className="text-xl font-semibold mb-2 text-primary">Registration Closed</h2>
               <p className="text-muted-foreground">
                 The registration deadline has passed. New team registrations are no longer accepted.
               </p>
@@ -178,29 +178,29 @@ export default function SignUpPage() {
             <div className="space-y-2">
               <p className="text-sm text-muted-foreground">
                 Already have an account?{" "}
-                <Link href="/sign-in" className="text-primary hover:underline font-medium">
+                <Link href="/sign-in" className="text-primary hover:underline font-medium transition-colors">
                   Sign in here
                 </Link>
               </p>
               <Link 
                 href="/" 
-                className="text-sm text-muted-foreground hover:text-foreground underline"
+                className="text-sm text-muted-foreground hover:text-primary underline transition-colors"
               >
-                ← Back to Home
+                ← Back to Techpreneur Summit 3.0
               </Link>
             </div>
           </div>
         ) : (
           <>
             {error && (
-              <div className="mb-4 p-3 rounded-md bg-destructive/10 border border-destructive/20">
-                <p className="text-sm text-destructive">{error}</p>
+              <div className="mb-4 p-4 rounded-md bg-red-500/10 border border-red-500/20 backdrop-blur-sm">
+                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
               </div>
             )}
         
         <form className="space-y-4" onSubmit={onSubmit}>
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-muted-foreground mb-1">
+            <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
               Full Name *
             </label>
             <input
@@ -209,7 +209,7 @@ export default function SignUpPage() {
               required
               value={formData.name}
               onChange={(e) => handleInputChange("name", e.target.value)}
-              className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+              className={`w-full rounded-md border bg-background/50 backdrop-blur-sm px-4 py-3 text-sm outline-none focus:ring-2 transition-all duration-300 ${
                 fieldErrors.name 
                   ? "border-destructive focus:ring-destructive" 
                   : "border-input focus:ring-primary focus:border-transparent"
@@ -217,11 +217,11 @@ export default function SignUpPage() {
               placeholder="Enter your full name"
               disabled={loading}
             />
-            {fieldErrors.name && <p className="text-xs text-destructive mt-1">{fieldErrors.name}</p>}
+            {fieldErrors.name && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{fieldErrors.name}</p>}
           </div>
           
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-muted-foreground mb-1">
+            <label htmlFor="username" className="block text-sm font-medium text-foreground mb-2">
               Username *
             </label>
             <input
@@ -230,7 +230,7 @@ export default function SignUpPage() {
               required
               value={formData.username}
               onChange={(e) => handleInputChange("username", e.target.value)}
-              className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+              className={`w-full rounded-md border bg-background/50 backdrop-blur-sm px-4 py-3 text-sm outline-none focus:ring-2 transition-all duration-300 ${
                 fieldErrors.username 
                   ? "border-destructive focus:ring-destructive" 
                   : "border-input focus:ring-primary focus:border-transparent"
@@ -328,7 +328,7 @@ export default function SignUpPage() {
           <button
             type="submit"
             disabled={loading || !isFormValid}
-            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="event-button-primary w-full rounded-md px-4 py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -341,7 +341,7 @@ export default function SignUpPage() {
           </button>
         </form>
         
-        <div className="mt-6 text-center space-y-2">
+        <div className="mt-6 text-center space-y-3">
           <p className="text-sm text-muted-foreground">
             Already have an account?{" "}
             <Link href="/sign-in" className="text-primary hover:underline font-medium">

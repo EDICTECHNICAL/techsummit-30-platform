@@ -49,27 +49,27 @@ function SignInPageContent() {
   const registrationSuccess = searchParams?.get("registered") === "true";
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 event-section-bg">
+      <div className="w-full max-w-md event-card event-card-hover rounded-xl shadow-2xl p-8">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold">Welcome Back</h1>
-          <p className="text-muted-foreground mt-2">Sign in to your account</p>
+          <h1 className="text-3xl font-bold event-text-gradient">Welcome Back</h1>
+          <p className="text-muted-foreground mt-2">Sign in to your Techpreneur Summit 3.0 account</p>
         </div>
         {registrationSuccess && (
-          <div className="mb-4 p-3 rounded-md bg-green-50 border border-green-200">
-            <p className="text-sm text-green-800">
+          <div className="mb-4 p-4 rounded-md bg-green-500/10 border border-green-500/20 backdrop-blur-sm">
+            <p className="text-sm text-green-600 dark:text-green-400">
               Registration successful! Please sign in with your credentials.
             </p>
           </div>
         )}
         {error && (
-          <div className="mb-4 p-3 rounded-md bg-destructive/10 border border-destructive/20">
-            <p className="text-sm text-destructive">{error}</p>
+          <div className="mb-4 p-4 rounded-md bg-red-500/10 border border-red-500/20 backdrop-blur-sm">
+            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
           </div>
         )}
         <form className="space-y-4" onSubmit={onSubmit}>
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-muted-foreground mb-1">
+            <label htmlFor="username" className="block text-sm font-medium text-foreground mb-2">
               Username
             </label>
             <input
@@ -78,13 +78,13 @@ function SignInPageContent() {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
+              className="w-full rounded-md border border-input bg-background/50 backdrop-blur-sm px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300"
               placeholder="Enter your username"
               disabled={loading}
             />
           </div>
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-1">
+            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
               Password
             </label>
             <input
@@ -93,25 +93,25 @@ function SignInPageContent() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-colors"
+              className="w-full rounded-md border border-input bg-background/50 backdrop-blur-sm px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300"
               placeholder="Enter your password"
               disabled={loading}
             />
           </div>
           <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-foreground">
               <input 
                 type="checkbox" 
                 checked={rememberMe} 
                 onChange={(e) => setRememberMe(e.target.checked)}
-                className="rounded border-input"
+                className="rounded border-input accent-primary"
                 disabled={loading}
               />
               Remember me
             </label>
             <Link 
               href="/forgot-password" 
-              className="text-sm text-primary hover:underline"
+              className="text-sm text-primary hover:underline transition-colors"
             >
               Forgot password?
             </Link>
@@ -119,7 +119,7 @@ function SignInPageContent() {
           <button
             type="submit"
             disabled={loading || !username.trim() || !password}
-            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="event-button-primary w-full rounded-md px-4 py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
           >
             {loading ? (
               <span className="flex items-center justify-center gap-2">
@@ -131,18 +131,18 @@ function SignInPageContent() {
             )}
           </button>
         </form>
-        <div className="mt-6 text-center space-y-2">
+        <div className="mt-6 text-center space-y-3">
           <p className="text-sm text-muted-foreground">
             Don't have an account?{" "}
-            <Link href="/sign-up" className="text-primary hover:underline font-medium">
+            <Link href="/sign-up" className="text-primary hover:underline font-medium transition-colors">
               Create one here
             </Link>
           </p>
           <Link 
             href="/" 
-            className="text-sm text-muted-foreground hover:text-foreground underline"
+            className="text-sm text-muted-foreground hover:text-primary underline transition-colors"
           >
-            ← Back to Home
+            ← Back to Techpreneur Summit 3.0
           </Link>
         </div>
       </div>
