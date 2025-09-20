@@ -3,6 +3,9 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { MagicCard } from "@/components/ui/magic-card";
+import { Button } from "@/components/ui/button";
+import { UserPlus01, ArrowLeft, Clock } from "@untitled-ui/icons-react";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -145,11 +148,24 @@ export default function SignUpPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground flex items-center justify-center mobile-padding py-8 event-section-bg safe-area-padding">
-      <div className="w-full max-w-md mobile-card shadow-2xl">
-        <div className="text-center mb-6">
-          <h1 className="mobile-title event-text-gradient">Create Account</h1>
-          <p className="text-muted-foreground mt-2 mobile-body">Join Techpreneur Summit 3.0</p>
-        </div>
+      <MagicCard 
+        className="w-full max-w-md shadow-2xl rounded-2xl border border-border/50 backdrop-blur-sm bg-card/80" 
+        gradientSize={300}
+        gradientColor="#466F89" 
+        gradientFrom="#466F89" 
+        gradientTo="#34414A"
+        gradientOpacity={0.6}
+      >
+        <div className="mobile-card">
+          <div className="text-center mb-6">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                <UserPlus01 width={24} height={24} className="text-primary" />
+              </div>
+              <h1 className="text-3xl font-bold event-text-gradient">Create Account</h1>
+            </div>
+            <p className="text-muted-foreground mobile-body">Join Techpreneur Summit 3.0</p>
+          </div>
 
         {/* Registration Status */}
         {registrationStatus.message && (
@@ -169,8 +185,12 @@ export default function SignUpPage() {
         {!registrationStatus.isOpen ? (
           <div className="text-center space-y-4">
             <div className="mobile-card">
-              <div className="text-4xl mb-2">⏰</div>
-              <h2 className="text-xl font-semibold mb-2 text-primary">Registration Closed</h2>
+              <div className="flex items-center justify-center gap-3 mb-4">
+                <div className="flex-shrink-0 w-12 h-12 bg-destructive/10 rounded-lg flex items-center justify-center">
+                  <Clock width={24} height={24} className="text-destructive" />
+                </div>
+                <h2 className="text-xl font-semibold text-primary">Registration Closed</h2>
+              </div>
               <p className="text-muted-foreground mobile-body">
                 The registration deadline has passed. New team registrations are no longer accepted.
               </p>
@@ -184,9 +204,10 @@ export default function SignUpPage() {
               </p>
               <Link 
                 href="/" 
-                className="mobile-body text-muted-foreground hover:text-primary underline transition-colors"
+                className="inline-flex items-center gap-2 mobile-body text-muted-foreground hover:text-foreground underline transition-colors"
               >
-                ← Back to Techpreneur Summit 3.0
+                <ArrowLeft width={16} height={16} />
+                Back to Techpreneur Summit 3.0
               </Link>
             </div>
           </div>
@@ -325,7 +346,7 @@ export default function SignUpPage() {
             {fieldErrors.college && <p className="text-xs text-destructive mt-1">{fieldErrors.college}</p>}
           </div>
           
-          <button
+          <Button
             type="submit"
             disabled={loading || !isFormValid}
             className="event-button-primary w-full rounded-md px-4 py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
@@ -338,7 +359,7 @@ export default function SignUpPage() {
             ) : (
               "Create Account"
             )}
-          </button>
+          </Button>
         </form>
         
         <div className="mt-6 text-center space-y-3">
@@ -350,14 +371,16 @@ export default function SignUpPage() {
           </p>
           <Link 
             href="/" 
-            className="mobile-body text-muted-foreground hover:text-foreground underline"
+            className="inline-flex items-center gap-2 mobile-body text-muted-foreground hover:text-foreground underline transition-colors"
           >
-            ← Back to Home
+            <ArrowLeft width={16} height={16} />
+            Back to Home
           </Link>
         </div>
           </>
         )}
-      </div>
+        </div>
+      </MagicCard>
     </div>
   );
 }

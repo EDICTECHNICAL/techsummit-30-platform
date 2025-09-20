@@ -7,18 +7,32 @@ const ThemeContext = createContext({
 });
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useState(() => {
-    if (typeof window !== "undefined") {
-      return localStorage.getItem("theme") || "dark";
-    }
-    return "dark";
-  });
+  const [theme, setTheme] = useState("dark");
+  const [mounted, setMounted] = useState(false);
+
+  // Only run on client side after hydration
+  useEffect(() => {
+    setMounted(true);
+    const savedTheme = localStorage.getItem("theme") || "dark";
+    setTheme(savedTheme);
+  }, []);
 
   useEffect(() => {
-    document.documentElement.classList.toggle("dark", theme === "dark");
-    document.documentElement.classList.toggle("light", theme === "light");
+    if (!mounted) return;
+    
+    document.documentElement.classList.remove("dark", "light");
+    document.documentElement.classList.add(theme);
     localStorage.setItem("theme", theme);
-  }, [theme]);
+  }, [theme, mounted]);
+
+  // Prevent hydration mismatch by not rendering until mounted
+  if (!mounted) {
+    return (
+      <ThemeContext.Provider value={{ theme: "dark", setTheme: () => {} }}>
+        {children}
+      </ThemeContext.Provider>
+    );
+  }
 
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>

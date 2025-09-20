@@ -5,6 +5,7 @@ import { Timer, Users, Trophy, AlertCircle, CheckCircle2, ArrowLeft } from 'luci
 import Link from 'next/link';
 import VotingLayout from '@/components/ui/VotingLayout';
 import PageLock from "@/components/ui/PageLock";
+import { Button } from "@/components/ui/button";
 import { useRoundStatus } from "@/hooks/useRoundStatus";
 import { useVotingSSE } from "@/hooks/useVotingSSE";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -805,8 +806,9 @@ export default function VotingPage() {
               Are you the customer for this product?
             </label>
             <div className={`flex gap-4 ${isMobile ? 'flex-col' : ''}`}>
-              <button
+              <Button
                 onClick={() => setVoteValue(1)}
+                variant={voteValue === 1 ? "default" : "outline"}
                 className={`rounded-md border px-4 py-2 text-sm font-semibold transition-colors min-h-[44px] active:scale-95 ${
                   voteValue === 1
                     ? "bg-green-600 border-green-600 text-white"
@@ -815,9 +817,10 @@ export default function VotingPage() {
                 disabled={isLoading}
               >
                 Yes
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => setVoteValue(-1)}
+                variant={voteValue === -1 ? "default" : "outline"}
                 className={`rounded-md border px-4 py-2 text-sm font-semibold transition-colors min-h-[44px] active:scale-95 ${
                   voteValue === -1
                     ? "bg-red-600 border-red-600 text-white"
@@ -826,7 +829,7 @@ export default function VotingPage() {
                 disabled={isLoading || !!(votingStatus && votingStatus.remainingDownvotes <= 0)}
               >
                 No {votingStatus && `(${votingStatus.remainingDownvotes} left)`}
-              </button>
+              </Button>
             </div>
             {voteValue === -1 && votingStatus && votingStatus.remainingDownvotes <= 0 && (
               <p className="text-xs text-red-600 mt-1">
@@ -880,7 +883,7 @@ export default function VotingPage() {
             return null;
           })()}
 
-          <button
+          <Button
             onClick={castVote}
             disabled={!canVoteForCurrentTeam || isLoading || (voteValue === -1 && !canDownvote)}
             className="w-full rounded-md bg-primary px-4 py-2 text-base font-bold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
@@ -893,7 +896,7 @@ export default function VotingPage() {
             ) : (
               "Submit Vote"
             )}
-          </button>
+          </Button>
 
           {!votingActive && !pitchCycleActive && (
             <div className="mt-2 text-xs text-muted-foreground animate-pulse">
@@ -987,7 +990,7 @@ export default function VotingPage() {
             </div>
           )}
           
-          <button
+          <Button
             onClick={convertToken}
             disabled={!tokenStatus?.canConvert || isConvertingTokens}
             className="w-full rounded-md bg-purple-600 px-4 py-2 text-base font-bold text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
@@ -1000,7 +1003,7 @@ export default function VotingPage() {
             ) : (
               `Convert ${conversionQuantity} Token${conversionQuantity > 1 ? 's' : ''} → ${conversionQuantity} Vote${conversionQuantity > 1 ? 's' : ''}`
             )}
-          </button>
+          </Button>
 
           {tokenStatus && !tokenStatus.canConvert && (
             <div className="mt-2 text-xs text-muted-foreground">

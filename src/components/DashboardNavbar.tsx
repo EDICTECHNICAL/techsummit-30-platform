@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { BackButton } from "@/components/BackButton";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
 
 const NAV_LINKS = [
@@ -33,8 +34,10 @@ export function DashboardNavbar() {
             </div>
             <div className="flex items-center gap-2">
               <ThemeToggle />
-              <button
+              <Button
                 onClick={() => setIsMenuOpen(!isMenuOpen)}
+                variant="ghost"
+                size="icon"
                 className="p-2 rounded-lg text-white hover:bg-white/10 transition-colors"
                 aria-label="Toggle menu"
               >
@@ -60,7 +63,7 @@ export function DashboardNavbar() {
                     />
                   )}
                 </svg>
-              </button>
+              </Button>
             </div>
           </div>
           

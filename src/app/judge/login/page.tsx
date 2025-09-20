@@ -2,6 +2,8 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
+import { MagicCard } from "@/components/ui/magic-card";
+import { Scale01, ArrowLeft } from "@untitled-ui/icons-react";
 
 export default function JudgeLogin() {
   const router = useRouter();
@@ -20,7 +22,7 @@ export default function JudgeLogin() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
-        credentials: 'include' // Ensure cookies are included
+        credentials: 'include'
       });
       
       const result = await res.json();
@@ -31,17 +33,11 @@ export default function JudgeLogin() {
         return;
       }
       
-// ...existing code...
-      // Successful login - wait a moment for cookies to be set, then redirect
+      // Successful login - redirect with a small delay to ensure cookies are set
       setTimeout(() => {
         window.location.href = "/judge";
-      }, 100);
-// ...existing code...
-      // Add a small delay to ensure cookies are set before redirecting
-      setTimeout(() => {
-        window.location.href = "/judge"; // Use window.location instead of router.push for full page reload
       }, 500);
-// ...existing code...
+      
     } catch (err: any) {
       setError("Login failed. Please try again.");
       setLoading(false);
@@ -49,25 +45,37 @@ export default function JudgeLogin() {
   };
 
   return (
-    <div className="min-h-screen bg-background flex items-center justify-center px-4">
-      <div className="w-full max-w-md">
+    <div className="min-h-screen bg-background flex items-center justify-center px-4 event-section-bg safe-area-padding">
+      <MagicCard 
+        className="w-full max-w-md shadow-2xl rounded-2xl border border-border/50 backdrop-blur-sm bg-card/80" 
+        gradientSize={300}
+        gradientColor="#466F89" 
+        gradientFrom="#466F89" 
+        gradientTo="#34414A"
+        gradientOpacity={0.6}
+      >
         <div className="bg-card rounded-lg border border-border p-8 shadow-lg">
           <div className="text-center mb-6">
-            <h1 className="text-2xl font-bold text-foreground">Judge Login</h1>
-            <p className="text-muted-foreground mt-2">
+            <div className="flex items-center justify-center gap-3 mb-4">
+              <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
+                <Scale01 width={24} height={24} className="text-primary" />
+              </div>
+              <h1 className="text-3xl font-bold event-text-gradient">Judge Portal</h1>
+            </div>
+            <p className="text-muted-foreground mobile-body">
               Sign in to access the judging panel
             </p>
           </div>
 
           {error && (
-            <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-md mb-4 text-sm">
-              {error}
+            <div className="mb-4 p-4 rounded-xl bg-red-500/10 border border-red-500/20 backdrop-blur-sm">
+              <p className="mobile-body text-red-600 dark:text-red-400">{error}</p>
             </div>
           )}
 
           <form onSubmit={onSubmit} className="space-y-4">
             <div>
-              <label htmlFor="username" className="block text-sm font-medium text-foreground mb-2">
+              <label htmlFor="username" className="block mobile-body font-medium text-foreground mb-2">
                 Username
               </label>
               <input
@@ -76,13 +84,14 @@ export default function JudgeLogin() {
                 required
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Enter your username"
+                className="mobile-input"
+                placeholder="Judge username"
+                disabled={loading}
               />
             </div>
 
             <div>
-              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+              <label htmlFor="password" className="block mobile-body font-medium text-foreground mb-2">
                 Password
               </label>
               <input
@@ -91,30 +100,39 @@ export default function JudgeLogin() {
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                placeholder="Enter your password"
+                className="mobile-input"
+                placeholder="••••••••"
+                disabled={loading}
               />
             </div>
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-primary text-primary-foreground py-2 px-4 rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+              className="event-button-primary w-full rounded-md px-4 py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
             >
-              {loading ? "Signing in..." : "Sign In"}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                  Signing in...
+                </span>
+              ) : (
+                "Access Judge Portal"
+              )}
             </button>
           </form>
 
           <div className="mt-6 text-center">
             <Link 
               href="/" 
-              className="text-sm text-muted-foreground hover:text-foreground underline"
+              className="inline-flex items-center gap-2 mobile-body text-muted-foreground hover:text-foreground underline transition-colors"
             >
+              <ArrowLeft width={16} height={16} />
               Back to Home
             </Link>
           </div>
         </div>
-      </div>
+      </MagicCard>
     </div>
   );
 }

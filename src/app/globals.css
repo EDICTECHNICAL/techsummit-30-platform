@@ -1,11 +1,10 @@
-/* Updated: 2025-09-17T14:36:22.284Z */
-/* Updated: 2025-09-17T14:09:21.854Z */
+/* Updated: 2025-09-21T14:36:22.284Z */
 @import "tailwindcss";
 @import "tw-animate-css";
 
 @custom-variant dark (&:is(.dark *));
 
-@theme inline {
+@theme {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
@@ -43,23 +42,53 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
+  --animate-marquee: marquee var(--duration) infinite linear;
+  --animate-marquee-vertical: marquee-vertical var(--duration) linear infinite;
+}
+
+/* Marquee animations - moved outside @theme for proper functionality */
+@keyframes marquee {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(calc(-100% - var(--gap)));
+  }
+}
+
+@keyframes marquee-vertical {
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(calc(-100% - var(--gap)));
+  }
+}
+
+/* Animation utilities for marquee */
+.animate-marquee {
+  animation: marquee var(--duration) infinite linear;
+}
+
+.animate-marquee-vertical {
+  animation: marquee-vertical var(--duration) linear infinite;
 }
 
 :root {
   --radius: 0.625rem;
-  
+
   /* Event Color Palette - Light Mode */
   --event-black: #000402;
   --event-black-2: #050805;
   --event-charcoal: #34414A;
   --event-paynes-gray: #466F89;
   --event-night: #0F0E0F;
-  
+
   /* Event Gradients */
   --event-gradient-primary: linear-gradient(135deg, #466F89, #34414A);
   --event-gradient-secondary: linear-gradient(45deg, #000402, #050805);
   --event-gradient-accent: linear-gradient(90deg, #34414A, #466F89);
-  
+
   /* Theme colors using event palette - Light Mode */
   --background: #ffffff;
   --foreground: var(--event-black);
@@ -101,12 +130,12 @@
   --event-charcoal: #34414A;
   --event-paynes-gray: #466F89;
   --event-night: #0F0E0F;
-  
+
   /* Event Gradients - Dark Mode */
   --event-gradient-primary: linear-gradient(135deg, #466F89, #34414A);
   --event-gradient-secondary: linear-gradient(45deg, #0F0E0F, #000402);
   --event-gradient-accent: linear-gradient(90deg, #34414A, #466F89);
-  
+
   /* Theme colors using event palette - Dark Mode */
   --background: var(--event-night);
   --foreground: #f8fafc;
@@ -143,10 +172,13 @@
 
 @layer base {
   * {
-    @apply border-border outline-ring/50;
+    border-color: var(--border);
+    outline-color: color-mix(in srgb, var(--ring) 50%, transparent);
   }
+
   body {
-    @apply bg-background text-foreground;
+    background-color: var(--background);
+    color: var(--foreground);
   }
 }
 
@@ -155,54 +187,54 @@
   .event-gradient-bg {
     background: var(--event-gradient-primary);
   }
-  
+
   .event-gradient-secondary {
     background: var(--event-gradient-secondary);
   }
-  
+
   .event-gradient-accent {
     background: var(--event-gradient-accent);
   }
-  
+
   .event-card {
     background: var(--card);
     border: 1px solid var(--border);
     box-shadow: 0 4px 6px -1px rgba(70, 111, 137, 0.1), 0 2px 4px -1px rgba(70, 111, 137, 0.06);
   }
-  
+
   .event-card-hover {
     transition: all 0.3s ease;
   }
-  
+
   .event-card-hover:hover {
     box-shadow: 0 10px 15px -3px rgba(70, 111, 137, 0.2), 0 4px 6px -2px rgba(70, 111, 137, 0.1);
     transform: translateY(-2px);
   }
-  
+
   .event-text-gradient {
     background: var(--event-gradient-primary);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
   }
-  
+
   .event-button-primary {
     background: var(--event-paynes-gray);
     color: white;
     border: none;
     transition: all 0.3s ease;
   }
-  
+
   .event-button-primary:hover {
     background: var(--event-charcoal);
     transform: translateY(-1px);
     box-shadow: 0 4px 8px rgba(70, 111, 137, 0.3);
   }
-  
+
   .event-hero-bg {
     background: linear-gradient(135deg, var(--event-night) 0%, var(--event-charcoal) 50%, var(--event-paynes-gray) 100%);
   }
-  
+
   .event-section-bg {
     background: linear-gradient(180deg, transparent 0%, rgba(70, 111, 137, 0.05) 100%);
   }
@@ -211,4 +243,31 @@
 /* Hide Next.js error overlay portal */
 nextjs-portal {
   display: none !important;
+}
+
+::view-transition-old(root), 
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+@theme inline {
+  --animate-grid: grid 15s linear infinite;
+  @keyframes grid {
+  0% {
+    transform: translateY(-50%);
+    }
+  100% {
+    transform: translateY(0);
+    }
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  body {
+    @apply bg-background text-foreground;
+  }
 }

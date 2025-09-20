@@ -4,327 +4,444 @@ import Image from "next/image";
 import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Marquee } from "@/components/ui/marquee";
+import { RetroGrid } from "@/components/ui/retro-grid";
+import { Target01, Users01, UserPlus01, LogIn01, Award01, Settings01, Scale01, ArrowRight, Zap, Calendar, Trophy01, Lightbulb01, Microphone01 } from "@untitled-ui/icons-react";
 
 export default function HomePage() {
   const { data: session, isPending } = useSession();
   const isSignedIn = !!session?.user;
+  
   return (
-    <div className="min-h-screen bg-background text-foreground">
-      {/* Theme Toggle - Fixed position */}
-      <div className="fixed top-4 right-4 z-50">
-        <ThemeToggle />
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground overflow-x-hidden">
+      {/* Animated background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+        <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-2xl animate-pulse" style={{animationDelay: '4s'}}></div>
       </div>
-      
-      {/* Hero */}
-      <section className="relative overflow-hidden event-hero-bg">
-        <div className="absolute inset-0 bg-gradient-to-br from-background/90 via-background/50 to-transparent"></div>
-        <div className="relative mobile-padding mx-auto max-w-6xl py-12 sm:py-20 lg:py-28">
-          <div className="flex flex-col items-start gap-4 sm:gap-6">
-            <span className="inline-flex items-center rounded-full bg-primary/10 backdrop-blur-sm px-3 sm:px-4 py-2 text-xs sm:text-sm font-medium text-primary ring-1 ring-primary/20">
-              Axios EDIC • Thakur College of Engineering and Technology
-            </span>
-            <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold tracking-tight leading-tight">
-              TECHPRENEUR<br />
-              <span className="event-text-gradient">SUMMIT 3.0</span>
-            </h1>
-            <p className="max-w-2xl text-base sm:text-lg text-muted-foreground">
-              Real World Problem Solving and Ignite Entrepreneurial Thinking
-            </p>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 my-4 sm:my-6 w-full max-w-3xl">
-              <div className="mobile-card">
-                <h3 className="font-semibold text-primary mb-3 flex items-center gap-2">
-                  <span className="text-xl">🎯</span> OBJECTIVES
-                </h3>
-                <ul className="text-sm text-muted-foreground space-y-2">
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary">•</span> Exposure to Networking Opportunities
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary">•</span> Real World Problem Solving
-                  </li>
-                  <li className="flex items-start gap-2">
-                    <span className="text-primary">•</span> Ignite Entrepreneurial Thinking
-                  </li>
-                </ul>
-              </div>
-              <div className="mobile-card">
-                <h3 className="font-semibold text-primary mb-3 flex items-center gap-2">
-                  <span className="text-xl">👥</span> TEAM STRUCTURE
-                </h3>
-                <p className="text-sm text-muted-foreground">
-                  <strong className="text-foreground">4-5 Members per team</strong><br />
-                  The Startup Strategy League
-                </p>
-              </div>
+
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center">
+              <Zap className="w-5 h-5 text-white" />
             </div>
-            <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 my-4 sm:my-6 w-full max-w-3xl">
-              <Link href="/sign-up" className="inline-flex w-full sm:flex-1 items-center justify-center rounded-md bg-primary px-6 py-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 transition-colors duration-200 min-h-[48px]">
-                Register Your Team
-              </Link>
-              <Link href="/sign-in" className="inline-flex w-full sm:flex-1 items-center justify-center rounded-md border border-input bg-background px-6 py-3 text-sm font-medium text-foreground hover:bg-accent transition-colors duration-200 min-h-[48px]">
+            <div>
+              <h1 className="font-bold text-lg bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                TECHPRENEUR
+              </h1>
+              <p className="text-xs text-muted-foreground -mt-1">SUMMIT 3.0</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <Link href="/scoreboard" className="hidden sm:block text-sm font-medium hover:text-primary transition-colors">
+              Scoreboard
+            </Link>
+            {!isSignedIn && (
+              <Link href="/sign-in" className="hidden sm:block text-sm font-medium hover:text-primary transition-colors">
                 Sign In
               </Link>
-              <Link href="/scoreboard" className="inline-flex w-full sm:flex-1 items-center justify-center rounded-md border border-input bg-background/50 px-6 py-3 text-sm font-medium text-muted-foreground hover:bg-accent hover:text-foreground transition-colors duration-200 min-h-[48px]">
-                View Scoreboard
-              </Link>
+            )}
+            <ThemeToggle />
+          </div>
+        </div>
+      </nav>
+      
+      {/* Hero Section */}
+      <section className="relative min-h-screen flex items-center justify-center pt-20">
+        <RetroGrid />
+        <div className="max-w-7xl mx-auto px-6 py-20 text-center relative z-10">
+          {/* Status Badge */}
+          <div className="inline-flex items-center gap-2 px-4 py-2 mb-8 bg-primary/10 backdrop-blur-sm rounded-full border border-primary/20 hover:border-primary/40 transition-all duration-300 group">
+            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+            <span className="text-sm font-medium text-primary">Registration Open • Axios EDIC</span>
+            <div className="w-1 h-1 bg-primary/50 rounded-full group-hover:scale-150 transition-transform"></div>
+          </div>
+          
+          {/* Main Title */}
+          <div className="space-y-6 mb-12">
+            <h1 className="text-5xl sm:text-7xl lg:text-8xl font-black tracking-tight leading-none">
+              <span className="block bg-gradient-to-r from-foreground via-primary to-accent bg-clip-text text-transparent hover:scale-105 transition-transform duration-500 cursor-default">
+                TECHPRENEUR
+              </span>
+              <span className="block bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent animate-pulse">
+                SUMMIT 3.0
+              </span>
+            </h1>
+            <p className="text-xl sm:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
+              Where <span className="text-primary font-semibold">Innovation</span> meets{" "}
+              <span className="text-accent font-semibold">Entrepreneurship</span>{" "}
+              in the ultimate startup challenge
+            </p>
+          </div>
+
+          {/* CTA Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-16">
+            <Link 
+              href="/sign-up" 
+              className="group relative px-8 py-4 bg-gradient-to-r from-primary to-accent text-white font-semibold rounded-2xl hover:shadow-2xl hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+            >
+              <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <span className="relative flex items-center gap-2">
+                Register Your Team
+                <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform" />
+              </span>
+            </Link>
+            <Link 
+              href="/sign-in" 
+              className="px-8 py-4 bg-background/50 backdrop-blur-sm border border-border hover:border-primary/50 font-semibold rounded-2xl hover:bg-accent/10 transition-all duration-300 hover:-translate-y-1"
+            >
+              Sign In
+            </Link>
+            <Link 
+              href="/scoreboard" 
+              className="px-8 py-4 bg-background/30 backdrop-blur-sm border border-border/50 font-medium rounded-2xl hover:bg-background/50 hover:border-border transition-all duration-300 hover:-translate-y-1"
+            >
+              View Rankings
+            </Link>
+          </div>
+
+          {/* Quick Stats */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 max-w-4xl mx-auto">
+            <div className="group p-6 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl hover:bg-card/80 hover:border-primary/30 transition-all duration-300 hover:-translate-y-2">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:bg-primary/20 transition-colors">
+                <Target01 className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-bold text-lg mb-2">Real Problems</h3>
+              <p className="text-muted-foreground text-sm">Solve actual industry challenges</p>
+            </div>
+            <div className="group p-6 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl hover:bg-card/80 hover:border-primary/30 transition-all duration-300 hover:-translate-y-2">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:bg-primary/20 transition-colors">
+                <Users01 className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-bold text-lg mb-2">Team Building</h3>
+              <p className="text-muted-foreground text-sm">4-5 members per team</p>
+            </div>
+            <div className="group p-6 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl hover:bg-card/80 hover:border-primary/30 transition-all duration-300 hover:-translate-y-2">
+              <div className="w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center mb-4 mx-auto group-hover:bg-primary/20 transition-colors">
+                <Trophy01 className="w-6 h-6 text-primary" />
+              </div>
+              <h3 className="font-bold text-lg mb-2">Grand Prize</h3>
+              <p className="text-muted-foreground text-sm">Win amazing rewards</p>
             </div>
           </div>
         </div>
       </section>
 
-      {/* Event Schedule */}
-      <section className="event-section-bg mobile-padding mx-auto max-w-6xl py-12 sm:py-16">
-        <h2 className="mobile-title tracking-tight mb-8 sm:mb-12 text-center event-text-gradient">Event Schedule</h2>
-        
-        {/* Day 1 */}
-        <div className="mb-12 sm:mb-16">
-          <div className="text-center mb-6 sm:mb-8">
-            <h3 className="mobile-subtitle text-primary inline-flex items-center gap-3 px-6 py-3 bg-primary/10 rounded-full border border-primary/20">
-              <span className="text-2xl">📅</span> 
-              <span>DAY 1 - 25 SEPTEMBER</span>
-            </h3>
+      {/* Event Timeline */}
+      <section className="relative py-20 bg-gradient-to-b from-transparent to-card/30">
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl sm:text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Event Timeline
+            </h2>
+            <p className="text-xl text-muted-foreground">Your journey to entrepreneurial success</p>
           </div>
-          <div className="grid gap-6 sm:gap-8 grid-cols-1 lg:grid-cols-2">
-            <div className="mobile-card hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                  <span className="text-2xl">🧠</span>
-                </div>
-                <div>
-                  <h4 className="text-lg font-semibold text-primary mb-1">ROUND 1</h4>
-                  <p className="text-sm font-medium text-muted-foreground">QUIZ FOR TOKENS</p>
-                </div>
-              </div>
-              <p className="mobile-body text-muted-foreground mb-4 leading-relaxed">
-                Test your knowledge and earn strategic tokens that will be crucial for the next round.
-              </p>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">15 questions in 30 minutes</span>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">Maximum 60 points available</span>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">Token trade-offs per option (Marketing, Capital, Team, Strategy)</span>
-                </div>
-              </div>
-            </div>
-            
-            <div className="mobile-card hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                  <span className="text-2xl">🎤</span>
-                </div>
-                <div>
-                  <h4 className="text-lg font-semibold text-primary mb-1">ROUND 2</h4>
-                  <p className="text-sm font-medium text-muted-foreground">90 SEC PITCH AND VOTING</p>
-                </div>
-              </div>
-              <p className="mobile-body text-muted-foreground mb-4 leading-relaxed">
-                Customer Acquiring - Present your idea and win the crowd's vote.
-              </p>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">90-second pitch presentation</span>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">30s team voting period</span>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">Convert tokens to votes strategically</span>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">Maximum 3 downvotes per team</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
 
-        {/* Day 2 */}
-        <div className="mb-8 sm:mb-12">
-          <div className="text-center mb-6 sm:mb-8">
-            <h3 className="mobile-subtitle text-primary inline-flex items-center gap-3 px-6 py-3 bg-primary/10 rounded-full border border-primary/20">
-              <span className="text-2xl">📅</span> 
-              <span>DAY 2 - 27 SEPTEMBER</span>
-            </h3>
-          </div>
-          <div className="grid gap-6 sm:gap-8 grid-cols-1 lg:grid-cols-2">
-            <div className="mobile-card hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                  <span className="text-2xl">🏆</span>
-                </div>
-                <div>
-                  <h4 className="text-lg font-semibold text-primary mb-1">ROUND 3</h4>
-                  <p className="text-sm font-medium text-muted-foreground">5 MIN PITCH</p>
-                </div>
-              </div>
-              <p className="mobile-body text-muted-foreground mb-4 leading-relaxed">
-                Followed by Q&A and Points Acquisition - Your final chance to impress.
-              </p>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">5-minute comprehensive pitch</span>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">Q&A session with judges</span>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">Teams rate each other (3-10 scale)</span>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">Professional judge scoring</span>
-                </div>
+          {/* Day 1 */}
+          <div className="mb-16">
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-primary/10 to-accent/10 rounded-full border border-primary/20 backdrop-blur-sm">
+                <Calendar className="w-5 h-5 text-primary" />
+                <span className="font-bold text-lg text-primary">DAY 1 - SEPTEMBER 25</span>
               </div>
             </div>
             
-            <div className="mobile-card hover:shadow-xl transition-all duration-300 border-l-4 border-l-primary">
-              <div className="flex items-start gap-3 mb-4">
-                <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                  <span className="text-2xl">🥇</span>
-                </div>
-                <div>
-                  <h4 className="text-lg font-semibold text-primary mb-1">ROUND 4</h4>
-                  <p className="text-sm font-medium text-muted-foreground">EVALUATION</p>
+            <Marquee pauseOnHover className="[--duration:25s]">
+              <div className="mx-4 group">
+                <div className="relative p-8 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm border border-border/50 rounded-3xl hover:border-primary/30 transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:shadow-primary/10 min-w-[400px]">
+                  <div className="absolute top-4 right-4 w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                  <div className="flex items-start gap-4 mb-6">
+                    <div className="w-16 h-16 bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Lightbulb01 className="w-8 h-8 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-primary mb-2">ROUND 1</h3>
+                      <p className="text-lg font-semibold text-accent">QUIZ FOR TOKENS</p>
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground mb-6 leading-relaxed">
+                    Test your knowledge and earn strategic tokens that will be crucial for the next round.
+                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-xl border border-primary/10">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span className="font-medium">15 questions in 30 minutes</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-accent/5 rounded-xl border border-accent/10">
+                      <div className="w-2 h-2 bg-accent rounded-full"></div>
+                      <span className="font-medium">Maximum 60 points available</span>
+                    </div>
+                  </div>
                 </div>
               </div>
-              <p className="mobile-body text-muted-foreground mb-4 leading-relaxed">
-                Points Acquisition, Evaluation and Result Declaration
-              </p>
-              <div className="space-y-3">
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">Final score calculation</span>
+
+              <div className="mx-4 group">
+                <div className="relative p-8 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm border border-border/50 rounded-3xl hover:border-accent/30 transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:shadow-accent/10 min-w-[400px]">
+                  <div className="absolute top-4 right-4 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                  <div className="flex items-start gap-4 mb-6">
+                    <div className="w-16 h-16 bg-gradient-to-br from-accent/20 to-primary/20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Microphone01 className="w-8 h-8 text-accent" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-accent mb-2">ROUND 2</h3>
+                      <p className="text-lg font-semibold text-primary">90 SEC PITCH</p>
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground mb-6 leading-relaxed">
+                    Customer Acquiring - Present your idea and win the crowd's vote.
+                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-accent/5 rounded-xl border border-accent/10">
+                      <div className="w-2 h-2 bg-accent rounded-full"></div>
+                      <span className="font-medium">90-second pitch presentation</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-xl border border-primary/10">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span className="font-medium">30s team voting period</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">Judge deliberation</span>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">Winner announcement</span>
-                </div>
-                <div className="flex items-start gap-3 p-3 bg-muted/30 rounded-lg">
-                  <span className="text-primary text-sm">•</span>
-                  <span className="text-sm text-muted-foreground">Prize distribution ceremony</span>
-                </div>
+              </div>
+            </Marquee>
+          </div>
+
+          {/* Day 2 */}
+          <div>
+            <div className="text-center mb-8">
+              <div className="inline-flex items-center gap-3 px-6 py-3 bg-gradient-to-r from-accent/10 to-primary/10 rounded-full border border-accent/20 backdrop-blur-sm">
+                <Calendar className="w-5 h-5 text-accent" />
+                <span className="font-bold text-lg text-accent">DAY 2 - SEPTEMBER 27</span>
               </div>
             </div>
+            
+            <Marquee pauseOnHover reverse className="[--duration:30s]">
+              <div className="mx-4 group">
+                <div className="relative p-8 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm border border-border/50 rounded-3xl hover:border-primary/30 transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:shadow-primary/10 min-w-[400px]">
+                  <div className="absolute top-4 right-4 w-3 h-3 bg-orange-500 rounded-full animate-pulse"></div>
+                  <div className="flex items-start gap-4 mb-6">
+                    <div className="w-16 h-16 bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Trophy01 className="w-8 h-8 text-primary" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-primary mb-2">ROUND 3</h3>
+                      <p className="text-lg font-semibold text-accent">5 MIN PITCH</p>
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground mb-6 leading-relaxed">
+                    Followed by Q&A and Points Acquisition - Your final chance to impress.
+                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-xl border border-primary/10">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span className="font-medium">5-minute comprehensive pitch</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-accent/5 rounded-xl border border-accent/10">
+                      <div className="w-2 h-2 bg-accent rounded-full"></div>
+                      <span className="font-medium">Q&A session with judges</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mx-4 group">
+                <div className="relative p-8 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm border border-border/50 rounded-3xl hover:border-accent/30 transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:shadow-accent/10 min-w-[400px]">
+                  <div className="absolute top-4 right-4 w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
+                  <div className="flex items-start gap-4 mb-6">
+                    <div className="w-16 h-16 bg-gradient-to-br from-accent/20 to-primary/20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Award01 className="w-8 h-8 text-accent" />
+                    </div>
+                    <div>
+                      <h3 className="text-2xl font-bold text-accent mb-2">ROUND 4</h3>
+                      <p className="text-lg font-semibold text-primary">EVALUATION</p>
+                    </div>
+                  </div>
+                  <p className="text-muted-foreground mb-6 leading-relaxed">
+                    Points Acquisition, Evaluation and Result Declaration
+                  </p>
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-3 p-3 bg-accent/5 rounded-xl border border-accent/10">
+                      <div className="w-2 h-2 bg-accent rounded-full"></div>
+                      <span className="font-medium">Final score calculation</span>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-primary/5 rounded-xl border border-primary/10">
+                      <div className="w-2 h-2 bg-primary rounded-full"></div>
+                      <span className="font-medium">Winner announcement</span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </Marquee>
           </div>
         </div>
       </section>
 
-      {/* Quick Links - Only show competition portals if signed in */}
-      <section className="mobile-padding mx-auto max-w-6xl py-8 sm:py-12 mt-8">
-        <h2 className="mobile-subtitle tracking-tight mb-6 sm:mb-8 text-center event-text-gradient">Quick Access</h2>
-        <div className="grid gap-4 sm:gap-6 auto-rows-fr">
-          {/* User Links Row */}
+      {/* Quick Access */}
+      <section className="py-20 bg-gradient-to-b from-card/30 to-transparent">
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl sm:text-5xl font-bold mb-4 bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent">
+              Quick Access
+            </h2>
+            <p className="text-xl text-muted-foreground">Everything you need, one click away</p>
+          </div>
+
+          {/* User Links */}
           {!isSignedIn && (
-            <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 mb-6">
-              <Link href="/sign-up" className="mobile-card group hover:bg-accent/50 transition-colors duration-200 flex flex-col h-full">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <span className="text-lg">📝</span>
+            <div className="grid gap-8 grid-cols-1 md:grid-cols-3 mb-12">
+              <Link href="/sign-up" className="group relative overflow-hidden">
+                <div className="p-8 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm border border-border/50 rounded-3xl hover:border-primary/30 transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:shadow-primary/10 h-full">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <UserPlus01 className="w-7 h-7 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-bold text-primary">Register Team</h3>
                   </div>
-                  <h4 className="font-semibold text-primary">Register Your Team</h4>
+                  <p className="text-muted-foreground leading-relaxed mb-4">
+                    Join the ultimate entrepreneurship challenge
+                  </p>
+                  <div className="flex items-center gap-2 text-primary font-medium group-hover:gap-3 transition-all">
+                    Get Started <ArrowRight className="w-4 h-4" />
+                  </div>
                 </div>
-                <p className="mobile-body text-muted-foreground flex-1">Sign up to participate in the event.</p>
               </Link>
-              <Link href="/sign-in" className="mobile-card group hover:bg-accent/50 transition-colors duration-200 flex flex-col h-full">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <span className="text-lg">🔐</span>
+
+              <Link href="/sign-in" className="group relative overflow-hidden">
+                <div className="p-8 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm border border-border/50 rounded-3xl hover:border-accent/30 transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:shadow-accent/10 h-full">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-14 h-14 bg-gradient-to-br from-accent/20 to-primary/20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <LogIn01 className="w-7 h-7 text-accent" />
+                    </div>
+                    <h3 className="text-xl font-bold text-accent">Sign In</h3>
                   </div>
-                  <h4 className="font-semibold text-primary">Sign In</h4>
+                  <p className="text-muted-foreground leading-relaxed mb-4">
+                    Access your dashboard and compete
+                  </p>
+                  <div className="flex items-center gap-2 text-accent font-medium group-hover:gap-3 transition-all">
+                    Enter Portal <ArrowRight className="w-4 h-4" />
+                  </div>
                 </div>
-                <p className="mobile-body text-muted-foreground flex-1">Access your dashboard and competition portals.</p>
               </Link>
-              <Link href="/scoreboard" className="mobile-card group hover:bg-accent/50 transition-colors duration-200 flex flex-col h-full">
-                <div className="flex items-center gap-3 mb-3">
-                  <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <span className="text-lg">🏆</span>
+
+              <Link href="/scoreboard" className="group relative overflow-hidden">
+                <div className="p-8 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm border border-border/50 rounded-3xl hover:border-primary/30 transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl hover:shadow-primary/10 h-full">
+                  <div className="flex items-center gap-4 mb-6">
+                    <div className="w-14 h-14 bg-gradient-to-br from-primary/20 to-accent/20 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                      <Award01 className="w-7 h-7 text-primary" />
+                    </div>
+                    <h3 className="text-xl font-bold text-primary">Scoreboard</h3>
                   </div>
-                  <h4 className="font-semibold text-primary">View Scoreboard</h4>
+                  <p className="text-muted-foreground leading-relaxed mb-4">
+                    View live rankings and team scores
+                  </p>
+                  <div className="flex items-center gap-2 text-primary font-medium group-hover:gap-3 transition-all">
+                    View Rankings <ArrowRight className="w-4 h-4" />
+                  </div>
                 </div>
-                <p className="mobile-body text-muted-foreground flex-1">See team rankings and scores.</p>
               </Link>
             </div>
           )}
-          
-          {/* Admin Links Row */}
-          <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2">
-            <Link href="/admin" className="mobile-card group hover:bg-accent/50 transition-colors duration-200 flex flex-col h-full">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <span className="text-lg">⚙️</span>
+
+          {/* Admin Links */}
+          <div className="grid gap-8 grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto">
+            <Link href="/admin" className="group relative overflow-hidden">
+              <div className="p-8 bg-gradient-to-br from-card/60 to-card/30 backdrop-blur-sm border border-border/30 rounded-3xl hover:border-accent/20 transition-all duration-500 hover:-translate-y-3 hover:shadow-xl hover:shadow-accent/5">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-14 h-14 bg-gradient-to-br from-accent/15 to-primary/15 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Settings01 className="w-7 h-7 text-accent" />
+                  </div>
+                  <h3 className="text-xl font-bold text-accent">Admin Console</h3>
                 </div>
-                <h4 className="font-semibold text-primary">Admin Console</h4>
+                <p className="text-muted-foreground leading-relaxed mb-4">
+                  Control rounds, manage questions, oversee event flow
+                </p>
+                <div className="flex items-center gap-2 text-accent font-medium group-hover:gap-3 transition-all">
+                  Admin Access <ArrowRight className="w-4 h-4" />
+                </div>
               </div>
-              <p className="mobile-body text-muted-foreground flex-1">Control round status, manage questions, and oversee the event.</p>
             </Link>
-            <Link href="/judge" className="mobile-card group hover:bg-accent/50 transition-colors duration-200 flex flex-col h-full">
-              <div className="flex items-center gap-3 mb-3">
-                <div className="flex-shrink-0 w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                  <span className="text-lg">👨‍⚖️</span>
+
+            <Link href="/judge" className="group relative overflow-hidden">
+              <div className="p-8 bg-gradient-to-br from-card/60 to-card/30 backdrop-blur-sm border border-border/30 rounded-3xl hover:border-primary/20 transition-all duration-500 hover:-translate-y-3 hover:shadow-xl hover:shadow-primary/5">
+                <div className="flex items-center gap-4 mb-6">
+                  <div className="w-14 h-14 bg-gradient-to-br from-primary/15 to-accent/15 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Scale01 className="w-7 h-7 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold text-primary">Judge Console</h3>
                 </div>
-                <h4 className="font-semibold text-primary">Judge Console</h4>
+                <p className="text-muted-foreground leading-relaxed mb-4">
+                  Score presentations, evaluate final performances
+                </p>
+                <div className="flex items-center gap-2 text-primary font-medium group-hover:gap-3 transition-all">
+                  Judge Access <ArrowRight className="w-4 h-4" />
+                </div>
               </div>
-              <p className="mobile-body text-muted-foreground flex-1">Score team presentations and evaluate final round performances.</p>
             </Link>
           </div>
         </div>
       </section>
 
       {/* Contact Section */}
-      <section className="mobile-padding mx-auto max-w-6xl py-8 sm:py-12 border-t border-border/50">
-        <h2 className="mobile-subtitle tracking-tight mb-6 sm:mb-8 text-center event-text-gradient">Contact Us</h2>
-        <div className="text-center mb-6 sm:mb-8">
-          <p className="mobile-body text-muted-foreground mb-4 sm:mb-6">For any queries, reach out to our organizing team:</p>
-          <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 max-w-4xl mx-auto">
-            <div className="mobile-card text-center">
-              <h4 className="font-semibold text-primary">Ayush Pardeshi</h4>
-              <p className="mobile-body text-muted-foreground">CEO</p>
-              <p className="mobile-body font-mono text-foreground">8766536270</p>
-            </div>
-            <div className="mobile-card text-center">
-              <h4 className="font-semibold text-primary">Ahana Kulkarni</h4>
-              <p className="mobile-body text-muted-foreground">CTO</p>
-              <p className="mobile-body font-mono text-foreground">8928352406</p>
-            </div>
-            <div className="mobile-card text-center">
-              <h4 className="font-semibold text-primary">Bhummi Girnara</h4>
-              <p className="mobile-body text-muted-foreground">COO</p>
-              <p className="mobile-body font-mono text-foreground">98698 32960</p>
-            </div>
-            <div className="mobile-card text-center">
-              <h4 className="font-semibold text-primary">Hredey Chaand</h4>
-              <p className="mobile-body text-muted-foreground">CMO</p>
-              <p className="mobile-body font-mono text-foreground">9004724466</p>
-            </div>
+      <section className="py-20 bg-gradient-to-b from-transparent to-card/20">
+        <div className="max-w-7xl mx-auto px-6 relative z-10">
+          <div className="text-center mb-16">
+            <h2 className="text-4xl sm:text-5xl font-bold mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Get In Touch
+            </h2>
+            <p className="text-xl text-muted-foreground mb-8">
+              Have questions? Our organizing team is here to help
+            </p>
+          </div>
+
+          <div className="grid gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 max-w-5xl mx-auto">
+            {[
+              { name: "Ayush Pardeshi", role: "CEO", phone: "+91 8766536270" },
+              { name: "Ahana Kulkarni", role: "CTO", phone: "+91 8928352406" },
+              { name: "Bhummi Girnara", role: "COO", phone: "+91 98698 32960" },
+              { name: "Hredey Chaand", role: "CMO", phone: "+91 9004724466" }
+            ].map((contact, index) => (
+              <div key={index} className="group">
+                <div className="p-6 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm border border-border/50 rounded-2xl hover:border-primary/30 transition-all duration-300 hover:-translate-y-2 text-center">
+                  <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-accent/20 rounded-full flex items-center justify-center mx-auto mb-4 group-hover:scale-110 transition-transform">
+                    <span className="font-bold text-primary">{contact.name.split(' ').map(n => n[0]).join('')}</span>
+                  </div>
+                  <h4 className="font-bold text-lg text-primary mb-1">{contact.name}</h4>
+                  <p className="text-muted-foreground text-sm mb-3">{contact.role}</p>
+                  <p className="font-mono text-sm bg-primary/5 px-3 py-1 rounded-full border border-primary/10">
+                    {contact.phone}
+                  </p>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </section>
 
-      <footer className="border-t border-border bg-card/60 py-6 sm:py-8 mt-12">
-        <div className="mobile-padding mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 sm:flex-row">
-          <p className="text-xs sm:text-sm text-muted-foreground text-center sm:text-left">© {new Date().getFullYear()} Techpreneur Summit 3.0 • Axios EDIC • Thakur College of Engineering and Technology</p>
-          <div className="flex flex-col sm:flex-row items-center gap-2 sm:gap-4 text-xs sm:text-sm">
-            <Link href="/sign-in" className="hover:underline px-2 py-1">Sign In</Link>
-            <Link href="/sign-up" className="hover:underline px-2 py-1">Sign Up</Link>
-            <Link href="/scoreboard" className="hover:underline px-2 py-1">Scoreboard</Link>
+      {/* Footer */}
+      <footer className="relative border-t border-border/50 bg-gradient-to-b from-card/30 to-card/60 backdrop-blur-sm">
+        <div className="max-w-7xl mx-auto px-6 py-12">
+          <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
+            <div className="text-center lg:text-left">
+              <p className="text-muted-foreground mb-2">
+                © {new Date().getFullYear()} Techpreneur Summit 3.0
+              </p>
+              <p className="text-sm text-muted-foreground/80">
+                Axios EDIC • Thakur College of Engineering and Technology
+              </p>
+            </div>
+            <div className="flex items-center gap-6">
+              <Link href="/sign-in" className="text-sm font-medium hover:text-primary transition-colors px-4 py-2 rounded-lg hover:bg-primary/5">
+                Sign In
+              </Link>
+              <Link href="/sign-up" className="text-sm font-medium hover:text-accent transition-colors px-4 py-2 rounded-lg hover:bg-accent/5">
+                Sign Up
+              </Link>
+              <Link href="/scoreboard" className="text-sm font-medium hover:text-primary transition-colors px-4 py-2 rounded-lg hover:bg-primary/5">
+                Scoreboard
+              </Link>
+            </div>
           </div>
         </div>
       </footer>

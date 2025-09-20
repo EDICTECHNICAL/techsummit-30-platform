@@ -3,7 +3,9 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { Button } from "@/components/ui/button";
 import { useIsMobile } from "@/hooks/use-mobile";
+import { Trophy, Medal, Award, RefreshCw, Eye, EyeOff, ArrowLeft, Home, BarChart3, Users, Target, Zap, Crown, Star } from "lucide-react";
 
 interface LeaderboardTeam {
   rank: number;
@@ -72,10 +74,12 @@ export default function ScoreboardPage() {
   const [showDetails, setShowDetails] = useState(false);
   const [autoRefresh, setAutoRefresh] = useState(false);
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   const fetchScoreboard = async () => {
     try {
       setError(null);
+      setRefreshing(true);
       const res = await fetch("/api/scoreboard", {
         headers: {
           'Cache-Control': 'no-cache',
@@ -92,6 +96,8 @@ export default function ScoreboardPage() {
     } catch (e: any) {
       console.error('Scoreboard fetch error:', e);
       setError(e?.message || "Failed to load scoreboard");
+    } finally {
+      setRefreshing(false);
     }
   };
 
@@ -115,12 +121,21 @@ export default function ScoreboardPage() {
     return () => clearInterval(interval);
   }, [autoRefresh]);
 
-  const getRankBadgeColor = (rank: number) => {
+  const getRankIcon = (rank: number) => {
     switch (rank) {
-      case 1: return "bg-yellow-500 text-white";
-      case 2: return "bg-gray-400 text-white";
-      case 3: return "bg-amber-600 text-white";
-      default: return "bg-muted text-muted-foreground";
+      case 1: return <Crown className="w-5 h-5 text-yellow-500" />;
+      case 2: return <Medal className="w-5 h-5 text-gray-400" />;
+      case 3: return <Award className="w-5 h-5 text-amber-600" />;
+      default: return <span className="w-5 h-5 flex items-center justify-center text-sm font-bold text-muted-foreground">{rank}</span>;
+    }
+  };
+
+  const getRankBadgeStyle = (rank: number) => {
+    switch (rank) {
+      case 1: return "bg-gradient-to-r from-yellow-400 to-yellow-600 text-white shadow-lg shadow-yellow-500/25";
+      case 2: return "bg-gradient-to-r from-gray-300 to-gray-500 text-white shadow-lg shadow-gray-500/25";
+      case 3: return "bg-gradient-to-r from-amber-500 to-amber-700 text-white shadow-lg shadow-amber-500/25";
+      default: return "bg-gradient-to-r from-primary/20 to-accent/20 text-primary border border-primary/20";
     }
   };
 
@@ -134,11 +149,20 @@ export default function ScoreboardPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-background text-foreground p-6">
-        <div className="flex items-center justify-center min-h-[400px]">
-          <div className="text-center">
-            <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-            <p className="text-muted-foreground">Loading scoreboard...</p>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground">
+        {/* Animated background elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+        </div>
+        
+        <div className="relative flex items-center justify-center min-h-screen">
+          <div className="text-center p-8 bg-card/50 backdrop-blur-sm border border-border/50 rounded-3xl shadow-2xl">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+            <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Loading Scoreboard
+            </h2>
+            <p className="text-muted-foreground">Fetching the latest rankings...</p>
           </div>
         </div>
       </div>
@@ -147,24 +171,33 @@ export default function ScoreboardPage() {
 
   if (error) {
     return (
-      <div className="min-h-screen bg-background text-foreground p-6">
-        <div className="text-center py-12">
-          <div className="text-destructive text-6xl mb-4">⚠️</div>
-          <h2 className="text-2xl font-bold text-destructive mb-2">Error Loading Scoreboard</h2>
-          <p className="text-muted-foreground mb-6">{error}</p>
-          <div className="space-x-4">
-            <button
-              onClick={() => window.location.reload()}
-              className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
-            >
-              Retry
-            </button>
-            <Link
-              href="/"
-              className="bg-muted text-muted-foreground px-4 py-2 rounded-md hover:bg-muted/90"
-            >
-              Go Home
-            </Link>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground">
+        {/* Animated background elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-500/10 rounded-full blur-3xl animate-pulse"></div>
+        </div>
+        
+        <div className="relative flex items-center justify-center min-h-screen p-6">
+          <div className="text-center p-8 bg-card/50 backdrop-blur-sm border border-red-500/20 rounded-3xl shadow-2xl max-w-md w-full">
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Zap className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-red-500 mb-2">Error Loading Scoreboard</h2>
+            <p className="text-muted-foreground mb-6">{error}</p>
+            <div className="flex gap-3 justify-center">
+              <Button
+                onClick={() => window.location.reload()}
+                className="px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1"
+              >
+                Retry
+              </Button>
+              <Link
+                href="/"
+                className="px-6 py-3 bg-card/50 backdrop-blur-sm border border-border font-semibold rounded-xl hover:bg-accent/10 transition-all duration-300 hover:-translate-y-1"
+              >
+                Go Home
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -173,17 +206,29 @@ export default function ScoreboardPage() {
 
   if (!data || !data.leaderboard || data.leaderboard.length === 0) {
     return (
-      <div className="min-h-screen bg-background text-foreground p-6">
-        <div className="text-center py-12">
-          <div className="text-muted-foreground text-6xl mb-4">📊</div>
-          <h2 className="text-2xl font-bold mb-2">No Teams Found</h2>
-          <p className="text-muted-foreground mb-6">The scoreboard will appear here once teams start participating.</p>
-          <Link
-            href="/"
-            className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90"
-          >
-            Go Home
-          </Link>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground">
+        {/* Animated background elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+        </div>
+        
+        <div className="relative flex items-center justify-center min-h-screen p-6">
+          <div className="text-center p-8 bg-card/50 backdrop-blur-sm border border-border/50 rounded-3xl shadow-2xl max-w-md w-full">
+            <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <BarChart3 className="w-8 h-8 text-primary" />
+            </div>
+            <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              No Teams Found
+            </h2>
+            <p className="text-muted-foreground mb-6">The scoreboard will appear here once teams start participating.</p>
+            <Link
+              href="/"
+              className="inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1"
+            >
+              <Home className="w-4 h-4" />
+              Go Home
+            </Link>
+          </div>
         </div>
       </div>
     );
@@ -194,367 +239,469 @@ export default function ScoreboardPage() {
   const maxFinalScore = data.leaderboard[0]?.finalCumulativeScore || 0;
 
   return (
-    <div className="min-h-screen bg-background text-foreground mobile-padding pb-20 event-section-bg">
-      <div className="max-w-7xl mx-auto">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 md:mb-8">
-          <div>
-            <h1 className={`font-bold flex items-center gap-3 event-text-gradient ${isMobile ? 'text-2xl mobile-title' : 'text-3xl'}`}>
-              🏆 Techpreneur Summit 3.0 - Live Scoreboard
-            </h1>
-            <p className="text-muted-foreground mt-1 text-sm md:text-base">
-              Competition rankings • {data.metadata.totalTeams} teams competing
-            </p>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground overflow-x-hidden">
+      {/* Animated background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+        <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-2xl animate-pulse" style={{animationDelay: '4s'}}></div>
+      </div>
+
+      {/* Navigation */}
+      <nav className="fixed top-0 left-0 right-0 z-50 bg-background/80 backdrop-blur-xl border-b border-border/50">
+        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
+          <div className="flex items-center gap-4">
+            <Link href="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
+              <div className="w-10 h-10 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center">
+                <Trophy className="w-5 h-5 text-white" />
+              </div>
+              <div>
+                <h1 className="font-bold text-lg bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                  SCOREBOARD
+                </h1>
+                <p className="text-xs text-muted-foreground -mt-1">Live Rankings</p>
+              </div>
+            </Link>
           </div>
-          <div className={`flex items-center gap-4 mt-4 md:mt-0 ${isMobile ? 'flex-wrap' : ''}`}>
+          <div className="flex items-center gap-3">
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border bg-card/50 backdrop-blur-sm hover:bg-accent text-sm transition-colors min-h-[44px]"
+              className="hidden sm:flex items-center gap-2 px-4 py-2 text-sm font-medium hover:text-primary transition-colors"
             >
-              ← Back to Dashboard
+              <ArrowLeft className="w-4 h-4" />
+              Dashboard
             </Link>
             <ThemeToggle />
-            <div className="flex items-center gap-2">
-              <input
-                type="checkbox"
-                id="autoRefresh"
-                checked={autoRefresh}
-                onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="rounded border-input accent-primary min-w-[20px] min-h-[20px]"
-              />
-              <label htmlFor="autoRefresh" className="text-sm text-muted-foreground">
-                Auto-refresh
-              </label>
-            </div>
-            <button
-              onClick={fetchScoreboard}
-              className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 text-sm min-h-[44px] active:scale-95 transition-transform"
-            >
-              Refresh
-            </button>
-            <button
-              onClick={() => setShowDetails(!showDetails)}
-              className="bg-muted text-muted-foreground px-4 py-2 rounded-md hover:bg-muted/90 text-sm min-h-[44px] active:scale-95 transition-transform"
-            >
-              {showDetails ? 'Hide' : 'Show'} Details
-            </button>
           </div>
         </div>
+      </nav>
 
-        {/* Last Updated */}
-        {lastUpdated && (
-          <div className="text-xs text-muted-foreground mb-6">
-            Last updated: {lastUpdated.toLocaleString()}
-          </div>
-        )}
+      <div className="relative pt-24 pb-20">
+        <div className="max-w-7xl mx-auto px-6">
+          {/* Header */}
+          <div className="text-center mb-12">
+            <div className="inline-flex items-center gap-2 px-4 py-2 mb-6 bg-primary/10 backdrop-blur-sm rounded-full border border-primary/20">
+              <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></div>
+              <span className="text-sm font-medium text-primary">Live • {data.metadata.totalTeams} Teams Competing</span>
+            </div>
+            
+            <h1 className="text-4xl sm:text-6xl font-black tracking-tight mb-4">
+              <span className="bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                LIVE RANKINGS
+              </span>
+            </h1>
+            <p className="text-xl text-muted-foreground mb-8">
+              Real-time competition scoreboard
+            </p>
 
-        {/* Winner Tiebreaker Notes */}
-        {data.winnerNotes && data.winnerNotes.length > 0 && (
-          <div className="mb-8 space-y-3">
-            {data.winnerNotes.map((note, index) => (
-              <div key={index} className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
-                <div className="flex items-start gap-2">
-                  <div className="text-blue-600 text-sm">⚖️</div>
-                  <div>
-                    <p className="text-sm font-medium text-blue-800 mb-1">Automatic Tiebreaker Applied</p>
-                    <p className="text-sm text-blue-700">{note.message}</p>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Top 3 Teams */}
-        {topTeams.length > 0 && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-            {topTeams.map((team) => (
-              <div
-                key={team.teamId}
-                className={`relative rounded-xl border p-6 ${
-                  team.rank === 1
-                    ? 'border-yellow-500 bg-gradient-to-br from-yellow-50 to-yellow-100 dark:from-yellow-950 dark:to-yellow-900'
-                    : team.rank === 2
-                    ? 'border-gray-400 bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-950 dark:to-gray-900'
-                    : 'border-amber-600 bg-gradient-to-br from-amber-50 to-amber-100 dark:from-amber-950 dark:to-amber-900'
-                }`}
+            {/* Controls */}
+            <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
+              <button
+                onClick={fetchScoreboard}
+                disabled={refreshing}
+                className="group relative px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                <div className={`absolute -top-3 -right-3 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${getRankBadgeColor(team.rank)}`}>
-                  {team.rank}
-                </div>
-                <div className="text-center">
-                  <h3 className="font-bold text-lg mb-1">{team.teamName}</h3>
-                  <p className="text-sm text-muted-foreground mb-4">{team.college}</p>
-                  <div className="text-3xl font-bold mb-2 text-primary">
-                    {team.finalCumulativeScore.toFixed(1)}
-                  </div>
-                  <div className="text-xs text-muted-foreground space-y-1">
-                    <div>Tokens: {team.tokens?.total || 0}</div>
-                    <div>Votes: {team.voting?.totalVotes || 0}</div>
-                    <div>Peer: {team.peerRating?.average ? team.peerRating.average.toFixed(1) : '0.0'}</div>
-                    <div>Judge: {team.judgeScores?.total || 0}</div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Full Scoreboard */}
-        {isMobile ? (
-          /* Mobile Card Layout */
-          <div className="space-y-4">
-            {data.leaderboard.map((team: LeaderboardTeam, index: number) => (
-              <div
-                key={team.teamId}
-                className={`rounded-lg border bg-card p-4 ${index < 3 ? 'bg-accent/20' : ''}`}
+                <RefreshCw className={`w-4 h-4 mr-2 inline ${refreshing ? 'animate-spin' : 'group-hover:rotate-180 transition-transform duration-300'}`} />
+                {refreshing ? 'Refreshing...' : 'Refresh'}
+              </button>
+              
+              <button
+                onClick={() => setShowDetails(!showDetails)}
+                className="px-6 py-3 bg-card/50 backdrop-blur-sm border border-border font-semibold rounded-xl hover:bg-accent/10 transition-all duration-300 hover:-translate-y-1"
               >
-                {/* Team Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${getRankBadgeColor(team.rank)}`}>
-                        {team.rank}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <h3 className="font-medium text-lg truncate">{team.teamName}</h3>
-                        <p className="text-sm text-muted-foreground truncate">{team.college}</p>
-                        {!team.hasQuizSubmission && (
-                          <div className="text-xs text-orange-600 dark:text-orange-400">No quiz</div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className={`text-xl font-bold ${getScoreColor(team.finalCumulativeScore, maxFinalScore)}`}>
-                      {team.finalCumulativeScore.toFixed(1)}
-                    </div>
-                    <div className="text-xs text-muted-foreground">Final Score</div>
-                  </div>
-                </div>
+                {showDetails ? <EyeOff className="w-4 h-4 mr-2 inline" /> : <Eye className="w-4 h-4 mr-2 inline" />}
+                {showDetails ? 'Hide' : 'Show'} Details
+              </button>
 
-                {/* Token Scores */}
-                <div className="grid grid-cols-2 gap-3 mb-3">
-                  <div className="bg-muted/50 rounded-lg p-3">
-                    <div className="text-xs text-muted-foreground mb-1">Tokens</div>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-blue-500">Marketing:</span>
-                        <span className="font-medium">{team.tokens.marketing}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-green-500">Capital:</span>
-                        <span className="font-medium">{team.tokens.capital}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-purple-500">Team:</span>
-                        <span className="font-medium">{team.tokens.team}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-orange-500">Strategy:</span>
-                        <span className="font-medium">{team.tokens.strategy}</span>
-                      </div>
-                    </div>
-                  </div>
+              <label className="flex items-center gap-2 px-4 py-3 bg-card/50 backdrop-blur-sm border border-border rounded-xl hover:bg-accent/10 transition-all duration-300 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={autoRefresh}
+                  onChange={(e) => setAutoRefresh(e.target.checked)}
+                  className="rounded border-input accent-primary"
+                />
+                <span className="text-sm font-medium">Auto-refresh</span>
+              </label>
+            </div>
 
-                  <div className="bg-muted/50 rounded-lg p-3">
-                    <div className="text-xs text-muted-foreground mb-1">Performance</div>
-                    <div className="space-y-1 text-sm">
-                      <div className="flex justify-between">
-                        <span>Votes:</span>
-                        <span className="font-medium">{team.voting.totalVotes}</span>
-                      </div>
-                      {showDetails && (
-                        <div className="text-xs text-muted-foreground">
-                          {team.voting.originalVotes}+{team.voting.votesFromTokens}
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span>Peer:</span>
-                        <span className="font-medium">
-                          {team.peerRating?.average && team.peerRating.average > 0 ? team.peerRating.average.toFixed(1) : '-'}
-                        </span>
-                      </div>
-                      {showDetails && (
-                        <div className="text-xs text-muted-foreground">
-                          ({team.peerRating?.count || 0} ratings)
-                        </div>
-                      )}
-                      <div className="flex justify-between">
-                        <span>Judge:</span>
-                        <span className="font-medium">{team.judgeScores?.total || 0}</span>
-                      </div>
-                      {showDetails && (
-                        <div className="text-xs text-muted-foreground">
-                          ({team.judgeScores?.count || 0} judges)
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
+            {/* Last Updated */}
+            {lastUpdated && (
+              <p className="text-xs text-muted-foreground">
+                Last updated: {lastUpdated.toLocaleString()}
+              </p>
+            )}
           </div>
-        ) : (
-          /* Desktop Table Layout */
-          <div className="rounded-lg border bg-card overflow-hidden">
-            <div className="overflow-x-auto">
-              <table className="w-full">
-                <thead className="bg-muted">
-                  <tr>
-                    <th className="text-left p-4 font-semibold">Rank</th>
-                    <th className="text-left p-4 font-semibold">Team</th>
-                    <th className="text-left p-4 font-semibold">College</th>
-                    <th className="text-center p-4 font-semibold">Marketing</th>
-                    <th className="text-center p-4 font-semibold">Capital</th>
-                    <th className="text-center p-4 font-semibold">Team Tokens</th>
-                    <th className="text-center p-4 font-semibold">Strategy</th>
-                    <th className="text-center p-4 font-semibold">Total Votes</th>
-                    <th className="text-center p-4 font-semibold">Peer Rating</th>
-                    <th className="text-center p-4 font-semibold">Judge Score</th>
-                    <th className="text-center p-4 font-semibold">Final Score</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {data.leaderboard.map((team: LeaderboardTeam, index: number) => (
-                    <tr key={team.teamId} className={`border-t ${index < 3 ? 'bg-accent/20' : ''}`}>
-                      <td className="p-4">
-                        <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${getRankBadgeColor(team.rank)}`}>
-                          {team.rank}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <div className="font-medium">{team.teamName}</div>
-                        {!team.hasQuizSubmission && (
-                          <div className="text-xs text-orange-600 dark:text-orange-400">No quiz</div>
-                        )}
-                      </td>
-                      <td className="p-4 text-muted-foreground">{team.college}</td>
-                      <td className="p-4 text-center">
-                        <div className="font-medium text-blue-500">
-                          {team.tokens.marketing}
-                        </div>
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="font-medium text-green-500">
-                          {team.tokens.capital}
-                        </div>
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="font-medium text-purple-500">
-                          {team.tokens.team}
-                        </div>
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="font-medium text-orange-500">
-                          {team.tokens.strategy}
-                        </div>
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="font-medium">{team.voting.totalVotes}</div>
-                        {showDetails && (
-                          <div className="text-xs text-muted-foreground">
-                            {team.voting.originalVotes}+{team.voting.votesFromTokens}
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="font-medium">
-                          {team.peerRating?.average && team.peerRating.average > 0 ? team.peerRating.average.toFixed(1) : '-'}
-                        </div>
-                        {showDetails && (
-                          <div className="text-xs text-muted-foreground">
-                            ({team.peerRating?.count || 0} ratings)
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className="font-medium">{team.judgeScores?.total || 0}</div>
-                        {showDetails && (
-                          <div className="text-xs text-muted-foreground">
-                            ({team.judgeScores?.count || 0} judges)
-                          </div>
-                        )}
-                      </td>
-                      <td className="p-4 text-center">
-                        <div className={`text-lg font-bold ${getScoreColor(team.finalCumulativeScore, maxFinalScore)}`}>
+
+          {/* Winner Tiebreaker Notes */}
+          {data.winnerNotes && data.winnerNotes.length > 0 && (
+            <div className="mb-12 space-y-4">
+              {data.winnerNotes.map((note, index) => (
+                <div key={index} className="p-6 bg-blue-500/10 backdrop-blur-sm border border-blue-500/20 rounded-2xl">
+                  <div className="flex items-start gap-3">
+                    <div className="w-10 h-10 bg-blue-500/20 rounded-full flex items-center justify-center">
+                      <Star className="w-5 h-5 text-blue-500" />
+                    </div>
+                    <div>
+                      <h4 className="font-semibold text-blue-600 dark:text-blue-400 mb-1">Automatic Tiebreaker Applied</h4>
+                      <p className="text-blue-700 dark:text-blue-300">{note.message}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* Top 3 Podium */}
+          {topTeams.length > 0 && (
+            <div className="mb-16">
+              <h2 className="text-3xl font-bold text-center mb-20 bg-gradient-to-r from-accent to-primary bg-clip-text text-transparent">
+                Championship Podium
+              </h2>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
+                {topTeams.map((team, index) => (
+                  <div
+                    key={team.teamId}
+                    className={`relative group ${
+                      team.rank === 1 
+                        ? 'md:order-2 md:scale-110 md:-translate-y-8' 
+                        : team.rank === 2 
+                        ? 'md:order-1 md:-translate-y-4' 
+                        : 'md:order-3'
+                    }`}
+                  >
+                    <div className={`p-8 rounded-3xl border backdrop-blur-sm transition-all duration-500 hover:-translate-y-3 hover:shadow-2xl ${
+                      team.rank === 1
+                        ? 'bg-gradient-to-br from-yellow-50/80 to-yellow-100/80 dark:from-yellow-950/30 dark:to-yellow-900/30 border-yellow-500/30 hover:shadow-yellow-500/20'
+                        : team.rank === 2
+                        ? 'bg-gradient-to-br from-gray-50/80 to-gray-100/80 dark:from-gray-950/30 dark:to-gray-900/30 border-gray-400/30 hover:shadow-gray-400/20'
+                        : 'bg-gradient-to-br from-amber-50/80 to-amber-100/80 dark:from-amber-950/30 dark:to-amber-900/30 border-amber-600/30 hover:shadow-amber-600/20'
+                    }`}>
+                      {/* Rank Badge */}
+                      <div className={`absolute -top-4 -right-4 w-12 h-12 rounded-full flex items-center justify-center font-bold text-lg transition-transform group-hover:scale-110 ${getRankBadgeStyle(team.rank)}`}>
+                        {getRankIcon(team.rank)}
+                      </div>
+
+                      <div className="text-center">
+                        <h3 className="font-bold text-xl mb-2">{team.teamName}</h3>
+                        <p className="text-muted-foreground mb-6 text-sm">{team.college}</p>
+                        
+                        <div className={`text-4xl font-black mb-4 ${getScoreColor(team.finalCumulativeScore, maxFinalScore)}`}>
                           {team.finalCumulativeScore.toFixed(1)}
                         </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </div>
-        )}
 
-        {/* Scoring Information */}
-        {showDetails && data.metadata && (
-          <div className={`mt-8 grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
-            <div className="rounded-lg border bg-card p-4 md:p-6">
-              <h3 className="font-semibold mb-4">Scoring System</h3>
-              <div className="space-y-2 text-sm">
-                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
-                  <span>Token Categories</span>
-                  <span className="font-medium">Marketing + Capital + Team + Strategy</span>
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
+                            <div className="font-medium text-primary">Tokens</div>
+                            <div className="text-lg font-bold">{team.tokens?.total || 0}</div>
+                          </div>
+                          <div className="p-3 bg-accent/5 rounded-xl border border-accent/10">
+                            <div className="font-medium text-accent">Votes</div>
+                            <div className="text-lg font-bold">{team.voting?.totalVotes || 0}</div>
+                          </div>
+                          <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
+                            <div className="font-medium text-primary">Peer</div>
+                            <div className="text-lg font-bold">{team.peerRating?.average ? team.peerRating.average.toFixed(1) : '-'}</div>
+                          </div>
+                          <div className="p-3 bg-accent/5 rounded-xl border border-accent/10">
+                            <div className="font-medium text-accent">Judge</div>
+                            <div className="text-lg font-bold">{team.judgeScores?.total || 0}</div>
+                          </div>
+                        </div>
+
+                        {!team.hasQuizSubmission && (
+                          <div className="mt-4 px-3 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full text-xs text-orange-600 dark:text-orange-400">
+                            No Quiz Submission
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Full Rankings */}
+          <div className="mb-12">
+            <h2 className="text-3xl font-bold text-center mb-8 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Complete Rankings
+            </h2>
+
+            {isMobile ? (
+              /* Mobile Card Layout */
+              <div className="space-y-4">
+                {data.leaderboard.map((team: LeaderboardTeam, index: number) => (
+                  <div
+                    key={team.teamId}
+                    className="group p-6 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl hover:border-primary/30 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/10"
+                  >
+                    {/* Team Header */}
+                    <div className="flex items-start justify-between mb-4">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`w-10 h-10 rounded-full flex items-center justify-center font-bold transition-transform group-hover:scale-110 ${getRankBadgeStyle(team.rank)}`}>
+                          {team.rank <= 3 ? getRankIcon(team.rank) : team.rank}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="font-semibold text-lg">{team.teamName}</h3>
+                          <p className="text-muted-foreground text-sm">{team.college}</p>
+                          {!team.hasQuizSubmission && (
+                            <span className="inline-block mt-1 px-2 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full text-xs text-orange-600 dark:text-orange-400">
+                              No Quiz
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="text-right">
+                        <div className={`text-2xl font-bold ${getScoreColor(team.finalCumulativeScore, maxFinalScore)}`}>
+                          {team.finalCumulativeScore.toFixed(1)}
+                        </div>
+                        <div className="text-xs text-muted-foreground">Final Score</div>
+                      </div>
+                    </div>
+
+                    {/* Performance Metrics */}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
+                        <div className="text-xs text-muted-foreground mb-2">Token Breakdown</div>
+                        <div className="space-y-1 text-sm">
+                          <div className="flex justify-between">
+                            <span className="text-blue-500">Marketing:</span>
+                            <span className="font-medium">{team.tokens.marketing}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-green-500">Capital:</span>
+                            <span className="font-medium">{team.tokens.capital}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-purple-500">Team:</span>
+                            <span className="font-medium">{team.tokens.team}</span>
+                          </div>
+                          <div className="flex justify-between">
+                            <span className="text-orange-500">Strategy:</span>
+                            <span className="font-medium">{team.tokens.strategy}</span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <div className="p-4 bg-accent/5 rounded-xl border border-accent/10">
+                        <div className="text-xs text-muted-foreground mb-2">Performance</div>
+                        <div className="space-y-2 text-sm">
+                          <div className="flex justify-between">
+                            <span>Total Votes:</span>
+                            <span className="font-medium">{team.voting.totalVotes}</span>
+                          </div>
+                          {showDetails && (
+                            <div className="text-xs text-muted-foreground">
+                              Original: {team.voting.originalVotes} + Token: {team.voting.votesFromTokens}
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span>Peer Rating:</span>
+                            <span className="font-medium">
+                              {team.peerRating?.average && team.peerRating.average > 0 ? team.peerRating.average.toFixed(1) : '-'}
+                            </span>
+                          </div>
+                          {showDetails && team.peerRating?.count && (
+                            <div className="text-xs text-muted-foreground">
+                              ({team.peerRating.count} ratings)
+                            </div>
+                          )}
+                          <div className="flex justify-between">
+                            <span>Judge Score:</span>
+                            <span className="font-medium">{team.judgeScores?.total || 0}</span>
+                          </div>
+                          {showDetails && team.judgeScores?.count && (
+                            <div className="text-xs text-muted-foreground">
+                              ({team.judgeScores.count} judges)
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              /* Desktop Table Layout */
+              <div className="bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl overflow-hidden shadow-xl">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead className="bg-gradient-to-r from-primary/10 to-accent/10">
+                      <tr>
+                        <th className="text-left p-6 font-bold text-primary">Rank</th>
+                        <th className="text-left p-6 font-bold text-primary">Team</th>
+                        <th className="text-left p-6 font-bold text-primary">College</th>
+                        <th className="text-center p-6 font-bold text-primary">Marketing</th>
+                        <th className="text-center p-6 font-bold text-primary">Capital</th>
+                        <th className="text-center p-6 font-bold text-primary">Team</th>
+                        <th className="text-center p-6 font-bold text-primary">Strategy</th>
+                        <th className="text-center p-6 font-bold text-primary">Votes</th>
+                        <th className="text-center p-6 font-bold text-primary">Peer</th>
+                        <th className="text-center p-6 font-bold text-primary">Judge</th>
+                        <th className="text-center p-6 font-bold text-primary">Final Score</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {data.leaderboard.map((team: LeaderboardTeam, index: number) => (
+                        <tr key={team.teamId} className={`border-t border-border/30 hover:bg-accent/5 transition-colors ${index < 3 ? 'bg-primary/5' : ''}`}>
+                          <td className="p-6">
+                            <div className={`inline-flex items-center justify-center w-10 h-10 rounded-full font-bold transition-transform hover:scale-110 ${getRankBadgeStyle(team.rank)}`}>
+                              {team.rank <= 3 ? getRankIcon(team.rank) : team.rank}
+                            </div>
+                          </td>
+                          <td className="p-6">
+                            <div className="font-semibold">{team.teamName}</div>
+                            {!team.hasQuizSubmission && (
+                              <span className="inline-block mt-1 px-2 py-1 bg-orange-500/10 border border-orange-500/20 rounded-full text-xs text-orange-600 dark:text-orange-400">
+                                No Quiz
+                              </span>
+                            )}
+                          </td>
+                          <td className="p-6 text-muted-foreground">{team.college}</td>
+                          <td className="p-6 text-center">
+                            <div className="font-semibold text-blue-500 text-lg">
+                              {team.tokens.marketing}
+                            </div>
+                          </td>
+                          <td className="p-6 text-center">
+                            <div className="font-semibold text-green-500 text-lg">
+                              {team.tokens.capital}
+                            </div>
+                          </td>
+                          <td className="p-6 text-center">
+                            <div className="font-semibold text-purple-500 text-lg">
+                              {team.tokens.team}
+                            </div>
+                          </td>
+                          <td className="p-6 text-center">
+                            <div className="font-semibold text-orange-500 text-lg">
+                              {team.tokens.strategy}
+                            </div>
+                          </td>
+                          <td className="p-6 text-center">
+                            <div className="font-semibold text-lg">{team.voting.totalVotes}</div>
+                            {showDetails && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                {team.voting.originalVotes}+{team.voting.votesFromTokens}
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-6 text-center">
+                            <div className="font-semibold text-lg">
+                              {team.peerRating?.average && team.peerRating.average > 0 ? team.peerRating.average.toFixed(1) : '-'}
+                            </div>
+                            {showDetails && team.peerRating?.count && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                ({team.peerRating.count} ratings)
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-6 text-center">
+                            <div className="font-semibold text-lg">{team.judgeScores?.total || 0}</div>
+                            {showDetails && team.judgeScores?.count && (
+                              <div className="text-xs text-muted-foreground mt-1">
+                                ({team.judgeScores.count} judges)
+                              </div>
+                            )}
+                          </td>
+                          <td className="p-6 text-center">
+                            <div className={`text-2xl font-bold ${getScoreColor(team.finalCumulativeScore, maxFinalScore)}`}>
+                              {team.finalCumulativeScore.toFixed(1)}
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
-                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
-                  <span>Judge Scores</span>
-                  <span className="font-medium">Total judge evaluation</span>
+              </div>
+            )}
+          </div>
+
+          {/* Statistics Cards */}
+          {showDetails && data.metadata && (
+            <div className="grid gap-6 grid-cols-1 lg:grid-cols-2 mb-12">
+              <div className="group p-8 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl hover:border-primary/30 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-primary/10">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-accent/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Target className="w-6 h-6 text-primary" />
+                  </div>
+                  <h3 className="text-xl font-bold text-primary">Scoring System</h3>
                 </div>
-                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
-                  <span>Final Score</span>
-                  <span className="font-medium">Token Score + Judge Score</span>
+                <div className="space-y-4 text-sm">
+                  <div className="flex justify-between items-center p-3 bg-primary/5 rounded-lg border border-primary/10">
+                    <span className="font-medium">Token Categories</span>
+                    <span className="text-muted-foreground">Marketing + Capital + Team + Strategy</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-accent/5 rounded-lg border border-accent/10">
+                    <span className="font-medium">Judge Scores</span>
+                    <span className="text-muted-foreground">Total judge evaluation</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-primary/5 rounded-lg border border-primary/10">
+                    <span className="font-medium">Final Score</span>
+                    <span className="text-muted-foreground">Token Score + Judge Score</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="group p-8 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl hover:border-accent/30 transition-all duration-300 hover:-translate-y-2 hover:shadow-xl hover:shadow-accent/10">
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-accent/20 to-primary/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Users className="w-6 h-6 text-accent" />
+                  </div>
+                  <h3 className="text-xl font-bold text-accent">Participation Stats</h3>
+                </div>
+                <div className="space-y-4 text-sm">
+                  <div className="flex justify-between items-center p-3 bg-accent/5 rounded-lg border border-accent/10">
+                    <span className="font-medium">Quiz Submissions</span>
+                    <span className="font-bold text-accent">{data.metadata.participation.quizSubmissions}/{data.metadata.totalTeams}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-primary/5 rounded-lg border border-primary/10">
+                    <span className="font-medium">Voting Participation</span>
+                    <span className="font-bold text-primary">{data.metadata.participation.votingParticipation}/{data.metadata.totalTeams}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-accent/5 rounded-lg border border-accent/10">
+                    <span className="font-medium">Peer Ratings</span>
+                    <span className="font-bold text-accent">{data.metadata.participation.peerRatings}</span>
+                  </div>
+                  <div className="flex justify-between items-center p-3 bg-primary/5 rounded-lg border border-primary/10">
+                    <span className="font-medium">Token Activity</span>
+                    <span className="font-bold text-primary">{data.metadata.participation.tokenSpending}</span>
+                  </div>
                 </div>
               </div>
             </div>
+          )}
 
-            <div className="rounded-lg border bg-card p-4 md:p-6">
-              <h3 className="font-semibold mb-4">Participation Stats</h3>
-              <div className="space-y-2 text-sm">
-                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
-                  <span>Quiz Submissions</span>
-                  <span className="font-medium">{data.metadata.participation.quizSubmissions}/{data.metadata.totalTeams}</span>
-                </div>
-                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
-                  <span>Voting Participation</span>
-                  <span className="font-medium">{data.metadata.participation.votingParticipation}/{data.metadata.totalTeams}</span>
-                </div>
-                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
-                  <span>Peer Ratings</span>
-                  <span className="font-medium">{data.metadata.participation.peerRatings}</span>
-                </div>
-                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
-                  <span>Token Activity</span>
-                  <span className="font-medium">{data.metadata.participation.tokenSpending}</span>
-                </div>
-              </div>
+          {/* Footer Information */}
+          <div className="text-center space-y-6">
+            <div className="p-6 bg-card/30 backdrop-blur-sm border border-border/30 rounded-2xl">
+              <p className="text-muted-foreground mb-2">
+                <span className="font-medium">Ranking Criteria:</span> {data.metadata.rankingCriteria?.join(' • ') || 'Cumulative score, then total votes'}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Generated at: {new Date(data.metadata.generatedAt).toLocaleString()}
+              </p>
             </div>
-          </div>
-        )}
 
-        {/* Footer */}
-        <div className="text-center mt-12 text-muted-foreground space-y-2">
-          <p className="text-sm">
-            Ranking: {data.metadata.rankingCriteria?.join(' • ') || 'Cumulative score, then total votes'}
-          </p>
-          <p className="text-xs">
-            Generated at: {new Date(data.metadata.generatedAt).toLocaleString()}
-          </p>
-          <div className={`flex justify-center mt-4 ${isMobile ? 'flex-col gap-2' : 'gap-4'}`}>
-            <Link
-              href="/"
-              className="text-primary hover:underline text-sm min-h-[44px] flex items-center justify-center"
-            >
-              ← Back to Home
-            </Link>
-            <Link
-              href="/dashboard"
-              className="text-primary hover:underline text-sm min-h-[44px] flex items-center justify-center"
-            >
-              Dashboard →
-            </Link>
+            {/* Navigation Links */}
+            <div className="flex justify-center gap-4">
+              <Link
+                href="/"
+                className="group inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-primary/20 to-accent/20 backdrop-blur-sm border border-primary/30 font-semibold rounded-xl hover:from-primary/30 hover:to-accent/30 hover:border-primary/50 transition-all duration-300 hover:-translate-y-1"
+              >
+                <Home className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                Back to Home
+              </Link>
+              <Link
+                href="/dashboard"
+                className="group inline-flex items-center gap-2 px-6 py-3 bg-gradient-to-r from-accent/20 to-primary/20 backdrop-blur-sm border border-accent/30 font-semibold rounded-xl hover:from-accent/30 hover:to-primary/30 hover:border-accent/50 transition-all duration-300 hover:-translate-y-1"
+              >
+                Dashboard
+                <ArrowLeft className="w-4 h-4 rotate-180 group-hover:translate-x-1 transition-transform" />
+              </Link>
+            </div>
           </div>
         </div>
       </div>
