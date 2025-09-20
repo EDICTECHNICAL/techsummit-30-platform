@@ -1,4 +1,3 @@
-
 import { ClerkProvider, SignInButton, SignUpButton, SignedIn, SignedOut, UserButton } from '@clerk/nextjs';
 import type { Metadata } from "next";
 import "./globals.css";
@@ -6,6 +5,7 @@ import VisualEditsMessenger from "../visual-edits/VisualEditsMessenger";
 import ErrorReporter from "@/components/ErrorReporter";
 import { ThemeProvider } from "@/components/ThemeProvider";
 import Script from "next/script";
+import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
   title: "TechPreneuer Summit 3.0",
@@ -34,6 +34,7 @@ export default function RootLayout({
           />
           {children}
           <VisualEditsMessenger />
+          <Analytics />
         </ThemeProvider>
       </body>
     </html>
