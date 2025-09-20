@@ -1,3 +1,5 @@
+import { pgTable, integer, text, varchar, timestamp, boolean, json, serial } from 'drizzle-orm/pg-core';
+
 // Team members table
 
 // Admins table for dedicated admin management
@@ -18,7 +20,6 @@ export const judges = pgTable("judges", {
   createdAt: timestamp("created_at", { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp("updated_at", { withTimezone: false }).notNull().defaultNow(),
 });
-import { pgTable, integer, text, varchar, timestamp, boolean, json, serial } from 'drizzle-orm/pg-core';
 
 
 

@@ -3,9 +3,8 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { MagicCard } from "@/components/ui/magic-card";
 import { Button } from "@/components/ui/button";
-import { UserPlus01, ArrowLeft, Clock } from "@untitled-ui/icons-react";
+import { UserPlus01, ArrowLeft, Clock, Zap, CheckCircle, AlertCircle, Eye, EyeOff } from "@untitled-ui/icons-react";
 
 export default function SignUpPage() {
   const router = useRouter();
@@ -17,6 +16,8 @@ export default function SignUpPage() {
     teamName: "",
     college: "",
   });
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -147,240 +148,345 @@ export default function SignUpPage() {
                      Object.keys(fieldErrors).length === 0;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center mobile-padding py-8 event-section-bg safe-area-padding">
-      <MagicCard 
-        className="w-full max-w-md shadow-2xl rounded-2xl border border-border/50 backdrop-blur-sm bg-card/80" 
-        gradientSize={300}
-        gradientColor="#466F89" 
-        gradientFrom="#466F89" 
-        gradientTo="#34414A"
-        gradientOpacity={0.6}
-      >
-        <div className="mobile-card">
-          <div className="text-center mb-6">
-            <div className="flex items-center justify-center gap-3 mb-4">
-              <div className="flex-shrink-0 w-12 h-12 bg-primary/10 rounded-xl flex items-center justify-center">
-                <UserPlus01 width={24} height={24} className="text-primary" />
-              </div>
-              <h1 className="text-3xl font-bold event-text-gradient">Create Account</h1>
-            </div>
-            <p className="text-muted-foreground mobile-body">Join Techpreneur Summit 3.0</p>
-          </div>
+    <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground overflow-x-hidden">
+      {/* Animated background elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+        <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+        <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-2xl animate-pulse" style={{animationDelay: '4s'}}></div>
+      </div>
 
-        {/* Registration Status */}
-        {registrationStatus.message && (
-          <div className={`mb-4 p-4 rounded-md border backdrop-blur-sm ${
-            registrationStatus.isOpen 
-              ? 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400' 
-              : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
-          }`}>
-            <p className="mobile-body font-medium">
-              {registrationStatus.isOpen ? '🟢 Registration Open' : '🔴 Registration Closed'}
-            </p>
-            <p className="text-xs mt-1">{registrationStatus.message}</p>
-          </div>
-        )}
-
-        {/* Registration Closed Message */}
-        {!registrationStatus.isOpen ? (
-          <div className="text-center space-y-4">
-            <div className="mobile-card">
-              <div className="flex items-center justify-center gap-3 mb-4">
-                <div className="flex-shrink-0 w-12 h-12 bg-destructive/10 rounded-lg flex items-center justify-center">
-                  <Clock width={24} height={24} className="text-destructive" />
-                </div>
-                <h2 className="text-xl font-semibold text-primary">Registration Closed</h2>
+      <div className="relative flex items-center justify-center min-h-screen p-6">
+        <div className="w-full max-w-md">
+          {/* Header */}
+          <div className="text-center mb-8">
+            <Link href="/" className="inline-flex items-center gap-3 mb-6 group">
+              <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                <Zap className="w-6 h-6 text-white" />
               </div>
-              <p className="text-muted-foreground mobile-body">
-                The registration deadline has passed. New team registrations are no longer accepted.
-              </p>
-            </div>
-            <div className="space-y-2">
-              <p className="mobile-body text-muted-foreground">
-                Already have an account?{" "}
-                <Link href="/sign-in" className="text-primary hover:underline font-medium transition-colors">
-                  Sign in here
-                </Link>
-              </p>
-              <Link 
-                href="/" 
-                className="inline-flex items-center gap-2 mobile-body text-muted-foreground hover:text-foreground underline transition-colors"
-              >
-                <ArrowLeft width={16} height={16} />
-                Back to Techpreneur Summit 3.0
-              </Link>
-            </div>
-          </div>
-        ) : (
-          <>
-            {error && (
-              <div className="mb-4 p-4 rounded-md bg-red-500/10 border border-red-500/20 backdrop-blur-sm">
-                <p className="mobile-body text-red-600 dark:text-red-400">{error}</p>
+              <div className="text-left">
+                <h1 className="font-bold text-xl bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                  TECHPRENEUR
+                </h1>
+                <p className="text-xs text-muted-foreground -mt-1">SUMMIT 3.0</p>
               </div>
-            )}
-        
-        <form className="space-y-4" onSubmit={onSubmit}>
-          <div>
-            <label htmlFor="name" className="block mobile-body font-medium text-foreground mb-2">
-              Full Name *
-            </label>
-            <input
-              id="name"
-              type="text"
-              required
-              value={formData.name}
-              onChange={(e) => handleInputChange("name", e.target.value)}
-              className={`mobile-input ${
-                fieldErrors.name 
-                  ? "border-destructive focus:ring-destructive" 
-                  : ""
-              }`}
-              placeholder="Enter your full name"
-              disabled={loading}
-            />
-            {fieldErrors.name && <p className="text-xs text-red-600 dark:text-red-400 mt-1">{fieldErrors.name}</p>}
-          </div>
-          
-          <div>
-            <label htmlFor="username" className="block mobile-body font-medium text-foreground mb-2">
-              Username *
-            </label>
-            <input
-              id="username"
-              type="text"
-              required
-              value={formData.username}
-              onChange={(e) => handleInputChange("username", e.target.value)}
-              className={`mobile-input ${
-                fieldErrors.username 
-                  ? "border-destructive focus:ring-destructive" 
-                  : ""
-              }`}
-              placeholder="Choose a unique username"
-              disabled={loading}
-            />
-            {fieldErrors.username && <p className="text-xs text-destructive mt-1">{fieldErrors.username}</p>}
-          </div>
-          
-          <div>
-            <label htmlFor="password" className="block mobile-body font-medium text-foreground mb-2">
-              Password *
-            </label>
-            <input
-              id="password"
-              type="password"
-              required
-              value={formData.password}
-              onChange={(e) => handleInputChange("password", e.target.value)}
-              className={`mobile-input ${
-                fieldErrors.password 
-                  ? "border-destructive focus:ring-destructive" 
-                  : ""
-              }`}
-              placeholder="Create a secure password"
-              disabled={loading}
-            />
-            {fieldErrors.password && <p className="text-xs text-destructive mt-1">{fieldErrors.password}</p>}
-          </div>
-          
-          <div>
-            <label htmlFor="confirmPassword" className="block mobile-body font-medium text-foreground mb-2">
-              Confirm Password *
-            </label>
-            <input
-              id="confirmPassword"
-              type="password"
-              required
-              value={formData.confirmPassword}
-              onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-              className={`mobile-input ${
-                fieldErrors.confirmPassword 
-                  ? "border-destructive focus:ring-destructive" 
-                  : ""
-              }`}
-              placeholder="Confirm your password"
-              disabled={loading}
-            />
-            {fieldErrors.confirmPassword && <p className="text-xs text-destructive mt-1">{fieldErrors.confirmPassword}</p>}
-          </div>
-          
-          <div>
-            <label htmlFor="teamName" className="block mobile-body font-medium text-foreground mb-2">
-              Team Name *
-            </label>
-            <input
-              id="teamName"
-              type="text"
-              required
-              value={formData.teamName}
-              onChange={(e) => handleInputChange("teamName", e.target.value)}
-              className={`mobile-input ${
-                fieldErrors.teamName 
-                  ? "border-destructive focus:ring-destructive" 
-                  : ""
-              }`}
-              placeholder="Choose your team name"
-              disabled={loading}
-            />
-            {fieldErrors.teamName && <p className="text-xs text-destructive mt-1">{fieldErrors.teamName}</p>}
-          </div>
-          
-          <div>
-            <label htmlFor="college" className="block mobile-body font-medium text-foreground mb-2">
-              College/University *
-            </label>
-            <input
-              id="college"
-              type="text"
-              required
-              value={formData.college}
-              onChange={(e) => handleInputChange("college", e.target.value)}
-              className={`mobile-input ${
-                fieldErrors.college 
-                  ? "border-destructive focus:ring-destructive" 
-                  : ""
-              }`}
-              placeholder="Your college or university name"
-              disabled={loading}
-            />
-            {fieldErrors.college && <p className="text-xs text-destructive mt-1">{fieldErrors.college}</p>}
-          </div>
-          
-          <Button
-            type="submit"
-            disabled={loading || !isFormValid}
-            className="event-button-primary w-full rounded-md px-4 py-3 font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-300"
-          >
-            {loading ? (
-              <span className="flex items-center justify-center gap-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Creating Account...
-              </span>
-            ) : (
-              "Create Account"
-            )}
-          </Button>
-        </form>
-        
-        <div className="mt-6 text-center space-y-3">
-          <p className="mobile-body text-muted-foreground">
-            Already have an account?{" "}
-            <Link href="/sign-in" className="text-primary hover:underline font-medium">
-              Sign in here
             </Link>
-          </p>
-          <Link 
-            href="/" 
-            className="inline-flex items-center gap-2 mobile-body text-muted-foreground hover:text-foreground underline transition-colors"
-          >
-            <ArrowLeft width={16} height={16} />
-            Back to Home
-          </Link>
+            <h2 className="text-3xl font-black mb-2 bg-gradient-to-r from-foreground via-primary to-accent bg-clip-text text-transparent">
+              Join the Competition
+            </h2>
+            <p className="text-muted-foreground">Create your account to participate</p>
+          </div>
+
+          {/* Main Form Card */}
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-accent/50 rounded-2xl blur opacity-25 group-hover:opacity-75 transition-opacity duration-300"></div>
+            <div className="relative p-8 bg-card/80 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl">
+              
+              {/* Registration Status */}
+              {registrationStatus.message && (
+                <div className={`mb-6 p-4 backdrop-blur-sm border rounded-xl ${
+                  registrationStatus.isOpen 
+                    ? 'bg-green-500/10 border-green-500/20' 
+                    : 'bg-red-500/10 border-red-500/20'
+                }`}>
+                  <div className="flex items-center gap-3">
+                    <CheckCircle className={`w-5 h-5 ${
+                      registrationStatus.isOpen ? 'text-green-500' : 'text-red-500'
+                    }`} />
+                    <div>
+                      <p className={`font-semibold ${
+                        registrationStatus.isOpen 
+                          ? 'text-green-600 dark:text-green-400' 
+                          : 'text-red-600 dark:text-red-400'
+                      }`}>
+                        {registrationStatus.isOpen ? 'Registration Open' : 'Registration Closed'}
+                      </p>
+                      <p className={`text-sm ${
+                        registrationStatus.isOpen 
+                          ? 'text-green-600/80 dark:text-green-400/80' 
+                          : 'text-red-600/80 dark:text-red-400/80'
+                      }`}>
+                        {registrationStatus.message}
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Registration Closed Message */}
+              {!registrationStatus.isOpen ? (
+                <div className="text-center space-y-6">
+                  <div className="p-6 bg-red-500/5 backdrop-blur-sm border border-red-500/10 rounded-xl">
+                    <div className="flex items-center justify-center gap-3 mb-4">
+                      <div className="w-12 h-12 bg-red-500/10 rounded-xl flex items-center justify-center">
+                        <Clock className="w-6 h-6 text-red-500" />
+                      </div>
+                      <h3 className="text-xl font-bold text-red-600 dark:text-red-400">Registration Closed</h3>
+                    </div>
+                    <p className="text-muted-foreground">
+                      The registration deadline has passed. New team registrations are no longer accepted.
+                    </p>
+                  </div>
+                  
+                  <div className="space-y-4">
+                    <Link 
+                      href="/sign-in"
+                      className="group w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
+                      <div className="relative flex items-center gap-2">
+                        Already have an account? Sign In
+                      </div>
+                    </Link>
+                    
+                    <Link 
+                      href="/" 
+                      className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group"
+                    >
+                      <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                      Back to Event Homepage
+                    </Link>
+                  </div>
+                </div>
+              ) : (
+                <>
+                  {/* Error Message */}
+                  {error && (
+                    <div className="mb-6 p-4 bg-red-500/10 backdrop-blur-sm border border-red-500/20 rounded-xl">
+                      <div className="flex items-center gap-3">
+                        <AlertCircle className="w-5 h-5 text-red-500" />
+                        <div>
+                          <p className="font-semibold text-red-600 dark:text-red-400">Registration Failed</p>
+                          <p className="text-sm text-red-600/80 dark:text-red-400/80">{error}</p>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Form */}
+                  <form className="space-y-4" onSubmit={onSubmit}>
+                    <div className="grid grid-cols-1 gap-4">
+                      {/* Name Field */}
+                      <div>
+                        <label htmlFor="name" className="block text-sm font-semibold text-foreground mb-3">
+                          Full Name
+                        </label>
+                        <input
+                          id="name"
+                          type="text"
+                          required
+                          value={formData.name}
+                          onChange={(e) => handleInputChange("name", e.target.value)}
+                          className={`w-full px-4 py-3 bg-background/50 backdrop-blur-sm border border-border/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-200 placeholder:text-muted-foreground ${
+                            fieldErrors.name ? "border-red-500/50 focus:ring-red-500/50" : ""
+                          }`}
+                          placeholder="Enter your full name"
+                          disabled={loading}
+                        />
+                        {fieldErrors.name && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{fieldErrors.name}</p>}
+                      </div>
+
+                      {/* Username Field */}
+                      <div>
+                        <label htmlFor="username" className="block text-sm font-semibold text-foreground mb-3">
+                          Username
+                        </label>
+                        <input
+                          id="username"
+                          type="text"
+                          required
+                          value={formData.username}
+                          onChange={(e) => handleInputChange("username", e.target.value)}
+                          className={`w-full px-4 py-3 bg-background/50 backdrop-blur-sm border border-border/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-200 placeholder:text-muted-foreground ${
+                            fieldErrors.username ? "border-red-500/50 focus:ring-red-500/50" : ""
+                          }`}
+                          placeholder="Choose a unique username"
+                          disabled={loading}
+                        />
+                        {fieldErrors.username && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{fieldErrors.username}</p>}
+                      </div>
+
+                      {/* Password Fields Row */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        {/* Password Field */}
+                        <div>
+                          <label htmlFor="password" className="block text-sm font-semibold text-foreground mb-3">
+                            Password
+                          </label>
+                          <div className="relative">
+                            <input
+                              id="password"
+                              type={showPassword ? "text" : "password"}
+                              required
+                              value={formData.password}
+                              onChange={(e) => handleInputChange("password", e.target.value)}
+                              className={`w-full px-4 py-3 pr-12 bg-background/50 backdrop-blur-sm border border-border/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-200 placeholder:text-muted-foreground ${
+                                fieldErrors.password ? "border-red-500/50 focus:ring-red-500/50" : ""
+                              }`}
+                              placeholder="Create password"
+                              disabled={loading}
+                            />
+                            <Button
+                              type="button"
+                              onClick={() => setShowPassword(!showPassword)}
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors h-8 w-8"
+                              disabled={loading}
+                            >
+                              {showPassword ? (
+                                <EyeOff className="w-5 h-5" />
+                              ) : (
+                                <Eye className="w-5 h-5" />
+                              )}
+                            </Button>
+                          </div>
+                          {fieldErrors.password && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{fieldErrors.password}</p>}
+                        </div>
+
+                        {/* Confirm Password Field */}
+                        <div>
+                          <label htmlFor="confirmPassword" className="block text-sm font-semibold text-foreground mb-3">
+                            Confirm Password
+                          </label>
+                          <div className="relative">
+                            <input
+                              id="confirmPassword"
+                              type={showConfirmPassword ? "text" : "password"}
+                              required
+                              value={formData.confirmPassword}
+                              onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
+                              className={`w-full px-4 py-3 pr-12 bg-background/50 backdrop-blur-sm border border-border/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-200 placeholder:text-muted-foreground ${
+                                fieldErrors.confirmPassword ? "border-red-500/50 focus:ring-red-500/50" : ""
+                              }`}
+                              placeholder="Confirm password"
+                              disabled={loading}
+                            />
+                            <Button
+                              type="button"
+                              onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                              variant="ghost"
+                              size="icon"
+                              className="absolute right-3 top-1/2 -translate-y-1/2 p-1 text-muted-foreground hover:text-foreground transition-colors h-8 w-8"
+                              disabled={loading}
+                            >
+                              {showConfirmPassword ? (
+                                <EyeOff className="w-5 h-5" />
+                              ) : (
+                                <Eye className="w-5 h-5" />
+                              )}
+                            </Button>
+                          </div>
+                          {fieldErrors.confirmPassword && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{fieldErrors.confirmPassword}</p>}
+                        </div>
+                      </div>
+
+                      {/* Team Name Field */}
+                      <div>
+                        <label htmlFor="teamName" className="block text-sm font-semibold text-foreground mb-3">
+                          Team Name
+                        </label>
+                        <input
+                          id="teamName"
+                          type="text"
+                          required
+                          value={formData.teamName}
+                          onChange={(e) => handleInputChange("teamName", e.target.value)}
+                          className={`w-full px-4 py-3 bg-background/50 backdrop-blur-sm border border-border/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-200 placeholder:text-muted-foreground ${
+                            fieldErrors.teamName ? "border-red-500/50 focus:ring-red-500/50" : ""
+                          }`}
+                          placeholder="Choose your team name"
+                          disabled={loading}
+                        />
+                        {fieldErrors.teamName && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{fieldErrors.teamName}</p>}
+                      </div>
+
+                      {/* College Field */}
+                      <div>
+                        <label htmlFor="college" className="block text-sm font-semibold text-foreground mb-3">
+                          College/University
+                        </label>
+                        <input
+                          id="college"
+                          type="text"
+                          required
+                          value={formData.college}
+                          onChange={(e) => handleInputChange("college", e.target.value)}
+                          className={`w-full px-4 py-3 bg-background/50 backdrop-blur-sm border border-border/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary/50 transition-all duration-200 placeholder:text-muted-foreground ${
+                            fieldErrors.college ? "border-red-500/50 focus:ring-red-500/50" : ""
+                          }`}
+                          placeholder="Your college or university name"
+                          disabled={loading}
+                        />
+                        {fieldErrors.college && <p className="text-xs text-red-600 dark:text-red-400 mt-2">{fieldErrors.college}</p>}
+                      </div>
+                    </div>
+
+                    {/* Submit Button */}
+                    <Button
+                      type="submit"
+                      disabled={loading || !isFormValid}
+                      className="group relative w-full px-6 py-4 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none overflow-hidden mt-6"
+                    >
+                      <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                      <div className="relative flex items-center justify-center gap-2">
+                        {loading ? (
+                          <>
+                            <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                            Creating Account...
+                          </>
+                        ) : (
+                          <>
+                            <UserPlus01 className="w-5 h-5" />
+                            Create Account & Join
+                          </>
+                        )}
+                      </div>
+                    </Button>
+                  </form>
+
+                  {/* Footer Links */}
+                  <div className="mt-8 space-y-4">
+                    <div className="relative">
+                      <div className="absolute inset-0 flex items-center">
+                        <div className="w-full border-t border-border/50"></div>
+                      </div>
+                      <div className="relative flex justify-center text-sm">
+                        <span className="px-4 bg-card text-muted-foreground">Already registered?</span>
+                      </div>
+                    </div>
+                    
+                    <Link 
+                      href="/sign-in"
+                      className="group w-full flex items-center justify-center gap-2 px-6 py-3 bg-background/50 backdrop-blur-sm border border-border/50 rounded-xl hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 font-semibold"
+                    >
+                      Sign In to Dashboard
+                      <div className="w-5 h-5 bg-gradient-to-r from-primary to-accent rounded-full flex items-center justify-center group-hover:scale-110 transition-transform">
+                        <ArrowLeft className="w-3 h-3 text-white rotate-180" />
+                      </div>
+                    </Link>
+
+                    <Link 
+                      href="/" 
+                      className="flex items-center justify-center gap-2 text-sm text-muted-foreground hover:text-primary transition-colors group"
+                    >
+                      <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                      Back to Event Homepage
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Bottom Info */}
+          <div className="mt-8 text-center">
+            <p className="text-xs text-muted-foreground">
+              By creating an account, you agree to participate in the Techpreneur Summit 3.0 competition
+            </p>
+          </div>
         </div>
-          </>
-        )}
-        </div>
-      </MagicCard>
+      </div>
     </div>
   );
 }

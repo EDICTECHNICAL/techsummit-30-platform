@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ success: true }, {
     status: 200,
     headers: {
-      "Set-Cookie": `admin-auth=true; Path=/; SameSite=Strict`,
+      "Set-Cookie": `auth-token=true; Path=/; SameSite=Strict`,
     },
   });
 }

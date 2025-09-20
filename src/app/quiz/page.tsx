@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft, AlertCircle } from "lucide-react";
+import { ArrowLeft, AlertCircle, Clock, Zap, Eye, Maximize2, Minimize2, CheckCircle, XCircle, Timer, Trophy, Brain } from "lucide-react";
 import PageLock from "@/components/ui/PageLock";
 import { useRoundStatus } from "@/hooks/useRoundStatus";
 import { useIsMobile } from "@/hooks/use-mobile";
@@ -56,17 +56,30 @@ const QuizHeader: React.FC<{ timeLeft: number; isFullscreen: boolean; onToggleFu
   isFullscreen, 
   onToggleFullscreen 
 }) => (
-  <div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-4 rounded-lg border border-border bg-card">
-    <div className="flex items-center gap-4">
-      <button
-        className="rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-900 px-3 py-2 text-sm text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800 transition-colors"
-        onClick={onToggleFullscreen}
-      >
-        {isFullscreen ? "Exit Fullscreen" : "Go Fullscreen"}
-      </button>
-    </div>
-    <div className={`rounded-md border px-4 py-2 text-sm font-medium ${timeLeft <= 300 ? "border-red-500 bg-red-500/10 text-red-600" : "border-border bg-card text-foreground"}`}>
-      Time Left: {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+  <div className="relative group mb-6">
+    <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-accent/30 rounded-xl blur opacity-25 group-hover:opacity-75 transition-opacity duration-300"></div>
+    <div className="relative flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 p-6 bg-card/80 backdrop-blur-xl border border-border/50 rounded-xl">
+      <div className="flex items-center gap-4">
+        <button
+          className="group relative flex items-center gap-2 px-4 py-2 bg-primary/10 backdrop-blur-sm border border-primary/20 rounded-lg text-primary font-medium hover:bg-primary/20 transition-all duration-200"
+          onClick={onToggleFullscreen}
+        >
+          {isFullscreen ? (
+            <Minimize2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          ) : (
+            <Maximize2 className="w-4 h-4 group-hover:scale-110 transition-transform" />
+          )}
+          {isFullscreen ? "Exit Fullscreen" : "Go Fullscreen"}
+        </button>
+      </div>
+      <div className={`relative flex items-center gap-3 px-4 py-2 backdrop-blur-sm border rounded-lg font-medium ${
+        timeLeft <= 300 
+          ? "border-red-500/50 bg-red-500/10 text-red-600 dark:text-red-400" 
+          : "border-border/50 bg-background/50 text-foreground"
+      }`}>
+        <Clock className={`w-4 h-4 ${timeLeft <= 300 ? 'animate-pulse' : ''}`} />
+        <span>Time Left: {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}</span>
+      </div>
     </div>
   </div>
 );
@@ -78,24 +91,38 @@ const QuestionNavigation: React.FC<{
   answers: Record<number, number>;
   onQuestionSelect: (index: number) => void;
 }> = ({ questions, currentQ, answers, onQuestionSelect }) => (
-  <div className="flex flex-col gap-2 min-w-[120px]">
-    <h3 className="text-sm font-medium text-muted-foreground mb-2">Questions</h3>
-    <div className="grid gap-2">
-      {questions.map((q, idx) => (
-        <button
-          key={q.id}
-          className={`rounded-md px-3 py-2 text-sm font-medium transition-all duration-200 ${
-            currentQ === idx
-              ? "bg-primary text-primary-foreground"
-              : answers[q.id]
-              ? "bg-green-100 dark:bg-green-900 text-green-800 dark:text-green-200 border border-green-300 dark:border-green-700"
-              : "bg-orange-50 dark:bg-orange-900 border border-orange-200 dark:border-orange-700 hover:bg-orange-100 dark:hover:bg-orange-800 text-orange-700 dark:text-orange-300"
-          }`}
-          onClick={() => onQuestionSelect(idx)}
-        >
-          Q{q.order}
-        </button>
-      ))}
+  <div className="relative group">
+    <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-accent/20 rounded-xl blur opacity-25 group-hover:opacity-75 transition-opacity duration-300"></div>
+    <div className="relative flex flex-col gap-3 min-w-[140px] p-4 bg-card/80 backdrop-blur-xl border border-border/50 rounded-xl">
+      <h3 className="text-sm font-bold text-foreground mb-2 flex items-center gap-2">
+        <Brain className="w-4 h-4 text-primary" />
+        Questions
+      </h3>
+      <div className="grid gap-2">
+        {questions.map((q, idx) => (
+          <button
+            key={q.id}
+            className={`group relative rounded-lg px-3 py-2 text-sm font-medium transition-all duration-200 ${
+              currentQ === idx
+                ? "bg-gradient-to-r from-primary to-accent text-white shadow-lg"
+                : answers[q.id]
+                ? "bg-green-500/10 text-green-600 dark:text-green-400 border border-green-500/30 hover:bg-green-500/20"
+                : "bg-orange-500/10 text-orange-600 dark:text-orange-400 border border-orange-500/30 hover:bg-orange-500/20"
+            }`}
+            onClick={() => onQuestionSelect(idx)}
+          >
+            <div className="relative flex items-center justify-center gap-2">
+              {answers[q.id] && currentQ !== idx && (
+                <CheckCircle className="w-3 h-3" />
+              )}
+              Q{q.order}
+            </div>
+            {currentQ === idx && (
+              <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity rounded-lg"></div>
+            )}
+          </button>
+        ))}
+      </div>
     </div>
   </div>
 );
@@ -106,38 +133,57 @@ const QuestionContent: React.FC<{
   answer: number | undefined;
   onAnswerChange: (optionId: number) => void;
 }> = ({ question, answer, onAnswerChange }) => (
-  <div className="rounded-lg border border-border bg-card p-6">
-    <div className="mb-4">
-      <h2 className="text-lg font-semibold mb-2 text-foreground">
-        Q{question.order}. {question.text}
-      </h2>
-      <p className="text-sm text-muted-foreground">
-        Select one option. Each choice affects your token allocation.
-      </p>
-    </div>
-    
-    <div className="space-y-3">
-      {question.options
-        .sort((a, b) => a.order - b.order)
-        .map((option) => (
-          <label 
-            key={option.id} 
-            className={`flex cursor-pointer items-start gap-4 rounded-md border p-4 transition-colors hover:bg-blue-50 dark:hover:bg-blue-950 ${
-              answer === option.id ? "border-primary bg-primary/5" : "border-border bg-card"
-            }`}
-          >
-            <input
-              type="radio"
-              name={`question-${question.id}`}
-              checked={answer === option.id}
-              onChange={() => onAnswerChange(option.id)}
-              className="mt-1 h-4 w-4 text-primary"
-            />
-            <div className="flex-1">
-              <p className="text-sm font-medium mb-2 text-foreground">{option.text}</p>
-            </div>
-          </label>
-        ))}
+  <div className="relative group">
+    <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-accent/30 rounded-2xl blur opacity-25 group-hover:opacity-75 transition-opacity duration-300"></div>
+    <div className="relative bg-card/80 backdrop-blur-xl border border-border/50 rounded-2xl p-8 shadow-2xl">
+      <div className="mb-6">
+        <h2 className="text-xl font-black mb-3 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          Q{question.order}. {question.text}
+        </h2>
+        <p className="text-muted-foreground bg-primary/5 backdrop-blur-sm px-4 py-2 rounded-lg border border-primary/20">
+          Select one option. Each choice affects your token allocation.
+        </p>
+      </div>
+      
+      <div className="space-y-4">
+        {question.options
+          .sort((a, b) => a.order - b.order)
+          .map((option) => (
+            <label 
+              key={option.id} 
+              className={`group relative flex cursor-pointer items-start gap-4 p-5 transition-all duration-300 hover:-translate-y-1 rounded-xl border backdrop-blur-sm ${
+                answer === option.id 
+                  ? "border-primary/50 bg-gradient-to-r from-primary/10 to-accent/10 shadow-lg" 
+                  : "border-border/50 bg-background/50 hover:border-primary/30 hover:bg-primary/5"
+              }`}
+            >
+              <div className="relative">
+                <input
+                  type="radio"
+                  name={`question-${question.id}`}
+                  checked={answer === option.id}
+                  onChange={() => onAnswerChange(option.id)}
+                  className="sr-only"
+                />
+                <div className={`w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
+                  answer === option.id 
+                    ? 'border-primary bg-primary' 
+                    : 'border-border group-hover:border-primary/50'
+                }`}>
+                  {answer === option.id && (
+                    <div className="w-2 h-2 bg-white rounded-full"></div>
+                  )}
+                </div>
+              </div>
+              <div className="flex-1">
+                <p className="text-foreground font-medium leading-relaxed">{option.text}</p>
+              </div>
+              {answer === option.id && (
+                <CheckCircle className="w-5 h-5 text-primary" />
+              )}
+            </label>
+          ))}
+      </div>
     </div>
   </div>
 );
@@ -175,9 +221,13 @@ const QuizComponent: React.FC<{
 
   if (questions.length === 0) {
     return (
-      <div className="rounded-lg border border-border bg-card p-8 text-center">
-        <h3 className="text-lg font-medium mb-2 text-foreground">Loading Quiz...</h3>
-        <p className="text-muted-foreground">Please wait while we load the questions.</p>
+      <div className="relative group">
+        <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-accent/30 rounded-2xl blur opacity-25"></div>
+        <div className="relative bg-card/80 backdrop-blur-xl border border-border/50 rounded-2xl p-8 text-center shadow-2xl">
+          <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <h3 className="text-lg font-bold mb-2 text-foreground">Loading Quiz...</h3>
+          <p className="text-muted-foreground">Please wait while we load the questions.</p>
+        </div>
       </div>
     );
   }
@@ -200,26 +250,31 @@ const QuizComponent: React.FC<{
         
         <div className="flex-1 space-y-6">
           {/* Navigation Controls */}
-          <div className="flex items-center justify-between">
-            <button
-              className="rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-900 px-4 py-2 text-sm text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              onClick={() => onCurrentQChange(Math.max(0, currentQ - 1))}
-              disabled={currentQ === 0}
-            >
-              Previous
-            </button>
-            
-            <span className="text-sm text-muted-foreground">
-              Question {currentQ + 1} of {questions.length} • {answeredCount}/15 answered
-            </span>
-            
-            <button
-              className="rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-900 px-4 py-2 text-sm text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-              onClick={() => onCurrentQChange(Math.min(questions.length - 1, currentQ + 1))}
-              disabled={currentQ === questions.length - 1}
-            >
-              Next
-            </button>
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-accent/20 rounded-xl blur opacity-25 group-hover:opacity-75 transition-opacity duration-300"></div>
+            <div className="relative flex items-center justify-between p-4 bg-card/80 backdrop-blur-xl border border-border/50 rounded-xl">
+              <button
+                className="group relative flex items-center gap-2 px-4 py-2 bg-primary/10 backdrop-blur-sm border border-primary/20 rounded-lg text-primary font-medium hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                onClick={() => onCurrentQChange(Math.max(0, currentQ - 1))}
+                disabled={currentQ === 0}
+              >
+                <ArrowLeft className="w-4 h-4 group-hover:-translate-x-1 transition-transform" />
+                Previous
+              </button>
+              
+              <span className="text-sm text-muted-foreground font-medium bg-background/50 backdrop-blur-sm px-4 py-2 rounded-lg border border-border/50">
+                Question {currentQ + 1} of {questions.length} • {answeredCount}/15 answered
+              </span>
+              
+              <button
+                className="group relative flex items-center gap-2 px-4 py-2 bg-primary/10 backdrop-blur-sm border border-primary/20 rounded-lg text-primary font-medium hover:bg-primary/20 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200"
+                onClick={() => onCurrentQChange(Math.min(questions.length - 1, currentQ + 1))}
+                disabled={currentQ === questions.length - 1}
+              >
+                Next
+                <ArrowLeft className="w-4 h-4 rotate-180 group-hover:translate-x-1 transition-transform" />
+              </button>
+            </div>
           </div>
           
           {/* Question Content */}
@@ -232,21 +287,37 @@ const QuizComponent: React.FC<{
           )}
           
           {/* Progress Bar */}
-          <div className="w-full bg-muted rounded-full h-2">
-            <div
-              className="bg-primary h-2 rounded-full transition-all duration-300"
-              style={{ width: `${(answeredCount / 15) * 100}%` }}
-            />
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-accent/20 rounded-xl blur opacity-25 group-hover:opacity-75 transition-opacity duration-300"></div>
+            <div className="relative p-4 bg-card/80 backdrop-blur-xl border border-border/50 rounded-xl">
+              <div className="flex items-center justify-between mb-2">
+                <span className="text-sm font-medium text-foreground">Progress</span>
+                <span className="text-sm text-muted-foreground">{answeredCount}/15</span>
+              </div>
+              <div className="w-full bg-muted rounded-full h-3 overflow-hidden">
+                <div
+                  className="bg-gradient-to-r from-primary to-accent h-3 rounded-full transition-all duration-500 ease-out shadow-lg"
+                  style={{ width: `${(answeredCount / 15) * 100}%` }}
+                />
+              </div>
+            </div>
           </div>
           
           {/* Messages */}
           {message && (
-            <div className={`rounded-md border p-4 text-sm ${
+            <div className={`relative group p-4 backdrop-blur-xl border rounded-xl ${
               message.includes('error') || message.includes('failed') 
-                ? "border-red-200 bg-red-50 text-red-800" 
-                : "border-blue-200 bg-blue-50 text-blue-800"
+                ? "border-red-500/20 bg-red-500/10 text-red-600 dark:text-red-400" 
+                : "border-primary/20 bg-primary/10 text-primary"
             }`}>
-              {message}
+              <div className="flex items-center gap-3">
+                {message.includes('error') || message.includes('failed') ? (
+                  <XCircle className="w-5 h-5 flex-shrink-0" />
+                ) : (
+                  <CheckCircle className="w-5 h-5 flex-shrink-0" />
+                )}
+                <span className="font-medium">{message}</span>
+              </div>
             </div>
           )}
           
@@ -255,22 +326,37 @@ const QuizComponent: React.FC<{
             <button
               onClick={onSubmit}
               disabled={submitting || answeredCount !== 15 || !quizActive || timeLeft <= 0}
-              className="inline-flex items-center rounded-md bg-primary px-8 py-3 font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 transition-opacity"
+              className="group relative px-8 py-4 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none overflow-hidden"
             >
-              {submitting ? (
-                <>
-                  <div className="animate-spin -ml-1 mr-3 h-4 w-4 border-2 border-primary-foreground border-t-transparent rounded-full" />
-                  Submitting...
-                </>
-              ) : timeLeft <= 0 ? (
-                "Time's Up!"
-              ) : !quizActive ? (
-                "Quiz Not Active"
-              ) : answeredCount !== 15 ? (
-                `Answer All Questions (${answeredCount}/15)`
-              ) : (
-                "Submit Quiz"
-              )}
+              <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              <div className="relative flex items-center justify-center gap-2">
+                {submitting ? (
+                  <>
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Submitting...
+                  </>
+                ) : timeLeft <= 0 ? (
+                  <>
+                    <Timer className="w-5 h-5" />
+                    Time's Up!
+                  </>
+                ) : !quizActive ? (
+                  <>
+                    <XCircle className="w-5 h-5" />
+                    Quiz Not Active
+                  </>
+                ) : answeredCount !== 15 ? (
+                  <>
+                    <Brain className="w-5 h-5" />
+                    Answer All Questions ({answeredCount}/15)
+                  </>
+                ) : (
+                  <>
+                    <Trophy className="w-5 h-5" />
+                    Submit Quiz
+                  </>
+                )}
+              </div>
             </button>
           </div>
         </div>
@@ -284,57 +370,84 @@ const QuizResults: React.FC<{ result: QuizResult; onReturnToDashboard: () => voi
   result, 
   onReturnToDashboard 
 }) => (
-  <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
-    <div className="max-w-lg w-full">
-      <div className="rounded-lg border border-border bg-card p-8 text-center">
-        <div className="mb-6">
-          <div className="inline-flex items-center rounded-full bg-green-100 dark:bg-green-900 px-3 py-1 text-sm font-medium text-green-800 dark:text-green-200 mb-4">
-            Quiz Completed
+  <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground overflow-x-hidden flex items-center justify-center p-6">
+    {/* Animated background elements */}
+    <div className="fixed inset-0 overflow-hidden pointer-events-none">
+      <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+      <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+      <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-2xl animate-pulse" style={{animationDelay: '4s'}}></div>
+    </div>
+    
+    <div className="relative max-w-lg w-full">
+      <div className="relative group">
+        <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-accent/50 rounded-2xl blur opacity-75 group-hover:opacity-100 transition-opacity duration-300"></div>
+        <div className="relative bg-card/80 backdrop-blur-xl border border-border/50 rounded-2xl p-8 text-center shadow-2xl">
+          <div className="mb-6">
+            <div className="inline-flex items-center gap-2 rounded-full bg-green-500/10 backdrop-blur-sm px-4 py-2 text-sm font-bold text-green-600 dark:text-green-400 mb-4 border border-green-500/20">
+              <CheckCircle className="w-4 h-4" />
+              Quiz Completed
+            </div>
+            <h2 className="text-3xl font-black mb-2 bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+              Quiz Completed!
+            </h2>
+            <p className="text-muted-foreground">
+              Your quiz has been submitted successfully!
+            </p>
           </div>
-          <h2 className="text-3xl font-bold mb-2 text-foreground">
-            Quiz Completed!
-          </h2>
-          <p className="text-muted-foreground">
-            Your quiz has been submitted successfully!
-          </p>
-        </div>
-        
-        <div className="space-y-4 mb-6">
-          <h3 className="text-lg font-medium text-foreground">Token Distribution</h3>
-          <div className="grid grid-cols-2 gap-4 text-sm">
-            <div className="bg-blue-50 dark:bg-blue-900 p-3 rounded">
-              <div className="font-medium text-foreground">Marketing</div>
-              <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                {result.tokens.marketing}
+          
+          <div className="space-y-4 mb-8">
+            <h3 className="text-lg font-bold text-foreground">Token Distribution</h3>
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/20 to-blue-400/20 rounded-xl blur opacity-50 group-hover:opacity-75 transition-opacity"></div>
+                <div className="relative bg-blue-500/10 backdrop-blur-sm p-4 rounded-xl border border-blue-500/20">
+                  <div className="font-bold text-blue-600 dark:text-blue-400 mb-1">Marketing</div>
+                  <div className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                    {result.tokens.marketing}
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="bg-green-50 dark:bg-green-900 p-3 rounded">
-              <div className="font-medium text-foreground">Capital</div>
-              <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                {result.tokens.capital}
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-green-500/20 to-green-400/20 rounded-xl blur opacity-50 group-hover:opacity-75 transition-opacity"></div>
+                <div className="relative bg-green-500/10 backdrop-blur-sm p-4 rounded-xl border border-green-500/20">
+                  <div className="font-bold text-green-600 dark:text-green-400 mb-1">Capital</div>
+                  <div className="text-2xl font-black text-green-600 dark:text-green-400">
+                    {result.tokens.capital}
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="bg-purple-50 dark:bg-purple-900 p-3 rounded">
-              <div className="font-medium text-foreground">Team</div>
-              <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                {result.tokens.team}
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/20 to-purple-400/20 rounded-xl blur opacity-50 group-hover:opacity-75 transition-opacity"></div>
+                <div className="relative bg-purple-500/10 backdrop-blur-sm p-4 rounded-xl border border-purple-500/20">
+                  <div className="font-bold text-purple-600 dark:text-purple-400 mb-1">Team</div>
+                  <div className="text-2xl font-black text-purple-600 dark:text-purple-400">
+                    {result.tokens.team}
+                  </div>
+                </div>
               </div>
-            </div>
-            <div className="bg-orange-50 dark:bg-orange-900 p-3 rounded">
-              <div className="font-medium text-foreground">Strategy</div>
-              <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                {result.tokens.strategy}
+              <div className="relative group">
+                <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/20 to-orange-400/20 rounded-xl blur opacity-50 group-hover:opacity-75 transition-opacity"></div>
+                <div className="relative bg-orange-500/10 backdrop-blur-sm p-4 rounded-xl border border-orange-500/20">
+                  <div className="font-bold text-orange-600 dark:text-orange-400 mb-1">Strategy</div>
+                  <div className="text-2xl font-black text-orange-600 dark:text-orange-400">
+                    {result.tokens.strategy}
+                  </div>
+                </div>
               </div>
             </div>
           </div>
+          
+          <button
+            className="group relative w-full px-6 py-4 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+            onClick={onReturnToDashboard}
+          >
+            <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+            <div className="relative flex items-center justify-center gap-2">
+              <ArrowLeft className="w-5 h-5" />
+              Return to Dashboard
+            </div>
+          </button>
         </div>
-        
-        <button
-          className="w-full rounded-md bg-primary px-4 py-3 font-medium text-primary-foreground hover:opacity-90 transition-opacity"
-          onClick={onReturnToDashboard}
-        >
-          Return to Dashboard
-        </button>
       </div>
     </div>
   </div>
@@ -359,37 +472,70 @@ export default function QuizPage() {
     };
     
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
-        <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-6 relative">
-          <h2 className="text-2xl font-bold mb-4 text-foreground">Quiz Rules</h2>
-          <ul className="list-disc ml-6 mb-4 text-sm text-foreground">
-            <li className="text-foreground">15 questions, 30 minutes total time.</li>
-            <li className="text-foreground">Each option affects your team's token allocation.</li>
-            <li className="text-foreground">Once started, the timer cannot be paused.</li>
-            <li className="text-foreground">Your answers are automatically saved - refreshing the browser won't lose your progress.</li>
-            <li className="text-foreground">If you close the browser, the timer and answers will resume from where you left off.</li>
-            <li className="text-foreground">Submit before time runs out. Auto-submit on timeout.</li>
-          </ul>
-          
-          {!quizActive && (
-            <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
-              <p className="text-sm text-yellow-800 dark:text-yellow-200">
-                ⏳ Quiz is currently pending. Please wait for the admin to activate the quiz before proceeding.
-              </p>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm">
+        <div className="relative group max-w-md w-full m-4">
+          <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-accent/50 rounded-2xl blur opacity-75"></div>
+          <div className="relative bg-card/90 backdrop-blur-xl border border-border/50 rounded-2xl p-6 shadow-2xl">
+            <div className="text-center mb-6">
+              <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center mx-auto mb-4">
+                <Brain className="w-6 h-6 text-white" />
+              </div>
+              <h2 className="text-2xl font-black mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                Quiz Rules
+              </h2>
             </div>
-          )}
-          
-          <button
-            className={`w-full rounded-md px-4 py-2 font-medium transition-opacity ${
-              quizActive 
-                ? "bg-primary text-primary-foreground hover:opacity-90" 
-                : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
-            }`}
-            onClick={handleStartQuiz}
-            disabled={!quizActive}
-          >
-            {quizActive ? "I Understand, Start Quiz" : "Quiz Not Available"}
-          </button>
+            <ul className="space-y-3 mb-6 text-sm text-foreground">
+              <li className="flex items-start gap-3">
+                <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                <span>15 questions, 30 minutes total time.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                <span>Each option affects your team's token allocation.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                <span>Once started, the timer cannot be paused.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                <span>Your answers are automatically saved - refreshing the browser won't lose your progress.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                <span>If you close the browser, the timer and answers will resume from where you left off.</span>
+              </li>
+              <li className="flex items-start gap-3">
+                <CheckCircle className="w-4 h-4 text-primary mt-0.5 flex-shrink-0" />
+                <span>Submit before time runs out. Auto-submit on timeout.</span>
+              </li>
+            </ul>
+            
+            {!quizActive && (
+              <div className="mb-4 p-4 bg-yellow-500/10 backdrop-blur-sm border border-yellow-500/20 rounded-xl">
+                <p className="text-sm text-yellow-600 dark:text-yellow-400 font-medium">
+                  Quiz is currently pending. Please wait for the admin to activate the quiz before proceeding.
+                </p>
+              </div>
+            )}
+            
+            <button
+              className={`group relative w-full px-6 py-3 font-bold rounded-xl transition-all duration-300 overflow-hidden ${
+                quizActive 
+                  ? "bg-gradient-to-r from-primary to-accent text-white hover:shadow-lg hover:shadow-primary/25 hover:-translate-y-1" 
+                  : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+              }`}
+              onClick={handleStartQuiz}
+              disabled={!quizActive}
+            >
+              {quizActive && (
+                <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+              )}
+              <div className="relative">
+                {quizActive ? "I Understand, Start Quiz" : "Quiz Not Available"}
+              </div>
+            </button>
+          </div>
         </div>
       </div>
     );
@@ -404,37 +550,46 @@ export default function QuizPage() {
     if (!open) return null;
     
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
-        <div className="bg-card rounded-lg shadow-lg max-w-lg w-full p-6 relative border-2 border-red-500">
-          <div className="text-center">
-            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900 mb-4">
-              <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
-            </div>
-            <h2 className="text-2xl font-bold mb-4 text-red-600 dark:text-red-400">⚠️ Fullscreen Exit Warning</h2>
-            <div className="mb-6 text-sm text-foreground space-y-2">
-              <p className="font-semibold text-red-600 dark:text-red-400">
-                You have exited fullscreen mode during the quiz!
-              </p>
-              <p>
-                For exam integrity, the quiz must be completed in fullscreen mode.
-              </p>
-              <p className="font-semibold bg-yellow-100 dark:bg-yellow-900 p-2 rounded">
-                ⚠️ WARNING: If you exit fullscreen again, your quiz will be automatically submitted and you will need to contact the nearest event coordinator.
-              </p>
-            </div>
-            <div className="flex gap-3">
-              <button
-                className="flex-1 rounded-md bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700"
-                onClick={onStay}
-              >
-                Stay in Quiz (Return to Fullscreen)
-              </button>
-              <button
-                className="flex-1 rounded-md bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
-                onClick={onExit}
-              >
-                Exit Quiz (Auto-Submit)
-              </button>
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+        <div className="relative group max-w-lg w-full m-4">
+          <div className="absolute -inset-1 bg-gradient-to-r from-red-500/50 to-orange-500/50 rounded-2xl blur opacity-75"></div>
+          <div className="relative bg-card/90 backdrop-blur-xl border-2 border-red-500/50 rounded-2xl p-6 shadow-2xl">
+            <div className="text-center">
+              <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-500/10 backdrop-blur-sm border border-red-500/20 mb-4">
+                <AlertCircle className="h-6 w-6 text-red-500" />
+              </div>
+              <h2 className="text-2xl font-black mb-4 text-red-600 dark:text-red-400">
+                Fullscreen Exit Warning
+              </h2>
+              <div className="mb-6 text-sm text-foreground space-y-3">
+                <p className="font-bold text-red-600 dark:text-red-400">
+                  You have exited fullscreen mode during the quiz!
+                </p>
+                <p>
+                  For exam integrity, the quiz must be completed in fullscreen mode.
+                </p>
+                <div className="p-3 bg-yellow-500/10 backdrop-blur-sm border border-yellow-500/20 rounded-xl">
+                  <p className="font-bold text-yellow-600 dark:text-yellow-400">
+                    WARNING: If you exit fullscreen again, your quiz will be automatically submitted and you will need to contact the nearest event coordinator.
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-3">
+                <button
+                  className="group relative flex-1 px-4 py-3 bg-gradient-to-r from-green-600 to-green-500 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-green-500/25 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+                  onClick={onStay}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-green-500 to-green-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative">Stay in Quiz</div>
+                </button>
+                <button
+                  className="group relative flex-1 px-4 py-3 bg-gradient-to-r from-red-600 to-red-500 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-red-500/25 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+                  onClick={onExit}
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-red-500 to-red-600 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative">Exit Quiz</div>
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -844,69 +999,107 @@ export default function QuizPage() {
   // Loading state
   if (isPending) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center">
-        <div className="max-w-lg w-full rounded-lg border border-border bg-card p-8 text-center">
-          <div className="animate-spin mx-auto h-8 w-8 border-4 border-primary border-t-transparent rounded-full mb-4" />
-          <h2 className="text-xl font-semibold mb-2 text-foreground">Loading...</h2>
-          <p className="text-muted-foreground">Please wait while we load your quiz.</p>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground overflow-x-hidden flex items-center justify-center">
+        {/* Animated background elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-2xl animate-pulse" style={{animationDelay: '4s'}}></div>
+        </div>
+        
+        <div className="relative max-w-lg w-full">
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-accent/50 rounded-2xl blur opacity-25"></div>
+            <div className="relative bg-card/80 backdrop-blur-xl border border-border/50 rounded-2xl p-8 text-center shadow-2xl">
+              <div className="w-8 h-8 border-2 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+              <h2 className="text-xl font-bold mb-2 text-foreground">Loading...</h2>
+              <p className="text-muted-foreground">Please wait while we load your quiz.</p>
+            </div>
+          </div>
         </div>
       </div>
     );
-  }
+  };
 
   // Not signed in
   if (!user) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
-        <div className="max-w-lg w-full rounded-lg border border-border bg-card p-8 text-center">
-          <h2 className="text-2xl font-bold mb-4 text-foreground">Please Sign In</h2>
-          <p className="text-muted-foreground mb-6">
-            You need to be signed in to access the quiz portal.
-          </p>
-          <div className="space-y-3">
-            <Link
-              href="/sign-in"
-              className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-            >
-              Sign In
-            </Link>
-            <Link
-              href="/sign-up"
-              className="inline-flex w-full items-center justify-center rounded-md border border-blue-300 bg-blue-50 dark:bg-blue-900 px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-800"
-            >
-              Create Account
-            </Link>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground overflow-x-hidden flex items-center justify-center p-6">
+        {/* Animated background elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-2xl animate-pulse" style={{animationDelay: '4s'}}></div>
+        </div>
+        
+        <div className="relative max-w-lg w-full">
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-accent/50 rounded-2xl blur opacity-75"></div>
+            <div className="relative bg-card/80 backdrop-blur-xl border border-border/50 rounded-2xl p-8 text-center shadow-2xl">
+              <h2 className="text-2xl font-black mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                Please Sign In
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                You need to be signed in to access the quiz portal.
+              </p>
+              <div className="space-y-3">
+                <Link
+                  href="/sign-in"
+                  className="group relative w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative">Sign In</div>
+                </Link>
+                <Link
+                  href="/sign-up"
+                  className="w-full flex items-center justify-center px-6 py-3 bg-background/50 backdrop-blur-sm border border-border/50 rounded-xl hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 font-semibold"
+                >
+                  Create Account
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>
     );
   }
 
-  // Not a team leader
-
   // Show quiz completed message
   if (quizCompleted) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
-        <div className="max-w-lg w-full rounded-lg border border-green-300 dark:border-green-700 bg-green-50 dark:bg-green-950 p-8 text-center">
-          <div className="text-6xl mb-4">✅</div>
-          <h2 className="text-2xl font-bold mb-4 text-green-800 dark:text-green-200">Quiz Round Completed</h2>
-          <p className="text-green-700 dark:text-green-300 mb-6">
-            The quiz round has been completed and is no longer available for new submissions.
-          </p>
-          <div className="space-y-3">
-            <Link
-              href="/dashboard"
-              className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-            >
-              Return to Dashboard
-            </Link>
-            <Link
-              href="/scoreboard"
-              className="inline-flex w-full items-center justify-center rounded-md border border-green-300 dark:border-green-700 bg-card px-4 py-2 text-sm font-medium text-green-700 dark:text-green-300 hover:bg-green-50 dark:hover:bg-green-900"
-            >
-              View Scoreboard
-            </Link>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground overflow-x-hidden flex items-center justify-center p-6">
+        {/* Animated background elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-2xl animate-pulse" style={{animationDelay: '4s'}}></div>
+        </div>
+        
+        <div className="relative max-w-lg w-full">
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-green-500/50 to-emerald-500/50 rounded-2xl blur opacity-75"></div>
+            <div className="relative bg-card/80 backdrop-blur-xl border border-green-500/20 rounded-2xl p-8 text-center shadow-2xl">
+              <div className="text-6xl mb-4">✅</div>
+              <h2 className="text-2xl font-black mb-4 text-green-600 dark:text-green-400">Quiz Round Completed</h2>
+              <p className="text-muted-foreground mb-6">
+                The quiz round has been completed and is no longer available for new submissions.
+              </p>
+              <div className="space-y-3">
+                <Link
+                  href="/dashboard"
+                  className="group relative w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative">Return to Dashboard</div>
+                </Link>
+                <Link
+                  href="/scoreboard"
+                  className="w-full flex items-center justify-center px-6 py-3 bg-green-500/10 backdrop-blur-sm border border-green-500/30 rounded-xl hover:bg-green-500/20 transition-all duration-300 font-semibold text-green-600 dark:text-green-400"
+                >
+                  View Scoreboard
+                </Link>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -916,93 +1109,125 @@ export default function QuizPage() {
   // Show quiz already submitted message (lock the quiz)
   if (hasSubmitted && previousSubmission) {
     return (
-      <div className="min-h-screen bg-background text-foreground flex items-center justify-center p-6">
-        <div className="max-w-lg w-full rounded-lg border border-blue-300 dark:border-blue-700 bg-blue-50 dark:bg-blue-950 p-8 text-center">
-          <div className="text-6xl mb-4">🔒</div>
-          <h2 className="text-2xl font-bold mb-4 text-blue-800 dark:text-blue-200">Quiz Already Submitted</h2>
-          <p className="text-blue-700 dark:text-blue-300 mb-6">
-            You have already completed and submitted the quiz. Each team can only attempt the quiz once.
-          </p>
-          
-          <div className="space-y-4 mb-6">
-            <h3 className="text-lg font-medium text-blue-800 dark:text-blue-200">Your Results</h3>
-            <div className={`grid gap-4 text-sm ${isMobile ? 'grid-cols-2' : 'grid-cols-4'}`}>
-              <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded">
-                <div className="font-medium text-blue-900 dark:text-blue-100">Marketing</div>
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {previousSubmission.tokens.marketing}
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground overflow-x-hidden flex items-center justify-center p-6">
+        {/* Animated background elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-2xl animate-pulse" style={{animationDelay: '4s'}}></div>
+        </div>
+        
+        <div className="relative max-w-lg w-full">
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-accent/50 rounded-2xl blur opacity-75"></div>
+            <div className="relative bg-card/80 backdrop-blur-xl border border-primary/20 rounded-2xl p-8 text-center shadow-2xl">
+              <div className="text-6xl mb-4">🔒</div>
+              <h2 className="text-2xl font-black mb-4 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                Quiz Already Submitted
+              </h2>
+              <p className="text-muted-foreground mb-6">
+                You have already completed and submitted the quiz. Each team can only attempt the quiz once.
+              </p>
+              
+              <div className="space-y-4 mb-6">
+                <h3 className="text-lg font-bold text-foreground">Your Results</h3>
+                <div className={`grid gap-4 text-sm ${isMobile ? 'grid-cols-2' : 'grid-cols-2'}`}>
+                  <div className="relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-blue-500/20 to-blue-400/20 rounded-xl blur opacity-50"></div>
+                    <div className="relative bg-blue-500/10 backdrop-blur-sm p-4 rounded-xl border border-blue-500/20">
+                      <div className="font-bold text-blue-600 dark:text-blue-400 mb-1">Marketing</div>
+                      <div className="text-2xl font-black text-blue-600 dark:text-blue-400">
+                        {previousSubmission.tokens.marketing}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-green-500/20 to-green-400/20 rounded-xl blur opacity-50"></div>
+                    <div className="relative bg-green-500/10 backdrop-blur-sm p-4 rounded-xl border border-green-500/20">
+                      <div className="font-bold text-green-600 dark:text-green-400 mb-1">Capital</div>
+                      <div className="text-2xl font-black text-green-600 dark:text-green-400">
+                        {previousSubmission.tokens.capital}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-purple-500/20 to-purple-400/20 rounded-xl blur opacity-50"></div>
+                    <div className="relative bg-purple-500/10 backdrop-blur-sm p-4 rounded-xl border border-purple-500/20">
+                      <div className="font-bold text-purple-600 dark:text-purple-400 mb-1">Team</div>
+                      <div className="text-2xl font-black text-purple-600 dark:text-purple-400">
+                        {previousSubmission.tokens.team}
+                      </div>
+                    </div>
+                  </div>
+                  <div className="relative group">
+                    <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/20 to-orange-400/20 rounded-xl blur opacity-50"></div>
+                    <div className="relative bg-orange-500/10 backdrop-blur-sm p-4 rounded-xl border border-orange-500/20">
+                      <div className="font-bold text-orange-600 dark:text-orange-400 mb-1">Strategy</div>
+                      <div className="text-2xl font-black text-orange-600 dark:text-orange-400">
+                        {previousSubmission.tokens.strategy}
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div className="text-sm text-muted-foreground bg-background/50 backdrop-blur-sm px-4 py-2 rounded-lg border border-border/50">
+                  Completed on: {new Date(previousSubmission.submission.createdAt).toLocaleDateString()} at {new Date(previousSubmission.submission.createdAt).toLocaleTimeString()}
                 </div>
               </div>
-              <div className="bg-green-100 dark:bg-green-900 p-3 rounded">
-                <div className="font-medium text-green-900 dark:text-green-100">Capital</div>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
-                  {previousSubmission.tokens.capital}
-                </div>
-              </div>
-              <div className="bg-purple-100 dark:bg-purple-900 p-3 rounded">
-                <div className="font-medium text-purple-900 dark:text-purple-100">Team</div>
-                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
-                  {previousSubmission.tokens.team}
-                </div>
-              </div>
-              <div className="bg-orange-100 dark:bg-orange-900 p-3 rounded">
-                <div className="font-medium text-orange-900 dark:text-orange-100">Strategy</div>
-                <div className="text-2xl font-bold text-orange-600 dark:text-orange-400">
-                  {previousSubmission.tokens.strategy}
-                </div>
+              
+              <div className="space-y-3">
+                <Link
+                  href="/dashboard"
+                  className="group relative w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative">Return to Dashboard</div>
+                </Link>
+                <Link
+                  href="/scoreboard"
+                  className="w-full flex items-center justify-center px-6 py-3 bg-background/50 backdrop-blur-sm border border-border/50 rounded-xl hover:border-primary/30 hover:bg-primary/5 transition-all duration-300 font-semibold"
+                >
+                  View Scoreboard
+                </Link>
               </div>
             </div>
-            <div className="text-sm text-blue-600 dark:text-blue-400">
-              Completed on: {new Date(previousSubmission.submission.createdAt).toLocaleDateString()} at {new Date(previousSubmission.submission.createdAt).toLocaleTimeString()}
-            </div>
-          </div>
-          
-          <div className="space-y-3">
-            <Link
-              href="/dashboard"
-              className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 min-h-[44px] active:scale-95 transition-transform"
-            >
-              Return to Dashboard
-            </Link>
-            <Link
-              href="/scoreboard"
-              className="inline-flex w-full items-center justify-center rounded-md border border-blue-300 dark:border-blue-700 bg-card px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900 min-h-[44px] active:scale-95 transition-transform"
-            >
-              View Scoreboard
-            </Link>
           </div>
         </div>
       </div>
     );
   }
 
-
   // Show results (with special handling for auto-submission)
   if (showResult && result) {
     return (
       <div>
         {autoSubmissionReason && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
-            <div className="bg-card rounded-lg shadow-lg max-w-2xl w-full p-6 relative border-2 border-red-500 m-4">
-              <div className="text-center">
-                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900 mb-4">
-                  <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
+            <div className="relative group max-w-2xl w-full m-4">
+              <div className="absolute -inset-1 bg-gradient-to-r from-red-500/50 to-orange-500/50 rounded-2xl blur opacity-75"></div>
+              <div className="relative bg-card/90 backdrop-blur-xl border-2 border-red-500/50 rounded-2xl p-6 shadow-2xl">
+                <div className="text-center">
+                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-500/10 backdrop-blur-sm border border-red-500/20 mb-4">
+                    <AlertCircle className="h-6 w-6 text-red-500" />
+                  </div>
+                  <h2 className="text-2xl font-black mb-4 text-red-600 dark:text-red-400">Quiz Auto-Submitted</h2>
+                  <div className="mb-6 text-sm text-foreground space-y-2">
+                    <div className="p-3 bg-red-500/10 backdrop-blur-sm border border-red-500/20 rounded-xl">
+                      <p className="font-bold text-red-600 dark:text-red-400">
+                        {autoSubmissionReason}
+                      </p>
+                    </div>
+                    <p className="text-muted-foreground">
+                      Your quiz responses have been recorded. Click continue to view your results.
+                    </p>
+                  </div>
+                  <button
+                    className="group relative w-full px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+                    onClick={() => setAutoSubmissionReason(null)}
+                  >
+                    <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                    <div className="relative">Continue to Results</div>
+                  </button>
                 </div>
-                <h2 className="text-2xl font-bold mb-4 text-red-600 dark:text-red-400">⚠️ Quiz Auto-Submitted</h2>
-                <div className="mb-6 text-sm text-foreground space-y-2">
-                  <p className="font-semibold bg-red-100 dark:bg-red-900 p-3 rounded text-red-800 dark:text-red-200">
-                    {autoSubmissionReason}
-                  </p>
-                  <p className="text-muted-foreground">
-                    Your quiz responses have been recorded. Click continue to view your results.
-                  </p>
-                </div>
-                <button
-                  className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:opacity-90"
-                  onClick={() => setAutoSubmissionReason(null)}
-                >
-                  Continue to Results
-                </button>
               </div>
             </div>
           </div>
@@ -1015,13 +1240,20 @@ export default function QuizPage() {
   // Block access when quiz is pending to prevent premature timer start and question revelation
   if (quizPending) {
     return (
-      <div className="min-h-screen bg-background text-foreground">
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground overflow-x-hidden">
+        {/* Animated background elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-2xl animate-pulse" style={{animationDelay: '4s'}}></div>
+        </div>
+
         {/* Back to Dashboard Button */}
-        <div className="bg-card border-b border-border">
+        <div className="relative bg-card/80 backdrop-blur-xl border-b border-border/50">
           <div className="mx-auto max-w-6xl px-6 py-3">
             <div className="flex items-center justify-between">
-              <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
-                <ArrowLeft className="h-4 w-4" />
+              <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-accent transition-colors group">
+                <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
                 Back to Dashboard
               </Link>
               <ThemeToggle />
@@ -1030,28 +1262,32 @@ export default function QuizPage() {
         </div>
 
         {/* Pending Status Message */}
-        <div className="mx-auto max-w-4xl px-6 py-12">
-          <div className="rounded-lg border border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20 p-8 text-center">
-            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
-              <AlertCircle className="h-8 w-8 text-orange-600 dark:text-orange-400" />
-            </div>
-            <h2 className="text-2xl font-bold text-orange-900 dark:text-orange-100 mb-4">
-              Quiz Not Yet Available
-            </h2>
-            <p className="text-orange-800 dark:text-orange-200 mb-6">
-              The quiz is currently in preparation mode. Access will be granted once the round becomes active.
-              Please return to the dashboard and wait for the official announcement.
-            </p>
-            <div className="space-y-3">
-              <Link
-                href="/dashboard"
-                className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 max-w-xs mx-auto"
-              >
-                Return to Dashboard
-              </Link>
-              <p className="text-sm text-orange-700 dark:text-orange-300">
-                🔒 This prevents premature access to questions and timer activation
+        <div className="relative mx-auto max-w-4xl px-6 py-12 flex items-center justify-center min-h-[calc(100vh-200px)]">
+          <div className="relative group">
+            <div className="absolute -inset-1 bg-gradient-to-r from-orange-500/30 to-amber-500/30 rounded-2xl blur opacity-25 group-hover:opacity-75 transition-opacity duration-300"></div>
+            <div className="relative bg-card/80 backdrop-blur-xl border border-orange-500/20 rounded-2xl p-8 text-center shadow-2xl max-w-lg">
+              <div className="mx-auto mb-6 h-16 w-16 rounded-full bg-orange-500/10 backdrop-blur-sm border border-orange-500/20 flex items-center justify-center">
+                <AlertCircle className="h-8 w-8 text-orange-500" />
+              </div>
+              <h2 className="text-2xl font-black text-orange-600 dark:text-orange-400 mb-4">
+                Quiz Not Yet Available
+              </h2>
+              <p className="text-muted-foreground mb-6 leading-relaxed">
+                The quiz is currently in preparation mode. Access will be granted once the round becomes active.
+                Please return to the dashboard and wait for the official announcement.
               </p>
+              <div className="space-y-4">
+                <Link
+                  href="/dashboard"
+                  className="group relative w-full flex items-center justify-center px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative">Return to Dashboard</div>
+                </Link>
+                <p className="text-sm text-orange-600 dark:text-orange-400 bg-orange-500/5 backdrop-blur-sm px-4 py-2 rounded-lg border border-orange-500/20">
+                  This prevents premature access to questions and timer activation
+                </p>
+              </div>
             </div>
           </div>
         </div>
@@ -1062,105 +1298,120 @@ export default function QuizPage() {
   // Main quiz interface
   return (
     <PageLock roundType="QUIZ" isCompleted={isQuizCompleted}>
-      <div className="min-h-screen bg-background text-foreground mobile-padding pb-20" ref={quizRef}>
-      {/* Rules Modal */}
-      <RulesModal open={showRules} onClose={() => {
-        setShowRules(false);
-        // Auto-enter fullscreen when quiz starts
-        if (quizRef.current && !isFullscreen) {
-          quizRef.current.requestFullscreen().catch((e) => {
-            console.error("Failed to auto-enter fullscreen on quiz start:", e);
-            setMessage("Warning: Could not enter fullscreen mode. Please manually enter fullscreen for the best quiz experience.");
-          });
-        }
-      }} />
-
-      {/* Fullscreen Warning Modal */}
-      <FullscreenWarningModal 
-        open={showFullscreenWarning} 
-        onStay={handleStayInQuiz}
-        onExit={handleExitQuiz}
-      />
-
-      {/* Back to Dashboard Button */}
-      <div className="bg-card border-b border-border">
-        <div className="mx-auto max-w-6xl px-4 md:px-6 py-3">
-          <div className="flex items-center justify-between">
-            <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline min-h-[44px]">
-              <ArrowLeft className="h-4 w-4" />
-              Back to Dashboard
-            </Link>
-            <ThemeToggle />
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground overflow-x-hidden mobile-padding pb-20" ref={quizRef}>
+        {/* Animated background elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-2xl animate-pulse" style={{animationDelay: '4s'}}></div>
         </div>
-      </div>
 
-      {/* Header */}
-      <div className="border-b border-border bg-card">
-        <div className="mx-auto max-w-6xl px-4 md:px-6 py-6">
-          <div className={`flex ${isMobile ? 'flex-col gap-4' : 'items-center justify-between'}`}>
-            <div>
-              <div className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-2">
-                Round 1 • Quiz Portal
-              </div>
-              <h1 className={`font-bold tracking-tight text-foreground ${isMobile ? 'text-2xl' : 'text-3xl'}`}>
-                Techpreneur Summit 3.0 Quiz
-              </h1>
-              <p className="text-muted-foreground mt-1 text-sm">
-                15 questions • 30 minutes • Token trade-offs per option
-              </p>
-            </div>
-            <div className={`${isMobile ? 'text-left' : 'text-right'}`}>
-              <p className="font-medium text-foreground">{user.name}</p>
-              <p className="text-sm text-muted-foreground">
-                Team: {user.team?.name || `Team ID: ${user.teamId || 'None'}`}
-              </p>
+        {/* Rules Modal */}
+        <RulesModal open={showRules} onClose={() => {
+          setShowRules(false);
+          // Auto-enter fullscreen when quiz starts
+          if (quizRef.current && !isFullscreen) {
+            quizRef.current.requestFullscreen().catch((e) => {
+              console.error("Failed to auto-enter fullscreen on quiz start:", e);
+              setMessage("Warning: Could not enter fullscreen mode. Please manually enter fullscreen for the best quiz experience.");
+            });
+          }
+        }} />
+
+        {/* Fullscreen Warning Modal */}
+        <FullscreenWarningModal 
+          open={showFullscreenWarning} 
+          onStay={handleStayInQuiz}
+          onExit={handleExitQuiz}
+        />
+
+        {/* Back to Dashboard Button */}
+        <div className="relative bg-card/80 backdrop-blur-xl border-b border-border/50">
+          <div className="mx-auto max-w-6xl px-4 md:px-6 py-3">
+            <div className="flex items-center justify-between">
+              <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:text-accent transition-colors group min-h-[44px]">
+                <ArrowLeft className="h-4 w-4 group-hover:-translate-x-1 transition-transform" />
+                Back to Dashboard
+              </Link>
+              <ThemeToggle />
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Quiz Content */}
-      <div className="mx-auto max-w-6xl px-6 py-8">
-        {!quizActive && !showRules ? (
-          <div className="rounded-lg border border-border bg-card p-8 text-center">
-            <div className="mb-4">
-              <div className="inline-flex items-center rounded-full bg-yellow-100 dark:bg-yellow-900 px-3 py-1 text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-4">
-                Quiz Pending
+        {/* Header */}
+        <div className="relative border-b border-border/50 bg-card/80 backdrop-blur-xl">
+          <div className="mx-auto max-w-6xl px-4 md:px-6 py-6">
+            <div className={`flex ${isMobile ? 'flex-col gap-4' : 'items-center justify-between'}`}>
+              <div>
+                <div className="inline-flex items-center gap-2 rounded-full bg-primary/10 backdrop-blur-sm px-4 py-2 text-sm font-bold text-primary mb-3 border border-primary/20">
+                  <Brain className="w-4 h-4" />
+                  Round 1 • Quiz Portal
+                </div>
+                <h1 className={`font-black tracking-tight bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent ${isMobile ? 'text-2xl' : 'text-3xl'}`}>
+                  Techpreneur Summit 3.0 Quiz
+                </h1>
+                <p className="text-muted-foreground mt-2 bg-background/50 backdrop-blur-sm px-4 py-2 rounded-lg border border-border/50 inline-block">
+                  15 questions • 30 minutes • Token trade-offs per option
+                </p>
               </div>
-              <h3 className="text-lg font-medium mb-2 text-foreground">Quiz Not Available</h3>
-              <p className="text-muted-foreground mb-4">
-                The quiz is currently set to pending status. Please wait for the admin to activate the quiz.
-              </p>
-              <p className="text-sm text-muted-foreground">
-                Contact the event organizers if you believe this is an error.
-              </p>
+              <div className={`${isMobile ? 'text-left' : 'text-right'}`}>
+                <div className="bg-primary/5 backdrop-blur-sm px-4 py-3 rounded-xl border border-primary/20">
+                  <p className="font-bold text-foreground">{user.name}</p>
+                  <p className="text-sm text-muted-foreground">
+                    Team: {user.team?.name || `Team ID: ${user.teamId || 'None'}`}
+                  </p>
+                </div>
+              </div>
             </div>
-            <Link
-              href="/dashboard"
-              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
-            >
-              Return to Dashboard
-            </Link>
           </div>
-        ) : (
-          <QuizComponent
-            questions={questions}
-            answers={answers}
-            onAnswerChange={handleAnswerChange}
-            currentQ={currentQ}
-            onCurrentQChange={setCurrentQ}
-            onSubmit={handleSubmitQuiz}
-            submitting={submitting}
-            quizActive={quizActive}
-            timeLeft={timeLeft}
-            isFullscreen={isFullscreen}
-            onToggleFullscreen={toggleFullscreen}
-            message={message}
-          />
-        )}
+        </div>
+
+        {/* Quiz Content */}
+        <div className="relative mx-auto max-w-6xl px-6 py-8">
+          {!quizActive && !showRules ? (
+            <div className="relative group">
+              <div className="absolute -inset-1 bg-gradient-to-r from-yellow-500/30 to-amber-500/30 rounded-2xl blur opacity-25 group-hover:opacity-75 transition-opacity duration-300"></div>
+              <div className="relative bg-card/80 backdrop-blur-xl border border-yellow-500/20 rounded-2xl p-8 text-center shadow-2xl">
+                <div className="mb-6">
+                  <div className="inline-flex items-center gap-2 rounded-full bg-yellow-500/10 backdrop-blur-sm px-4 py-2 text-sm font-bold text-yellow-600 dark:text-yellow-400 mb-4 border border-yellow-500/20">
+                    <Clock className="w-4 h-4" />
+                    Quiz Pending
+                  </div>
+                  <h3 className="text-lg font-bold mb-2 text-foreground">Quiz Not Available</h3>
+                  <p className="text-muted-foreground mb-4">
+                    The quiz is currently set to pending status. Please wait for the admin to activate the quiz.
+                  </p>
+                  <p className="text-sm text-muted-foreground bg-yellow-500/5 backdrop-blur-sm px-4 py-2 rounded-lg border border-yellow-500/20">
+                    Contact the event organizers if you believe this is an error.
+                  </p>
+                </div>
+                <Link
+                  href="/dashboard"
+                  className="group relative inline-flex items-center justify-center px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative">Return to Dashboard</div>
+                </Link>
+              </div>
+            </div>
+          ) : (
+            <QuizComponent
+              questions={questions}
+              answers={answers}
+              onAnswerChange={handleAnswerChange}
+              currentQ={currentQ}
+              onCurrentQChange={setCurrentQ}
+              onSubmit={handleSubmitQuiz}
+              submitting={submitting}
+              quizActive={quizActive}
+              timeLeft={timeLeft}
+              isFullscreen={isFullscreen}
+              onToggleFullscreen={toggleFullscreen}
+              message={message}
+            />
+          )}
+        </div>
       </div>
-    </div>
     </PageLock>
   );
 }
