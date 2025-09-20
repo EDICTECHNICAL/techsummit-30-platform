@@ -2,21 +2,19 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { questions } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { requireAdmin } from '@/lib/auth-middleware';
 
 // PATCH handler - Update question (Admin only)
 export async function PATCH(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    // TODO: Replace with real authentication logic
-    const session = { user: { id: 'test-user-id' } };
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Authentication required', code: 'UNAUTHENTICATED' }, { status: 401 });
-    }
+    // Require admin authentication
+    const adminUser = await requireAdmin(request);
+    
     const { id } = await context.params;
     const questionId = parseInt(id);
     if (!questionId || isNaN(questionId)) {
       return NextResponse.json({ error: 'Valid question ID is required', code: 'INVALID_ID' }, { status: 400 });
     }
-    // userRoles table removed. Add admin check if needed.
     const updates = await request.json();
     const allowedFields = ['text', 'order', 'maxTokenPerQuestion'];
     const filteredUpdates: Record<string, any> = {};
@@ -48,24 +46,29 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
     return NextResponse.json(updatedQuestion[0]);
   } catch (error) {
     console.error('PATCH question error:', error);
-    return NextResponse.json({ error: 'Internal server error: ' + error }, { status: 500 });
+    
+    if (error instanceof Error && (error.message === 'Authentication required' || error.message === 'Admin access required')) {
+      return NextResponse.json({ 
+        error: error.message,
+        code: error.message === 'Authentication required' ? 'UNAUTHENTICATED' : 'ADMIN_REQUIRED'
+      }, { status: error.message === 'Authentication required' ? 401 : 403 });
+    }
+    
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
 
 // DELETE handler - Delete question (Admin only)
 export async function DELETE(request: NextRequest, context: { params: Promise<{ id: string }> }) {
   try {
-    // TODO: Replace with real authentication logic
-    const session = { user: { id: 'test-user-id' } };
-    if (!session?.user?.id) {
-      return NextResponse.json({ error: 'Authentication required', code: 'UNAUTHENTICATED' }, { status: 401 });
-    }
+    // Require admin authentication
+    const adminUser = await requireAdmin(request);
+    
     const { id } = await context.params;
     const questionId = parseInt(id);
     if (!questionId || isNaN(questionId)) {
       return NextResponse.json({ error: 'Valid question ID is required', code: 'INVALID_ID' }, { status: 400 });
     }
-    // userRoles table removed. Add admin check if needed.
     // Delete question (cascade will handle options)
     const deletedQuestion = await db
       .delete(questions)
@@ -77,6 +80,14 @@ export async function DELETE(request: NextRequest, context: { params: Promise<{ 
     return NextResponse.json({ message: 'Question successfully deleted', question: deletedQuestion[0] });
   } catch (error) {
     console.error('DELETE question error:', error);
-    return NextResponse.json({ error: 'Internal server error: ' + error }, { status: 500 });
+    
+    if (error instanceof Error && (error.message === 'Authentication required' || error.message === 'Admin access required')) {
+      return NextResponse.json({ 
+        error: error.message,
+        code: error.message === 'Authentication required' ? 'UNAUTHENTICATED' : 'ADMIN_REQUIRED'
+      }, { status: error.message === 'Authentication required' ? 401 : 403 });
+    }
+    
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

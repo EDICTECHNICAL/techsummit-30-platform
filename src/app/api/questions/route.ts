@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '../../../db/index';
 import { questions, options } from '../../../db/schema';
 import { eq, and } from 'drizzle-orm';
+import { requireAdmin } from '@/lib/auth-middleware';
 
 // GET handler - List all questions with options
 export async function GET(request: NextRequest) {
@@ -65,27 +66,8 @@ export async function GET(request: NextRequest) {
 // POST handler - Create new question (Admin only)
 export async function POST(request: NextRequest) {
   try {
-  // TODO: Replace with real authentication logic
-  const session = { user: { id: 'test-user-id' } };
-    if (!session?.user?.id) {
-      return NextResponse.json({ 
-        error: 'Authentication required', 
-        code: 'UNAUTHENTICATED' 
-      }, { status: 401 });
-    }
-
-    // Verify user is admin
-    const isAdmin = await db
-      .select()
-        .from(questions) // Placeholder for admin check if needed
-        // userRoles table removed. Add admin check if needed.
-
-    if (isAdmin.length === 0) {
-      return NextResponse.json({ 
-        error: 'Admin access required', 
-        code: 'ADMIN_REQUIRED' 
-      }, { status: 403 });
-    }
+    // Require admin authentication
+    const adminUser = await requireAdmin(request);
 
     const { text, order, maxTokenPerQuestion = 4 } = await request.json();
     
@@ -116,6 +98,14 @@ export async function POST(request: NextRequest) {
     return NextResponse.json(newQuestion[0], { status: 201 });
   } catch (error) {
     console.error('POST questions error:', error);
-    return NextResponse.json({ error: 'Internal server error: ' + error }, { status: 500 });
+    
+    if (error instanceof Error && (error.message === 'Authentication required' || error.message === 'Admin access required')) {
+      return NextResponse.json({ 
+        error: error.message,
+        code: error.message === 'Authentication required' ? 'UNAUTHENTICATED' : 'ADMIN_REQUIRED'
+      }, { status: error.message === 'Authentication required' ? 401 : 403 });
+    }
+    
+    return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }

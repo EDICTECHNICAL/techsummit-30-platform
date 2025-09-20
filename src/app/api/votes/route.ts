@@ -4,7 +4,11 @@ import { votes, rounds } from '@/db/schema';
 import { eq, and, count } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET!;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 // POST handler - Cast vote (Team leaders only during voting round)
 export async function POST(request: NextRequest) {

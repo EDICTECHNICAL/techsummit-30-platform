@@ -64,9 +64,41 @@ const nextConfig: NextConfig = {
       {
         source: "/:path*",
         headers: [
+          // Prevent XSS attacks
           { key: "X-Frame-Options", value: "DENY" },
           { key: "X-Content-Type-Options", value: "nosniff" },
+          { key: "X-XSS-Protection", value: "1; mode=block" },
+          
+          // Referrer policy
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
+          
+          // Strict Transport Security (HTTPS only)
+          { key: "Strict-Transport-Security", value: "max-age=31536000; includeSubDomains; preload" },
+          
+          // Content Security Policy
+          { 
+            key: "Content-Security-Policy", 
+            value: [
+              "default-src 'self'",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://slelguoygbfzlpylpxfs.supabase.co",
+              "style-src 'self' 'unsafe-inline'",
+              "img-src 'self' data: https:",
+              "font-src 'self' data:",
+              "connect-src 'self' https://vercel.live wss://vercel.live https://slelguoygbfzlpylpxfs.supabase.co",
+              "media-src 'self'",
+              "object-src 'none'",
+              "base-uri 'self'",
+              "form-action 'self'",
+              "frame-ancestors 'none'",
+              "upgrade-insecure-requests"
+            ].join("; ")
+          },
+          
+          // Permissions Policy (Feature Policy)
+          { 
+            key: "Permissions-Policy", 
+            value: "camera=(), microphone=(), geolocation=(), payment=(), usb=(), magnetometer=(), gyroscope=(), accelerometer=()"
+          },
         ],
       },
     ];

@@ -5,7 +5,11 @@ import { db } from '@/db';
 import { user, teams } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET!;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 interface AuthUser {
   id: string;
@@ -119,11 +123,23 @@ export async function requireAdmin(req: NextRequest): Promise<AuthUser> {
 
 export async function requireJudge(req: NextRequest): Promise<boolean> {
   try {
-    // Check for judge authentication cookie
-    const judgeAuth = req.cookies.get('judge-auth')?.value;
-    const adminAuth = req.cookies.get('admin-auth')?.value;
+    // Check for secure judge JWT token
+    const judgeToken = req.cookies.get('judge-token')?.value;
+    const adminAuthUser = await authenticateRequest(req);
     
-    return judgeAuth === 'true' || adminAuth === 'true';
+    // Admin users can access judge functionality
+    if (adminAuthUser?.isAdmin) {
+      return true;
+    }
+
+    if (!judgeToken) {
+      return false;
+    }
+
+    // Verify judge JWT token
+    const decoded = jwt.verify(judgeToken, JWT_SECRET) as any;
+    
+    return decoded.isJudge === true && decoded.judgeId;
   } catch (error) {
     console.error('Judge authentication error:', error);
     return false;

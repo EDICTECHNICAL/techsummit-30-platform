@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { pitches, teams, rounds } from '@/db/schema';
 import { eq, and } from 'drizzle-orm';
+import { requireAuth } from '@/lib/auth-middleware';
 
 // GET handler - List all pitches
 export async function GET(request: NextRequest) {
@@ -30,15 +31,9 @@ export async function GET(request: NextRequest) {
 // POST handler - Create pitch (Team leaders only during voting round)
 export async function POST(request: NextRequest) {
   try {
-  // TODO: Replace with real authentication logic
-  const session = { user: { id: 'test-user-id' } };
-    if (!session?.user?.id) {
-      return NextResponse.json({ 
-        error: 'Authentication required', 
-        code: 'UNAUTHENTICATED' 
-      }, { status: 401 });
-    }
-
+    // Require user authentication
+    const authUser = await requireAuth(request);
+    
     const { teamId, videoUrl, deckUrl } = await request.json();
     
     if (!teamId) {
@@ -48,7 +43,13 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // No leader check; allow any authenticated user
+    // Verify user belongs to the team they're submitting for
+    if (authUser.team?.id !== teamId) {
+      return NextResponse.json({ 
+        error: 'You can only submit pitches for your own team', 
+        code: 'UNAUTHORIZED_TEAM_ACCESS' 
+      }, { status: 403 });
+    }
 
     // Check if voting round is active
     const votingRound = await db

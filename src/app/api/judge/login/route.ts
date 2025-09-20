@@ -3,6 +3,13 @@ import { db } from "@/db";
 import { judges } from "@/db/schema";
 import { eq } from "drizzle-orm";
 import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
+
+const JWT_SECRET = process.env.JWT_SECRET!;
+
+if (!JWT_SECRET) {
+  throw new Error('JWT_SECRET environment variable is required');
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,6 +47,16 @@ export async function POST(req: NextRequest) {
       }, { status: 401 });
     }
 
+    // Create JWT token for judge
+    const judgeTokenPayload = {
+      judgeId: judge.id,
+      username: judge.username,
+      role: 'judge',
+      isJudge: true
+    };
+
+    const judgeToken = jwt.sign(judgeTokenPayload, JWT_SECRET, { expiresIn: '24h' });
+
     // Create response with authentication cookies
     const response = NextResponse.json({ 
       success: true, 
@@ -48,18 +65,20 @@ export async function POST(req: NextRequest) {
         id: judge.id,
         username: judge.username,
         name: judge.name
-      }
+      },
+      token: judgeToken
     });
 
-    // Set judge authentication cookie
-    response.cookies.set("judge-auth", "true", {
+    // Set secure judge authentication cookie with JWT token
+    response.cookies.set("judge-token", judgeToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
-      maxAge: 60 * 60 * 24 // 24 hours
+      sameSite: "strict",
+      maxAge: 60 * 60 * 24, // 24 hours
+      path: '/'
     });
 
-    // Store judge user data in cookie for session
+    // Store minimal judge user data in cookie for client-side display
     response.cookies.set("judge-user", JSON.stringify({
       id: judge.id,
       username: judge.username,
@@ -67,7 +86,7 @@ export async function POST(req: NextRequest) {
     }), {
       httpOnly: false, // Allow client-side access for user data
       secure: process.env.NODE_ENV === "production",
-      sameSite: "lax",
+      sameSite: "strict",
       maxAge: 60 * 60 * 24 // 24 hours
     });
 

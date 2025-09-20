@@ -31,12 +31,13 @@ export async function GET(request: NextRequest) {
       // Add client to emitter
       votingEmitter.addClient(sendEvent);
 
-      // Set up heartbeat to keep connection alive
+      // Set up heartbeat to keep connection alive and monitor performance
       const heartbeat = setInterval(() => {
         try {
           const heartbeatData = JSON.stringify({
             type: 'heartbeat',
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            activeConnections: votingEmitter.getClientCount()
           });
           controller.enqueue(encoder.encode(`data: ${heartbeatData}\n\n`));
         } catch (error) {
