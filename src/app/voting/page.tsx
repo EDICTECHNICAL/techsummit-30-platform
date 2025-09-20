@@ -7,6 +7,7 @@ import VotingLayout from '@/components/ui/VotingLayout';
 import PageLock from "@/components/ui/PageLock";
 import { useRoundStatus } from "@/hooks/useRoundStatus";
 import { useVotingSSE } from "@/hooks/useVotingSSE";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface User {
@@ -65,6 +66,8 @@ interface VotingStatus {
 }
 
 export default function VotingPage() {
+  const isMobile = useIsMobile();
+  
   // Page lock functionality
   const { isCompleted: isVotingCompleted, loading: roundLoading } = useRoundStatus('VOTING');
   
@@ -590,11 +593,11 @@ export default function VotingPage() {
   // Show loading state while session is loading
   if (isPending) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 mobile-padding">
+        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-6 md:p-8 text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Loading...</h2>
-          <p className="text-muted-foreground">Checking authentication status</p>
+          <h2 className={`font-bold mb-2 text-gray-900 dark:text-white ${isMobile ? 'text-lg' : 'text-xl'}`}>Loading...</h2>
+          <p className="text-muted-foreground text-sm">Checking authentication status</p>
         </div>
       </div>
     );
@@ -603,17 +606,17 @@ export default function VotingPage() {
   // Show authentication required if not logged in
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 mobile-padding">
+        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-6 md:p-8 text-center">
           <Trophy className="h-12 w-12 text-orange-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Authentication Required</h2>
-          <p className="mb-4 text-muted-foreground">
+          <h2 className={`font-bold mb-2 text-gray-900 dark:text-white ${isMobile ? 'text-lg' : 'text-xl'}`}>Authentication Required</h2>
+          <p className="mb-4 text-muted-foreground text-sm">
             You need to be signed in with a team account to participate in voting.
           </p>
           <div className="space-y-3">
             <a 
               href="/sign-in" 
-              className="block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors min-h-[44px] flex items-center justify-center active:scale-95"
             >
               Sign In to Team
             </a>
@@ -801,10 +804,10 @@ export default function VotingPage() {
             <label className="block text-sm font-medium mb-2">
               Are you the customer for this product?
             </label>
-            <div className="flex gap-4">
+            <div className={`flex gap-4 ${isMobile ? 'flex-col' : ''}`}>
               <button
                 onClick={() => setVoteValue(1)}
-                className={`rounded-md border px-4 py-2 text-sm font-semibold transition-colors ${
+                className={`rounded-md border px-4 py-2 text-sm font-semibold transition-colors min-h-[44px] active:scale-95 ${
                   voteValue === 1
                     ? "bg-green-600 border-green-600 text-white"
                     : "border-border text-foreground hover:bg-accent"
@@ -815,7 +818,7 @@ export default function VotingPage() {
               </button>
               <button
                 onClick={() => setVoteValue(-1)}
-                className={`rounded-md border px-4 py-2 text-sm font-semibold transition-colors ${
+                className={`rounded-md border px-4 py-2 text-sm font-semibold transition-colors min-h-[44px] active:scale-95 ${
                   voteValue === -1
                     ? "bg-red-600 border-red-600 text-white"
                     : "border-border text-foreground hover:bg-accent"

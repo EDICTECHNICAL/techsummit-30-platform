@@ -15,6 +15,9 @@ export async function POST(req: NextRequest) {
   try {
     const { username, password } = await req.json();
 
+    console.log('Judge login attempt - Username:', username);
+    console.log('Judge login attempt - Password:', password);
+
     if (!username || !password) {
       return NextResponse.json({ 
         success: false, 
@@ -28,7 +31,10 @@ export async function POST(req: NextRequest) {
       .where(eq(judges.username, username))
       .limit(1);
 
+    console.log('Judge query result:', judgeUser);
+
     if (judgeUser.length === 0) {
+      console.log('No judge found for username:', username);
       return NextResponse.json({ 
         success: false, 
         error: "Invalid judge credentials" 
@@ -37,10 +43,16 @@ export async function POST(req: NextRequest) {
 
     const judge = judgeUser[0];
 
+    console.log('Stored judge hash:', judge.password);
+    console.log('Comparing password:', password);
+
     // Verify password
     const isValidPassword = await bcrypt.compare(password, judge.password);
 
+    console.log('Judge password valid:', isValidPassword);
+
     if (!isValidPassword) {
+      console.log('Judge password mismatch for username:', username);
       return NextResponse.json({ 
         success: false, 
         error: "Invalid judge credentials" 

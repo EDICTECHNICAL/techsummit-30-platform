@@ -1,16 +1,93 @@
 "use client";
 
-import { DashboardNavbar } from "@/components/DashboardNavbar";
+import { useEffect, useState } from "react";
+import Link from "next/link";
+import { ArrowLeft, Trophy, Clock, Users, Target, Award, CheckCircle, AlertTriangle, FileText, Shield, Zap } from "lucide-react";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "../../components/ui/badge";
-import { AlertTriangle, Clock, Users, Trophy, FileText, Shield, Zap } from "lucide-react";
 
-export default function CompetitionRulesPage() {
+interface User {
+  id: string;
+  name: string;
+  username: string;
+  isAdmin: boolean;
+  team?: {
+    id: number;
+    name: string;
+    college: string;
+    role: string;
+  } | null;
+}
+
+export default function RulesPage() {
+  const isMobile = useIsMobile();
+  const [user, setUser] = useState<User | null>(null);
+  const [isPending, setIsPending] = useState(true);
+
+  useEffect(() => {
+    setIsPending(true);
+    try {
+      const stored = localStorage.getItem("user");
+      if (stored) {
+        const parsedUser = JSON.parse(stored) as User;
+        setUser(parsedUser);
+      } else {
+        setUser(null);
+      }
+    } catch (e) {
+      console.error("Error parsing user from localStorage:", e);
+      setUser(null);
+    }
+    setIsPending(false);
+  }, []);
+
+  if (isPending) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto mb-4"></div>
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-gray-50 via-blue-50 to-indigo-100 dark:from-gray-900 dark:via-blue-900 dark:to-indigo-900">
-      <DashboardNavbar />
-      
-      <div className="pt-24 pb-12 px-6">
+      {/* Header */}
+      <div className="border-b bg-background/80 backdrop-blur-sm sticky top-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="flex items-center justify-between h-16">
+            <div className="flex items-center gap-4">
+              <Link 
+                href="/dashboard" 
+                className="inline-flex items-center gap-2 text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+              >
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Link>
+              <div className="h-6 w-px bg-border" />
+              <h1 className="text-lg font-semibold">Competition Rules</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              {user && (
+                <div className="hidden sm:flex items-center gap-2 text-sm">
+                  <span className="text-muted-foreground">Welcome,</span>
+                  <span className="font-medium">{user.name}</span>
+                  {user.team && (
+                    <Badge variant="secondary">{user.team.name}</Badge>
+                  )}
+                </div>
+              )}
+              <ThemeToggle />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="pt-8 pb-12 px-6">
         <div className="max-w-4xl mx-auto">
           {/* Header */}
           <div className="text-center mb-12">
@@ -18,7 +95,7 @@ export default function CompetitionRulesPage() {
               TECHPRENEUR SUMMIT 2.0
             </h1>
             <h2 className="text-2xl font-semibold mb-4 text-green-600 dark:text-green-400">
-                The Startup Strategy League
+              The Startup Strategy League
             </h2>
             <p className="text-lg text-muted-foreground max-w-3xl mx-auto">
               An entrepreneurial strategy game where teams navigate the challenges of building and scaling a startup. 
@@ -48,14 +125,14 @@ export default function CompetitionRulesPage() {
                     <Clock className="h-6 w-6 text-green-600 dark:text-green-400" />
                   </div>
                   <h3 className="font-semibold">Multiple Rounds</h3>
-                  <p className="text-sm text-muted-foreground">Quiz → Voting → Finals</p>
+                  <p className="text-sm text-muted-foreground">Quiz, Voting & Final rounds</p>
                 </div>
                 <div className="text-center">
                   <div className="bg-purple-100 dark:bg-purple-900 rounded-full p-3 w-12 h-12 mx-auto mb-2 flex items-center justify-center">
                     <Trophy className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                   </div>
-                  <h3 className="font-semibold">Judge Scoring</h3>
-                  <p className="text-sm text-muted-foreground">Expert panel evaluation</p>
+                  <h3 className="font-semibold">Competitive</h3>
+                  <p className="text-sm text-muted-foreground">Strategic gameplay</p>
                 </div>
               </div>
             </CardContent>
@@ -65,57 +142,135 @@ export default function CompetitionRulesPage() {
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <FileText className="h-5 w-5" />
+                <Target className="h-5 w-5 text-green-500" />
                 Competition Structure
               </CardTitle>
               <CardDescription>
-                The competition consists of three main phases designed to test different aspects of technical knowledge and presentation skills.
+                The competition consists of three main phases designed to test different entrepreneurial skills
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Round 1: Quiz */}
-              <div className="border rounded-lg p-6 bg-gradient-to-r from-blue-50 to-cyan-50 dark:from-blue-950 dark:to-cyan-950">
-                <div className="flex items-center gap-3 mb-4">
-                  <Badge variant="outline" className="bg-blue-500 text-white border-blue-500">Round 1</Badge>
-                  <h3 className="text-xl font-semibold">Technical Quiz</h3>
+              <div className="border rounded-lg p-4 bg-blue-50 dark:bg-blue-950">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="bg-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">1</div>
+                  <h3 className="text-lg font-semibold text-blue-700 dark:text-blue-300">Knowledge Round (Quiz)</h3>
+                  <Badge variant="secondary">Individual</Badge>
                 </div>
-                <ul className="space-y-2 text-sm">
-                  <li>• <strong>Duration:</strong> 30 minutes</li>
-                  <li>• <strong>Format:</strong> Multiple choice questions</li>
-                  <li>• <strong>Topics:</strong> Programming fundamentals, algorithms, data structures, web technologies</li>
-                  <li>• <strong>Scoring:</strong> Each correct answer earns tokens</li>
-                  <li>• <strong>Team participation:</strong> All members can contribute</li>
-                </ul>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Test your entrepreneurial knowledge and business acumen through a comprehensive quiz covering startup fundamentals, 
+                  market dynamics, and strategic thinking.
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>20 multiple-choice questions</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>Time limit: 15 minutes</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>Individual scoring contributes to team total</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Round 2: Voting/Pitching */}
-              <div className="border rounded-lg p-6 bg-gradient-to-r from-green-50 to-emerald-50 dark:from-green-950 dark:to-emerald-950">
-                <div className="flex items-center gap-3 mb-4">
-                  <Badge variant="outline" className="bg-green-500 text-white border-green-500">Round 2</Badge>
-                  <h3 className="text-xl font-semibold">Project Pitching & Peer Voting</h3>
+              {/* Round 2: Voting */}
+              <div className="border rounded-lg p-4 bg-green-50 dark:bg-green-950">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="bg-green-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">2</div>
+                  <h3 className="text-lg font-semibold text-green-700 dark:text-green-300">Strategy Round (Voting)</h3>
+                  <Badge variant="secondary">Team</Badge>
                 </div>
-                <ul className="space-y-2 text-sm">
-                  <li>• <strong>Duration:</strong> 1.5 minutes per team presentation</li>
-                  <li>• <strong>Format:</strong> Live presentation + Q&A</li>
-                  <li>• <strong>Content:</strong> Present your innovative project idea or solution</li>
-                  <li>• <strong>Voting:</strong> Teams vote for other teams (cannot vote for themselves)</li>
-                  <li>• <strong>Scoring:</strong> Peer votes contribute to overall score</li>
-                </ul>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Demonstrate strategic thinking by evaluating and voting on various business scenarios, 
+                  startup pitches, and market opportunities.
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>Multiple voting scenarios</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>Team consensus required</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>Strategic decision making</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Round 3: Finals */}
-              <div className="border rounded-lg p-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950 dark:to-pink-950">
-                <div className="flex items-center gap-3 mb-4">
-                  <Badge variant="outline" className="bg-purple-500 text-white border-purple-500">Round 3</Badge>
-                  <h3 className="text-xl font-semibold">Finals - Judge Evaluation</h3>
+              {/* Round 3: Final */}
+              <div className="border rounded-lg p-4 bg-purple-50 dark:bg-purple-950">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="bg-purple-600 text-white rounded-full w-8 h-8 flex items-center justify-center text-sm font-bold">3</div>
+                  <h3 className="text-lg font-semibold text-purple-700 dark:text-purple-300">Final Round (Presentation)</h3>
+                  <Badge variant="secondary">Team</Badge>
                 </div>
-                <ul className="space-y-2 text-sm">
-                  <li>• <strong>Participants:</strong> Top qualifying teams from previous rounds</li>
-                  <li>• <strong>Duration:</strong> 5 minutes per team (3 min presentation + 2 min Q&A)</li>
-                  <li>• <strong>Format:</strong> Comprehensive project demonstration</li>
-                  <li>• <strong>Evaluation:</strong> Expert judges rate on multiple criteria</li>
-                  <li>• <strong>Scoring:</strong> Professional evaluation determines final rankings</li>
-                </ul>
+                <p className="text-sm text-muted-foreground mb-3">
+                  Present your startup concept, business model, and growth strategy to a panel of judges 
+                  and receive peer evaluations from other teams.
+                </p>
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>5-minute team presentation</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>Judge evaluation and scoring</span>
+                  </div>
+                  <div className="flex items-center gap-2 text-sm">
+                    <CheckCircle className="h-4 w-4 text-green-500" />
+                    <span>Peer rating system</span>
+                  </div>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Important Guidelines */}
+          <Card className="mb-8 border-orange-200 dark:border-orange-800">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2 text-orange-700 dark:text-orange-300">
+                <AlertTriangle className="h-5 w-5" />
+                Important Guidelines
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-3">
+                <div className="flex items-start gap-3">
+                  <Shield className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-medium">Fair Play</h4>
+                    <p className="text-sm text-muted-foreground">All participants must maintain integrity throughout the competition. Any form of cheating or misconduct will result in immediate disqualification.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Clock className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-medium">Time Management</h4>
+                    <p className="text-sm text-muted-foreground">Each round has strict time limits. Late submissions or presentations will not be accepted under any circumstances.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <Users className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-medium">Team Collaboration</h4>
+                    <p className="text-sm text-muted-foreground">All team members must participate actively. Teams with inactive members may face point deductions.</p>
+                  </div>
+                </div>
+                <div className="flex items-start gap-3">
+                  <FileText className="h-5 w-5 text-orange-500 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <h4 className="font-medium">Documentation</h4>
+                    <p className="text-sm text-muted-foreground">Keep records of your strategies and decisions. You may be asked to explain your reasoning during evaluations.</p>
+                  </div>
+                </div>
               </div>
             </CardContent>
           </Card>
@@ -124,123 +279,61 @@ export default function CompetitionRulesPage() {
           <Card className="mb-8">
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
-                <Trophy className="h-5 w-5" />
+                <Award className="h-5 w-5 text-yellow-500" />
                 Scoring System
               </CardTitle>
+              <CardDescription>
+                Understanding how points are awarded across different rounds
+              </CardDescription>
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                <div className="grid md:grid-cols-2 gap-6">
-                  <div className="space-y-3">
-                    <h4 className="font-semibold text-blue-600 dark:text-blue-400">Token Score (Quiz)</h4>
-                    <ul className="text-sm space-y-1">
-                      <li>• Correct answers earn tokens</li>
-                      <li>• Cumulative team score</li>
-                      <li>• Real-time scoring updates</li>
-                    </ul>
+                <div className="grid md:grid-cols-3 gap-4">
+                  <div className="text-center p-4 bg-blue-50 dark:bg-blue-950 rounded-lg">
+                    <div className="text-2xl font-bold text-blue-600 dark:text-blue-400 mb-1">30%</div>
+                    <div className="text-sm font-medium">Quiz Round</div>
+                    <div className="text-xs text-muted-foreground">Individual knowledge</div>
                   </div>
-                  <div className="space-y-3">
-                    <h4 className="font-semibold text-green-600 dark:text-green-400">Judge Score (Finals)</h4>
-                    <ul className="text-sm space-y-1">
-                      <li>• Multiple evaluation criteria</li>
-                      <li>• Expert panel assessment</li>
-                      <li>• Final ranking determination</li>
-                    </ul>
+                  <div className="text-center p-4 bg-green-50 dark:bg-green-950 rounded-lg">
+                    <div className="text-2xl font-bold text-green-600 dark:text-green-400 mb-1">30%</div>
+                    <div className="text-sm font-medium">Voting Round</div>
+                    <div className="text-xs text-muted-foreground">Strategic decisions</div>
+                  </div>
+                  <div className="text-center p-4 bg-purple-50 dark:bg-purple-950 rounded-lg">
+                    <div className="text-2xl font-bold text-purple-600 dark:text-purple-400 mb-1">40%</div>
+                    <div className="text-sm font-medium">Final Round</div>
+                    <div className="text-xs text-muted-foreground">Presentation & evaluation</div>
                   </div>
                 </div>
-                <div className="mt-6 p-4 bg-yellow-50 dark:bg-yellow-950 rounded-lg border border-yellow-200 dark:border-yellow-800">
-                  <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Combined Scoring</h4>
-                  <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                    <strong>Final Score = Token Score + Judge Score</strong><br />
-                    Both components contribute equally to determine the overall winner.
-                  </p>
+                <div className="text-sm text-muted-foreground text-center">
+                  Final ranking is determined by total accumulated points across all rounds
                 </div>
               </div>
             </CardContent>
           </Card>
 
-          {/* Rules & Guidelines */}
-          <Card className="mb-8">
+          {/* Contact & Support */}
+          <Card>
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Shield className="h-5 w-5" />
-                Competition Rules
-              </CardTitle>
+              <CardTitle>Need Help?</CardTitle>
+              <CardDescription>
+                For questions, technical issues, or clarifications about the rules
+              </CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="space-y-6">
-                <div>
-                  <h4 className="font-semibold mb-3 text-blue-600 dark:text-blue-400">Team Formation</h4>
-                  <ul className="space-y-2 text-sm">
-                    <li>• Teams must consist of 2-4 members</li>
-                    <li>• All team members must be registered participants</li>
-                    <li>• Team composition cannot be changed after registration closes</li>
-                    <li>• Each participant can only be part of one team</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-3 text-green-600 dark:text-green-400">Fair Play</h4>
-                  <ul className="space-y-2 text-sm">
-                    <li>• No external assistance during quiz rounds</li>
-                    <li>• Original work only - plagiarism will result in disqualification</li>
-                    <li>• Teams cannot vote for themselves in peer voting</li>
-                    <li>• Respectful behavior towards all participants and judges</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-3 text-purple-600 dark:text-purple-400">Technical Requirements</h4>
-                  <ul className="space-y-2 text-sm">
-                    <li>• Stable internet connection required for all rounds</li>
-                    <li>• Compatible device for accessing the competition platform</li>
-                    <li>• Presentation materials must be family-friendly and professional</li>
-                    <li>• Time limits are strictly enforced</li>
-                  </ul>
-                </div>
-
-                <div>
-                  <h4 className="font-semibold mb-3 text-red-600 dark:text-red-400">Disqualification Criteria</h4>
-                  <ul className="space-y-2 text-sm">
-                    <li>• Cheating or attempting to manipulate the system</li>
-                    <li>• Inappropriate or offensive content in presentations</li>
-                    <li>• Violation of code of conduct</li>
-                    <li>• Technical interference with other teams</li>
-                  </ul>
+              <div className="space-y-3">
+                <p className="text-sm">
+                  If you encounter any technical issues or have questions about the competition rules, 
+                  please contact the organizing team immediately.
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  <Badge variant="outline">Event Organizers Available</Badge>
+                  <Badge variant="outline">Technical Support Ready</Badge>
+                  <Badge variant="outline">Real-time Assistance</Badge>
                 </div>
               </div>
             </CardContent>
           </Card>
-
-          {/* Important Notes */}
-          <Card className="border-orange-200 dark:border-orange-800">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-orange-600 dark:text-orange-400">
-                <AlertTriangle className="h-5 w-5" />
-                Important Notes
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3 text-sm">
-                <p>• <strong>Platform Access:</strong> Ensure you can access the competition platform before the event begins.</p>
-                <p>• <strong>Time Zones:</strong> All times are displayed in your local timezone. Please verify event timing.</p>
-                <p>• <strong>Technical Support:</strong> Contact organizers immediately if you experience technical difficulties.</p>
-                <p>• <strong>Judge Decisions:</strong> All judge decisions are final and cannot be appealed.</p>
-                <p>• <strong>Updates:</strong> Rules may be updated before the competition. Check this page regularly.</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Footer */}
-          <div className="text-center mt-12 p-6 bg-gradient-to-r from-blue-50 to-purple-50 dark:from-blue-950 dark:to-purple-950 rounded-lg">
-            <h3 className="text-lg font-semibold mb-2">Ready to Compete?</h3>
-            <p className="text-muted-foreground mb-4">
-              May the best team win! Good luck to all participants in TechSummit 30.
-            </p>
-            <div className="text-sm text-muted-foreground">
-              Last updated: September 2025 | Questions? Contact the organizing team
-            </div>
-          </div>
         </div>
       </div>
     </div>

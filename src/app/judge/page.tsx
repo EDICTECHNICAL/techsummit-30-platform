@@ -1,10 +1,8 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import Link from 'next/link';
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BackButton } from "@/components/BackButton";
-import { SecurityGuard, AntiCheatMeasures } from "@/components/SecurityGuard";
 
 interface Team {
   id: number;
@@ -35,6 +33,7 @@ export default function JudgePage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isJudgeAuthenticated, setIsJudgeAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   // Form state for real-time rating
   const [realTimeRating, setRealTimeRating] = useState<string>('80');
@@ -50,57 +49,37 @@ export default function JudgePage() {
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Check for judge authentication cookie and auto-fetch judge data
+  // Check for judge authentication - final working version
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const isJudge = document.cookie.includes("judge-auth=true");
-      setIsJudgeAuthenticated(isJudge);
+    const checkAuth = () => {
+      if (typeof window === "undefined") return;
       
-      if (!isJudge) {
-        window.location.href = "/judge/login";
+      const cookies = document.cookie;
+      
+      if (!cookies || cookies.length === 0) {
+        setIsJudgeAuthenticated(false);
+        setAuthChecked(true);
         return;
       }
-
-      // Auto-fetch judge user data from cookie
-      const judgeUserCookie = document.cookie
-        .split('; ')
-        .find(row => row.startsWith('judge-user='));
       
-      if (judgeUserCookie) {
-        try {
-          const judgeUserData = JSON.parse(decodeURIComponent(judgeUserCookie.split('=')[1]));
-          setJudgeName(judgeUserData.name || judgeUserData.username || 'Judge');
-        } catch (error) {
-          console.error('Error parsing judge user data:', error);
-          setJudgeName('Judge');
-        }
-      }
-
-      // Security: Block navigation to unauthorized pages
-      const blockNavigation = (e: BeforeUnloadEvent) => {
-        const allowedDomains = ['/scoreboard', '/judge'];
-        const currentPath = window.location.pathname;
-        if (!allowedDomains.some(domain => currentPath.startsWith(domain))) {
-          e.preventDefault();
-          window.location.href = '/scoreboard';
-        }
-      };
-
-      // Block back/forward navigation to unauthorized pages
-      const handlePopState = () => {
-        const currentPath = window.location.pathname;
-        const allowedPaths = ['/scoreboard', '/judge'];
-        if (!allowedPaths.some(path => currentPath.startsWith(path))) {
-          window.location.href = '/scoreboard';
-        }
-      };
-
-      window.addEventListener('popstate', handlePopState);
+      // Split and clean cookies
+      const cookieArray = cookies.split(';').map(cookie => cookie.trim());
       
-      return () => {
-        window.removeEventListener('popstate', handlePopState);
-      };
-    }
+      // Check for authentication cookies
+      const judgeUserCookie = cookieArray.find(cookie => cookie.startsWith('judge-user='));
+      const adminTokenCookie = cookieArray.find(cookie => cookie.startsWith('auth-token='));
+      
+      // Since judge-token is HTTP-only, we use judge-user as authentication indicator
+      const isAuthenticated = !!(judgeUserCookie || adminTokenCookie);
+      
+      setIsJudgeAuthenticated(isAuthenticated);
+      setAuthChecked(true);
+    };
+
+    // Check auth after a small delay to ensure cookies are available
+    const timeoutId = setTimeout(checkAuth, 200);
+    
+    return () => clearTimeout(timeoutId);
   }, []);
 
   // SSE Connection for real-time rating cycle updates
@@ -193,9 +172,60 @@ export default function JudgePage() {
 
   useEffect(() => {
     if (isJudgeAuthenticated) {
+      // Fetch judge information from database
+      fetchJudgeProfile();
       loadData();
     }
   }, [isJudgeAuthenticated]);
+
+  // Fetch judge profile from database
+  const fetchJudgeProfile = async () => {
+    try {
+      const res = await fetch('/api/judge/profile');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.judge) {
+          const judgeName = data.judge.name || data.judge.username || 'Judge';
+          setJudgeName(judgeName);
+          console.log('Successfully loaded judge profile:', data.judge.name, '(', data.judge.username, ')');
+        } else {
+          console.warn('Failed to get judge profile:', data.error);
+          setJudgeName('Judge');
+        }
+      } else {
+        console.warn('Failed to fetch judge profile:', res.status, res.statusText);
+        // Fallback to cookie method if API fails
+        fallbackToJudgeCookie();
+      }
+    } catch (error) {
+      console.error('Error fetching judge profile:', error);
+      // Fallback to cookie method if API fails
+      fallbackToJudgeCookie();
+    }
+  };
+
+  // Fallback method using judge cookie
+  const fallbackToJudgeCookie = () => {
+    if (typeof window !== "undefined") {
+      try {
+        const judgeUserCookie = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('judge-user='));
+        
+        if (judgeUserCookie) {
+          const judgeUserData = JSON.parse(decodeURIComponent(judgeUserCookie.split('=')[1]));
+          setJudgeName(judgeUserData.name || judgeUserData.username || 'Judge');
+          console.log('Fallback: Using judge name from cookie:', judgeUserData.name);
+        } else {
+          setJudgeName('Judge');
+          console.warn('No judge cookie found, using default name');
+        }
+      } catch (error) {
+        console.error('Error parsing judge user data from cookie:', error);
+        setJudgeName('Judge');
+      }
+    }
+  };
 
   const loadData = async () => {
     try {
@@ -307,26 +337,12 @@ export default function JudgePage() {
                          currentPitchTeam && 
                          judgeName.trim().length > 0;
 
-  const handleLogout = async () => {
-    try {
-      await fetch("/api/judge/logout", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" }
-      });
-    } catch (error) {
-      console.error("Logout error:", error);
-    }
-    
-    // Clear judge authentication cookie manually as backup
-    document.cookie = "judge-auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+  const handleLogout = () => {
+    // Clear judge authentication cookies
     document.cookie = "judge-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     document.cookie = "judge-user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
-    
     window.location.href = "/judge/login";
   };
-
-  if (loading || !isJudgeAuthenticated) return <div className="p-6">Loading...</div>;
-  if (!isJudgeAuthenticated) return <div className="p-6">Please sign in to access the judge panel.</div>;
 
   // Group scores by team for display
   const scoresByTeam = teams.map(team => {
@@ -347,42 +363,45 @@ export default function JudgePage() {
   const myTeamIds = new Set(myScores.map(s => s.teamId));
   const availableTeams = teams.filter(team => !myTeamIds.has(team.id));
 
+  // Show loading while checking authentication
+  if (loading || !authChecked) {
+    return <div className="p-6">Loading...</div>;
+  }
+
+  // Redirect to login if not authenticated
+  if (!isJudgeAuthenticated) {
+    // Redirect to judge login page
+    if (typeof window !== "undefined") {
+      window.location.href = "/judge/login";
+    }
+    return <div className="p-6">Redirecting to login...</div>;
+  }
+
   return (
-    <div className="min-h-screen bg-background text-foreground p-6">
-      <SecurityGuard userType="judge" />
-      <AntiCheatMeasures />
-      
+    <div className="min-h-screen bg-background text-foreground mobile-padding pb-20 sm:pb-6 safe-area-padding">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <BackButton />
-          <div className="flex items-center gap-2">
-            <button
-              onClick={toggleFullscreen}
-              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 w-10"
-              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
-            >
-              {isFullscreen ? (
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M15 9v-4.5M15 9h4.5M15 9l5.25-5.25M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 15v4.5M15 15h4.5m0 0l5.25 5.25" />
-                </svg>
-              ) : (
-                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
-                </svg>
-              )}
-            </button>
-            <ThemeToggle />
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+          <div className="flex items-center gap-3">
+            <BackButton />
+            <h1 className="mobile-title mb-0">Judge Console</h1>
           </div>
+          <ThemeToggle />
         </div>
         
-        <h1 className="text-3xl font-bold mb-2">Judge Console</h1>
-        <p className="text-muted-foreground mb-6">
-          Submit scores for team presentations during the final round.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+          <p className="mobile-body text-muted-foreground">
+            Submit scores for team presentations during the final round.
+          </p>
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-full">
+            <span className="mobile-body font-medium text-blue-800 dark:text-blue-200">
+              👨‍⚖️ {judgeName}
+            </span>
+          </div>
+        </div>
 
         {/* Real-Time Rating Section */}
-        <div className="rounded-lg border bg-card p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">🎯 Real-Time Final Round Rating</h2>
+        <div className="mobile-card mb-6">
+          <h2 className="mobile-subtitle mb-4">🎯 Real-Time Final Round Rating</h2>
           
           {/* Current pitch team status */}
           {currentPitchTeam ? (
@@ -417,13 +436,13 @@ export default function JudgePage() {
           {/* Rating form for current pitch */}
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium mb-2">Judge Name</label>
-              <div className="w-full rounded-md border border-input bg-muted px-3 py-2 text-muted-foreground">
-                {judgeName || 'Loading...'}
+              <label className="block text-sm font-medium mb-2">Logged in as Judge</label>
+              <div className="w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                <span className="font-medium">{judgeName}</span>
+                {judgeName === 'Judge' && (
+                  <span className="text-muted-foreground ml-2">(Loading...)</span>
+                )}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Auto-detected from login
-              </p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">
@@ -561,12 +580,6 @@ export default function JudgePage() {
           >
             {loading ? 'Refreshing...' : 'Refresh Data'}
           </button>
-          <a 
-            href="/scoreboard" 
-            className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium"
-          >
-            View Scoreboard
-          </a>
           <button 
             onClick={handleLogout}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"

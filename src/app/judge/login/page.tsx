@@ -19,7 +19,8 @@ export default function JudgeLogin() {
       const res = await fetch("/api/judge/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ username, password })
+        body: JSON.stringify({ username, password }),
+        credentials: 'include' // Ensure cookies are included
       });
       
       const result = await res.json();
@@ -30,10 +31,17 @@ export default function JudgeLogin() {
         return;
       }
       
+// ...existing code...
       // Successful login - wait a moment for cookies to be set, then redirect
       setTimeout(() => {
         window.location.href = "/judge";
       }, 100);
+// ...existing code...
+      // Add a small delay to ensure cookies are set before redirecting
+      setTimeout(() => {
+        window.location.href = "/judge"; // Use window.location instead of router.push for full page reload
+      }, 500);
+// ...existing code...
     } catch (err: any) {
       setError("Login failed. Please try again.");
       setLoading(false);

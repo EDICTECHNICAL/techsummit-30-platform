@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { useIsMobile } from "@/hooks/use-mobile";
 
 interface LeaderboardTeam {
   rank: number;
@@ -64,6 +65,7 @@ interface LeaderboardData {
 }
 
 export default function ScoreboardPage() {
+  const isMobile = useIsMobile();
   const [data, setData] = useState<LeaderboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -192,22 +194,22 @@ export default function ScoreboardPage() {
   const maxFinalScore = data.leaderboard[0]?.finalCumulativeScore || 0;
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6 event-section-bg">
+    <div className="min-h-screen bg-background text-foreground mobile-padding pb-20 event-section-bg">
       <div className="max-w-7xl mx-auto">
         {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-8">
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-6 md:mb-8">
           <div>
-            <h1 className="text-3xl font-bold flex items-center gap-3 event-text-gradient">
+            <h1 className={`font-bold flex items-center gap-3 event-text-gradient ${isMobile ? 'text-2xl mobile-title' : 'text-3xl'}`}>
               🏆 Techpreneur Summit 3.0 - Live Scoreboard
             </h1>
-            <p className="text-muted-foreground mt-1">
+            <p className="text-muted-foreground mt-1 text-sm md:text-base">
               Competition rankings • {data.metadata.totalTeams} teams competing
             </p>
           </div>
-          <div className="flex items-center gap-4 mt-4 md:mt-0">
+          <div className={`flex items-center gap-4 mt-4 md:mt-0 ${isMobile ? 'flex-wrap' : ''}`}>
             <Link
               href="/dashboard"
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border bg-card/50 backdrop-blur-sm hover:bg-accent text-sm transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-md border border-border bg-card/50 backdrop-blur-sm hover:bg-accent text-sm transition-colors min-h-[44px]"
             >
               ← Back to Dashboard
             </Link>
@@ -218,7 +220,7 @@ export default function ScoreboardPage() {
                 id="autoRefresh"
                 checked={autoRefresh}
                 onChange={(e) => setAutoRefresh(e.target.checked)}
-                className="rounded border-input accent-primary"
+                className="rounded border-input accent-primary min-w-[20px] min-h-[20px]"
               />
               <label htmlFor="autoRefresh" className="text-sm text-muted-foreground">
                 Auto-refresh
@@ -226,13 +228,13 @@ export default function ScoreboardPage() {
             </div>
             <button
               onClick={fetchScoreboard}
-              className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 text-sm"
+              className="bg-primary text-primary-foreground px-4 py-2 rounded-md hover:bg-primary/90 text-sm min-h-[44px] active:scale-95 transition-transform"
             >
               Refresh
             </button>
             <button
               onClick={() => setShowDetails(!showDetails)}
-              className="bg-muted text-muted-foreground px-4 py-2 rounded-md hover:bg-muted/90 text-sm"
+              className="bg-muted text-muted-foreground px-4 py-2 rounded-md hover:bg-muted/90 text-sm min-h-[44px] active:scale-95 transition-transform"
             >
               {showDetails ? 'Hide' : 'Show'} Details
             </button>
@@ -298,135 +300,232 @@ export default function ScoreboardPage() {
           </div>
         )}
 
-        {/* Full Scoreboard Table */}
-        <div className="rounded-lg border bg-card overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead className="bg-muted">
-                <tr>
-                  <th className="text-left p-4 font-semibold">Rank</th>
-                  <th className="text-left p-4 font-semibold">Team</th>
-                  <th className="text-left p-4 font-semibold">College</th>
-                  <th className="text-center p-4 font-semibold">Marketing</th>
-                  <th className="text-center p-4 font-semibold">Capital</th>
-                  <th className="text-center p-4 font-semibold">Team Tokens</th>
-                  <th className="text-center p-4 font-semibold">Strategy</th>
-                  <th className="text-center p-4 font-semibold">Total Votes</th>
-                  <th className="text-center p-4 font-semibold">Peer Rating</th>
-                  <th className="text-center p-4 font-semibold">Judge Score</th>
-                  <th className="text-center p-4 font-semibold">Final Score</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data.leaderboard.map((team: LeaderboardTeam, index: number) => (
-                  <tr key={team.teamId} className={`border-t ${index < 3 ? 'bg-accent/20' : ''}`}>
-                    <td className="p-4">
+        {/* Full Scoreboard */}
+        {isMobile ? (
+          /* Mobile Card Layout */
+          <div className="space-y-4">
+            {data.leaderboard.map((team: LeaderboardTeam, index: number) => (
+              <div
+                key={team.teamId}
+                className={`rounded-lg border bg-card p-4 ${index < 3 ? 'bg-accent/20' : ''}`}
+              >
+                {/* Team Header */}
+                <div className="flex items-start justify-between mb-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
                       <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${getRankBadgeColor(team.rank)}`}>
                         {team.rank}
                       </div>
-                    </td>
-                    <td className="p-4">
-                      <div className="font-medium">{team.teamName}</div>
-                      {!team.hasQuizSubmission && (
-                        <div className="text-xs text-orange-600 dark:text-orange-400">No quiz</div>
-                      )}
-                    </td>
-                    <td className="p-4 text-muted-foreground">{team.college}</td>
-                    <td className="p-4 text-center">
-                      <div className="font-medium text-blue-500">
-                        {team.tokens.marketing}
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-medium text-lg truncate">{team.teamName}</h3>
+                        <p className="text-sm text-muted-foreground truncate">{team.college}</p>
+                        {!team.hasQuizSubmission && (
+                          <div className="text-xs text-orange-600 dark:text-orange-400">No quiz</div>
+                        )}
                       </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className="font-medium text-green-500">
-                        {team.tokens.capital}
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className={`text-xl font-bold ${getScoreColor(team.finalCumulativeScore, maxFinalScore)}`}>
+                      {team.finalCumulativeScore.toFixed(1)}
+                    </div>
+                    <div className="text-xs text-muted-foreground">Final Score</div>
+                  </div>
+                </div>
+
+                {/* Token Scores */}
+                <div className="grid grid-cols-2 gap-3 mb-3">
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Tokens</div>
+                    <div className="grid grid-cols-2 gap-2 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-blue-500">Marketing:</span>
+                        <span className="font-medium">{team.tokens.marketing}</span>
                       </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className="font-medium text-purple-500">
-                        {team.tokens.team}
+                      <div className="flex justify-between">
+                        <span className="text-green-500">Capital:</span>
+                        <span className="font-medium">{team.tokens.capital}</span>
                       </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className="font-medium text-orange-500">
-                        {team.tokens.strategy}
+                      <div className="flex justify-between">
+                        <span className="text-purple-500">Team:</span>
+                        <span className="font-medium">{team.tokens.team}</span>
                       </div>
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className="font-medium">{team.voting.totalVotes}</div>
+                      <div className="flex justify-between">
+                        <span className="text-orange-500">Strategy:</span>
+                        <span className="font-medium">{team.tokens.strategy}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bg-muted/50 rounded-lg p-3">
+                    <div className="text-xs text-muted-foreground mb-1">Performance</div>
+                    <div className="space-y-1 text-sm">
+                      <div className="flex justify-between">
+                        <span>Votes:</span>
+                        <span className="font-medium">{team.voting.totalVotes}</span>
+                      </div>
                       {showDetails && (
                         <div className="text-xs text-muted-foreground">
                           {team.voting.originalVotes}+{team.voting.votesFromTokens}
                         </div>
                       )}
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className="font-medium">
-                        {team.peerRating?.average && team.peerRating.average > 0 ? team.peerRating.average.toFixed(1) : '-'}
+                      <div className="flex justify-between">
+                        <span>Peer:</span>
+                        <span className="font-medium">
+                          {team.peerRating?.average && team.peerRating.average > 0 ? team.peerRating.average.toFixed(1) : '-'}
+                        </span>
                       </div>
                       {showDetails && (
                         <div className="text-xs text-muted-foreground">
                           ({team.peerRating?.count || 0} ratings)
                         </div>
                       )}
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className="font-medium">{team.judgeScores?.total || 0}</div>
+                      <div className="flex justify-between">
+                        <span>Judge:</span>
+                        <span className="font-medium">{team.judgeScores?.total || 0}</span>
+                      </div>
                       {showDetails && (
                         <div className="text-xs text-muted-foreground">
                           ({team.judgeScores?.count || 0} judges)
                         </div>
                       )}
-                    </td>
-                    <td className="p-4 text-center">
-                      <div className={`text-lg font-bold ${getScoreColor(team.finalCumulativeScore, maxFinalScore)}`}>
-                        {team.finalCumulativeScore.toFixed(1)}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
-        </div>
+        ) : (
+          /* Desktop Table Layout */
+          <div className="rounded-lg border bg-card overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-muted">
+                  <tr>
+                    <th className="text-left p-4 font-semibold">Rank</th>
+                    <th className="text-left p-4 font-semibold">Team</th>
+                    <th className="text-left p-4 font-semibold">College</th>
+                    <th className="text-center p-4 font-semibold">Marketing</th>
+                    <th className="text-center p-4 font-semibold">Capital</th>
+                    <th className="text-center p-4 font-semibold">Team Tokens</th>
+                    <th className="text-center p-4 font-semibold">Strategy</th>
+                    <th className="text-center p-4 font-semibold">Total Votes</th>
+                    <th className="text-center p-4 font-semibold">Peer Rating</th>
+                    <th className="text-center p-4 font-semibold">Judge Score</th>
+                    <th className="text-center p-4 font-semibold">Final Score</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data.leaderboard.map((team: LeaderboardTeam, index: number) => (
+                    <tr key={team.teamId} className={`border-t ${index < 3 ? 'bg-accent/20' : ''}`}>
+                      <td className="p-4">
+                        <div className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${getRankBadgeColor(team.rank)}`}>
+                          {team.rank}
+                        </div>
+                      </td>
+                      <td className="p-4">
+                        <div className="font-medium">{team.teamName}</div>
+                        {!team.hasQuizSubmission && (
+                          <div className="text-xs text-orange-600 dark:text-orange-400">No quiz</div>
+                        )}
+                      </td>
+                      <td className="p-4 text-muted-foreground">{team.college}</td>
+                      <td className="p-4 text-center">
+                        <div className="font-medium text-blue-500">
+                          {team.tokens.marketing}
+                        </div>
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="font-medium text-green-500">
+                          {team.tokens.capital}
+                        </div>
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="font-medium text-purple-500">
+                          {team.tokens.team}
+                        </div>
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="font-medium text-orange-500">
+                          {team.tokens.strategy}
+                        </div>
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="font-medium">{team.voting.totalVotes}</div>
+                        {showDetails && (
+                          <div className="text-xs text-muted-foreground">
+                            {team.voting.originalVotes}+{team.voting.votesFromTokens}
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="font-medium">
+                          {team.peerRating?.average && team.peerRating.average > 0 ? team.peerRating.average.toFixed(1) : '-'}
+                        </div>
+                        {showDetails && (
+                          <div className="text-xs text-muted-foreground">
+                            ({team.peerRating?.count || 0} ratings)
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className="font-medium">{team.judgeScores?.total || 0}</div>
+                        {showDetails && (
+                          <div className="text-xs text-muted-foreground">
+                            ({team.judgeScores?.count || 0} judges)
+                          </div>
+                        )}
+                      </td>
+                      <td className="p-4 text-center">
+                        <div className={`text-lg font-bold ${getScoreColor(team.finalCumulativeScore, maxFinalScore)}`}>
+                          {team.finalCumulativeScore.toFixed(1)}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
 
         {/* Scoring Information */}
         {showDetails && data.metadata && (
-          <div className="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="rounded-lg border bg-card p-6">
+          <div className={`mt-8 grid gap-6 ${isMobile ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+            <div className="rounded-lg border bg-card p-4 md:p-6">
               <h3 className="font-semibold mb-4">Scoring System</h3>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
+                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
                   <span>Token Categories</span>
                   <span className="font-medium">Marketing + Capital + Team + Strategy</span>
                 </div>
-                <div className="flex justify-between">
+                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
                   <span>Judge Scores</span>
                   <span className="font-medium">Total judge evaluation</span>
                 </div>
-                <div className="flex justify-between">
+                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
                   <span>Final Score</span>
                   <span className="font-medium">Token Score + Judge Score</span>
                 </div>
               </div>
             </div>
 
-            <div className="rounded-lg border bg-card p-6">
+            <div className="rounded-lg border bg-card p-4 md:p-6">
               <h3 className="font-semibold mb-4">Participation Stats</h3>
               <div className="space-y-2 text-sm">
-                <div className="flex justify-between">
+                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
                   <span>Quiz Submissions</span>
                   <span className="font-medium">{data.metadata.participation.quizSubmissions}/{data.metadata.totalTeams}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
                   <span>Voting Participation</span>
                   <span className="font-medium">{data.metadata.participation.votingParticipation}/{data.metadata.totalTeams}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
                   <span>Peer Ratings</span>
                   <span className="font-medium">{data.metadata.participation.peerRatings}</span>
                 </div>
-                <div className="flex justify-between">
+                <div className={`flex ${isMobile ? 'flex-col gap-1' : 'justify-between'}`}>
                   <span>Token Activity</span>
                   <span className="font-medium">{data.metadata.participation.tokenSpending}</span>
                 </div>
@@ -443,16 +542,16 @@ export default function ScoreboardPage() {
           <p className="text-xs">
             Generated at: {new Date(data.metadata.generatedAt).toLocaleString()}
           </p>
-          <div className="flex justify-center gap-4 mt-4">
+          <div className={`flex justify-center mt-4 ${isMobile ? 'flex-col gap-2' : 'gap-4'}`}>
             <Link
               href="/"
-              className="text-primary hover:underline text-sm"
+              className="text-primary hover:underline text-sm min-h-[44px] flex items-center justify-center"
             >
               ← Back to Home
             </Link>
             <Link
               href="/dashboard"
-              className="text-primary hover:underline text-sm"
+              className="text-primary hover:underline text-sm min-h-[44px] flex items-center justify-center"
             >
               Dashboard →
             </Link>

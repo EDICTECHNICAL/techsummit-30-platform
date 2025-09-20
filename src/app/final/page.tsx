@@ -7,6 +7,7 @@ import Link from 'next/link';
 import PageLock from "@/components/ui/PageLock";
 import { useRoundStatus } from "@/hooks/useRoundStatus";
 import { useRatingSSE } from "@/hooks/useRatingSSE";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BackButton } from "@/components/BackButton";
 
@@ -51,6 +52,7 @@ interface RatingResponse {
 }
 
 export default function FinalPage() {
+  const isMobile = useIsMobile();
   // Page lock functionality
   const { isCompleted: isFinalCompleted, loading: roundLoading } = useRoundStatus('FINAL');
   
@@ -64,6 +66,7 @@ export default function FinalPage() {
   const [nonQualifiedTeams, setNonQualifiedTeams] = useState<any[]>([]);
   const [qualificationNote, setQualificationNote] = useState<any>(null);
   const [isQualified, setIsQualified] = useState<boolean>(false);
+  const [finalScoreboard, setFinalScoreboard] = useState<any[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
   const [msgType, setMsgType] = useState<'success' | 'error' | 'info'>('info');
   const [loading, setLoading] = useState(false);
@@ -273,6 +276,26 @@ export default function FinalPage() {
     return () => clearInterval(interval);
   }, []);
 
+  // Poll scoreboard for updated final scores
+  useEffect(() => {
+    const pollScoreboard = async () => {
+      try {
+        const scoreboardRes = await fetch('/api/scoreboard');
+        if (scoreboardRes.ok) {
+          const scoreboardData = await scoreboardRes.json();
+          setFinalScoreboard(scoreboardData.leaderboard || []);
+        }
+      } catch (error) {
+        console.error("Error polling scoreboard:", error);
+      }
+    };
+
+    // Poll less frequently to avoid overwhelming the server
+    const interval = setInterval(pollScoreboard, 5000); // Poll every 5 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Show qualification popup when qualification status is determined
   useEffect(() => {
     if (userTeamId && qualifiedTeams.length > 0 && !loading) {
@@ -356,6 +379,13 @@ export default function FinalPage() {
         setIsQualified(userQualified);
       }
       
+      // Load final scoreboard with judge scores and peer ratings
+      const scoreboardRes = await fetch('/api/scoreboard');
+      if (scoreboardRes.ok) {
+        const scoreboardData = await scoreboardRes.json();
+        setFinalScoreboard(scoreboardData.leaderboard || []);
+      }
+      
       // Load teams
       const teamsRes = await fetch('/api/teams');
       if (teamsRes.ok) {
@@ -378,6 +408,21 @@ export default function FinalPage() {
     } finally {
       setLoading(false);
     }
+  };
+
+  // Helper function to get final scores for qualified teams
+  const getQualifiedTeamsWithFinalScores = () => {
+    return qualifiedTeams.map(qualifiedTeam => {
+      // Find the corresponding team in the scoreboard data
+      const scoreboardTeam = finalScoreboard.find(team => team.teamId === qualifiedTeam.teamId);
+      
+      return {
+        ...qualifiedTeam,
+        finalScore: scoreboardTeam?.finalCumulativeScore || qualifiedTeam.combinedScore || 0,
+        judgeScores: scoreboardTeam?.judgeScores || { total: 0, average: 0, count: 0 },
+        peerRating: scoreboardTeam?.peerRating || { average: 0, count: 0 }
+      };
+    });
   };
 
   const submitRating = async () => {
@@ -539,7 +584,7 @@ export default function FinalPage() {
 
   return (
     <PageLock roundType="FINAL" isCompleted={isFinalCompleted}>
-      <div className="max-w-6xl mx-auto px-6 pt-6 transition-all duration-300 ease-in-out">
+      <div className="max-w-6xl mx-auto mobile-padding pt-6 pb-20 transition-all duration-300 ease-in-out">
         <div className="flex items-center justify-between mb-4">
           <BackButton />
           <ThemeToggle />
@@ -547,8 +592,8 @@ export default function FinalPage() {
         
         {/* Round Header */}
         <div className="mb-6 text-center">
-          <h1 className="text-4xl font-bold mb-2">Round 3: Finals</h1>
-          <p className="text-lg text-muted-foreground">
+          <h1 className={`font-bold mb-2 ${isMobile ? 'text-2xl mobile-title' : 'text-4xl'}`}>Round 3: Finals</h1>
+          <p className={`text-muted-foreground ${isMobile ? 'text-base' : 'text-lg'}`}>
             Top 5 qualified teams compete in the final round. {teams.length > 5 ? `${teams.length - 5} teams in spectator mode.` : ''}
           </p>
         </div>
@@ -670,7 +715,7 @@ export default function FinalPage() {
                 )}
                 
                 <div className="grid gap-3">
-                  {qualifiedTeams.map((team, index) => (
+                  {getQualifiedTeamsWithFinalScores().map((team, index) => (
                     <div key={team.teamId} className="flex items-center justify-between p-3 rounded-lg bg-muted">
                       <div className="flex items-center gap-3">
                         <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
@@ -687,8 +732,13 @@ export default function FinalPage() {
                         </div>
                       </div>
                       <div className="text-right">
-                        <p className="font-medium">{team.combinedScore} pts</p>
-                        <p className="text-xs text-muted-foreground">Combined Score</p>
+                        <p className="font-medium">{(team.finalScore || 0).toFixed(1)} pts</p>
+                        <p className="text-xs text-muted-foreground">Final Score</p>
+                        {team.judgeScores.count > 0 && (
+                          <p className="text-xs text-muted-foreground">
+                            {team.judgeScores.count} judge{team.judgeScores.count !== 1 ? 's' : ''}
+                          </p>
+                        )}
                       </div>
                     </div>
                   ))}
@@ -717,7 +767,7 @@ export default function FinalPage() {
                       </div>
                       <div className="text-right">
                         <p className="text-sm font-medium">{team.combinedScore} pts</p>
-                        <p className="text-xs text-muted-foreground">Final Score</p>
+                        <p className="text-xs text-muted-foreground">Qualification Score</p>
                       </div>
                     </div>
                   ))}

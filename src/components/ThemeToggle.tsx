@@ -2,6 +2,7 @@
 
 import { Moon, Sun } from 'lucide-react';
 import { useTheme } from '@/components/ThemeProvider';
+import { Switch } from "@/components/ui/switch";
 
 interface ThemeToggleProps {
   className?: string;
@@ -15,30 +16,28 @@ export function ThemeToggle({ className = '', size = 'md' }: ThemeToggleProps) {
     setTheme(theme === 'dark' ? 'light' : 'dark');
   };
 
-  const sizeClasses = {
-    sm: 'h-8 w-8',
-    md: 'h-9 w-9',
-    lg: 'h-10 w-10'
+  const iconSizes = {
+    sm: 'h-3 w-3',
+    md: 'h-4 w-4',
+    lg: 'h-4 w-4'
   };
 
-  const iconSizes = {
-    sm: 'h-4 w-4',
-    md: 'h-4 w-4',
-    lg: 'h-5 w-5'
+  const containerSizes = {
+    sm: 'gap-2',
+    md: 'gap-2',
+    lg: 'gap-3'
   };
 
   return (
-    <button
-      onClick={toggleTheme}
-      className={`inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-colors ${sizeClasses[size]} ${className}`}
-      aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-      title={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
-    >
-      {theme === 'dark' ? (
-        <Sun className={iconSizes[size]} />
-      ) : (
-        <Moon className={iconSizes[size]} />
-      )}
-    </button>
+    <div className={`inline-flex items-center ${containerSizes[size]} ${className}`}>
+      <Sun className={`${iconSizes[size]} ${theme === 'light' ? 'text-primary' : 'text-muted-foreground'} transition-colors`} />
+      <Switch
+        checked={theme === 'dark'}
+        onCheckedChange={toggleTheme}
+        aria-label={`Switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+        title={`Currently ${theme} mode. Click to switch to ${theme === 'dark' ? 'light' : 'dark'} mode`}
+      />
+      <Moon className={`${iconSizes[size]} ${theme === 'dark' ? 'text-primary' : 'text-muted-foreground'} transition-colors`} />
+    </div>
   );
 }

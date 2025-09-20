@@ -182,20 +182,20 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6 relative">
+    <div className="min-h-screen bg-background text-foreground mobile-padding relative pb-20 sm:pb-6">
       <DashboardNavbar />
       
-      <div className="pt-20 overflow-y-auto h-[calc(100vh-5rem)]">
+      <div className="pt-16 sm:pt-20 overflow-y-auto mobile-scroll">
         <div className="flex flex-col gap-2 items-start max-w-4xl mx-auto">
           {/* Welcome Card */}
-          <div className="w-full event-card event-card-hover rounded-2xl backdrop-blur-lg shadow-2xl px-10 py-8 mb-6" style={{ background: 'var(--event-gradient-primary)', boxShadow: "0 8px 32px 0 rgba(70, 111, 137, 0.3)" }}>
-            <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-white" style={{ letterSpacing: "-0.02em" }}>
+          <div className="w-full mobile-card backdrop-blur-lg shadow-2xl mb-4 sm:mb-6" style={{ background: 'var(--event-gradient-primary)', boxShadow: "0 8px 32px 0 rgba(70, 111, 137, 0.3)" }}>
+            <h1 className="mobile-title font-extrabold tracking-tight mb-2 text-white" style={{ letterSpacing: "-0.02em" }}>
               TECHPRENEUR SUMMIT 3.0
             </h1>
-            <p className="text-sm mb-4 text-blue-100">
+            <p className="mobile-body mb-4 text-blue-100">
               Real World Problem Solving and Ignite Entrepreneurial Thinking
             </p>
-            <p className="text-lg mt-2 text-blue-100">
+            <p className="mobile-body mt-2 text-blue-100">
               Welcome, <span className="font-semibold text-white">
                 {user.name || user.username}
               </span>
@@ -220,11 +220,11 @@ export default function DashboardPage() {
 
           {/* Error Messages */}
           {error && (
-            <div className="w-full mt-2 event-card rounded-xl bg-red-500/10 backdrop-blur-sm px-5 py-4 text-base border border-red-500/20 shadow-lg text-red-600 dark:text-red-400">
+            <div className="w-full mt-2 mobile-card bg-red-500/10 backdrop-blur-sm border border-red-500/20 shadow-lg text-red-600 dark:text-red-400">
               {error}
               <button 
                 onClick={() => setError(null)}
-                className="ml-2 underline text-sm hover:no-underline"
+                className="ml-2 underline mobile-body hover:no-underline"
               >
                 Dismiss
               </button>
@@ -233,11 +233,11 @@ export default function DashboardPage() {
           
           {/* Success Messages */}
           {msg && (
-            <div className="w-full mt-2 event-card rounded-xl border border-green-500/20 bg-green-500/10 backdrop-blur-sm px-5 py-4 text-base shadow-lg text-green-600 dark:text-green-400">
+            <div className="w-full mt-2 mobile-card border border-green-500/20 bg-green-500/10 backdrop-blur-sm shadow-lg text-green-600 dark:text-green-400">
               {msg}
               <button 
                 onClick={() => setMsg(null)}
-                className="ml-2 underline text-sm hover:no-underline"
+                className="ml-2 underline mobile-body hover:no-underline"
               >
                 Dismiss
               </button>
@@ -246,15 +246,15 @@ export default function DashboardPage() {
         </div>
 
         {/* Competition Portals */}
-        <section className="mt-6 max-w-4xl mx-auto">
-          <h2 className="text-xl font-semibold mb-4 event-text-gradient">Competition Portals</h2>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            <Link href="/quiz" className="event-card event-card-hover group rounded-lg p-6 transition-colors">
+        <section className="mt-4 sm:mt-6 max-w-4xl mx-auto">
+          <h2 className="mobile-subtitle mb-4 event-text-gradient">Competition Portals</h2>
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+            <Link href="/quiz" className="mobile-card group transition-colors">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-2 h-2 rounded-full bg-primary"></div>
                 <h4 className="font-semibold text-primary">🧠 Round 1: Quiz for Tokens</h4>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="mobile-body text-muted-foreground">
                 {isLeader 
                   ? "DAY 1: Earn strategic tokens through 15 questions in 30 minutes. Max 60 points with trade-offs (Marketing, Capital, Team, Strategy)."
                   : "Quiz access is restricted to team leaders only."
@@ -267,12 +267,12 @@ export default function DashboardPage() {
               )}
             </Link>
 
-            <Link href="/voting" className="event-card event-card-hover group rounded-lg p-6 transition-colors">
+            <Link href="/voting" className="mobile-card group transition-colors">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-2 h-2 rounded-full bg-primary"></div>
                 <h4 className="font-semibold text-primary">🎤 Round 2: 90 Sec Pitch & Voting</h4>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="mobile-body text-muted-foreground">
                 {isLeader 
                   ? "DAY 1: Customer Acquiring phase - Deliver 90-second pitch, vote for teams, convert tokens strategically. Max 3 downvotes per team."
                   : "Voting access is restricted to team leaders only."
@@ -285,12 +285,12 @@ export default function DashboardPage() {
               )}
             </Link>
 
-            <Link href="/final" className="event-card event-card-hover group rounded-lg p-6 transition-colors">
+            <Link href="/final" className="mobile-card group transition-colors">
               <div className="flex items-center gap-3 mb-2">
                 <div className="w-2 h-2 rounded-full bg-primary"></div>
                 <h4 className="font-semibold text-primary">🏆 Round 3: 5 Min Pitch & Evaluation</h4>
               </div>
-              <p className="text-sm text-muted-foreground">
+              <p className="mobile-body text-muted-foreground">
                 {isLeader 
                   ? "DAY 2: Comprehensive pitch with Q&A, peer ratings (3-10 scale), judge scoring, and final evaluation."
                   : "Finals access is restricted to team leaders only."
@@ -307,24 +307,24 @@ export default function DashboardPage() {
 
         {/* Team Leader Information */}
         {(user.team || team) && (
-          <section className="mt-8 max-w-4xl mx-auto">
-            <h2 className="text-xl font-semibold mb-4 event-text-gradient">Team Leader</h2>
-            <div className="event-card event-card-hover rounded-lg p-6">
-              <div className="grid gap-4 sm:grid-cols-2">
+          <section className="mt-6 sm:mt-8 max-w-4xl mx-auto">
+            <h2 className="mobile-subtitle mb-4 event-text-gradient">Team Leader</h2>
+            <div className="mobile-card">
+              <div className="grid gap-4 grid-cols-1 sm:grid-cols-2">
                 <div>
-                  <h3 className="font-medium text-sm text-muted-foreground">Team Name</h3>
+                  <h3 className="font-medium mobile-body text-muted-foreground">Team Name</h3>
                   <p className="text-lg">{user.team?.name || team?.name}</p>
                 </div>
                 <div>
-                  <h3 className="font-medium text-sm text-muted-foreground">College</h3>
+                  <h3 className="font-medium mobile-body text-muted-foreground">College</h3>
                   <p className="text-lg">{user.team?.college || team?.college}</p>
                 </div>
                 <div>
-                  <h3 className="font-medium text-sm text-muted-foreground">Leader Name</h3>
+                  <h3 className="font-medium mobile-body text-muted-foreground">Leader Name</h3>
                   <p className="text-lg">{user.name}</p>
                 </div>
                 <div>
-                  <h3 className="font-medium text-sm text-muted-foreground">Team ID</h3>
+                  <h3 className="font-medium mobile-body text-muted-foreground">Team ID</h3>
                   <p className="text-lg">{user.team?.id || team?.id}</p>
                 </div>
               </div>
@@ -333,12 +333,12 @@ export default function DashboardPage() {
         )}
 
         {/* Event Schedule & Competition Status */}
-        <section className="mt-8 max-w-4xl mx-auto">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold event-text-gradient">Event Schedule & Competition Status</h2>
+        <section className="mt-6 sm:mt-8 max-w-4xl mx-auto">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+            <h2 className="mobile-subtitle event-text-gradient">Event Schedule & Competition Status</h2>
             <button 
               onClick={checkRoundStatuses}
-              className="inline-flex items-center rounded-md border border-border px-3 py-1 text-sm hover:bg-accent transition-colors"
+              className="inline-flex items-center justify-center rounded-md border border-border px-3 py-2 mobile-body hover:bg-accent transition-colors"
             >
               <svg className="w-4 h-4 mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -348,26 +348,26 @@ export default function DashboardPage() {
           </div>
           
           {/* Event Dates */}
-          <div className="event-card event-card-hover p-6 rounded-lg mb-4">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="mobile-card mb-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="text-center">
                 <h3 className="font-semibold text-primary mb-2 flex items-center justify-center gap-2">
                   <span>📅</span> DAY 1 - 25 SEPTEMBER
                 </h3>
-                <p className="text-sm text-muted-foreground">Quiz for Tokens + 90 Sec Pitch & Voting</p>
+                <p className="mobile-body text-muted-foreground">Quiz for Tokens + 90 Sec Pitch & Voting</p>
               </div>
               <div className="text-center">
                 <h3 className="font-semibold text-primary mb-2 flex items-center justify-center gap-2">
                   <span>📅</span> DAY 2 - 27 SEPTEMBER
                 </h3>
-                <p className="text-sm text-muted-foreground">5 Min Pitch + Q&A + Final Evaluation</p>
+                <p className="mobile-body text-muted-foreground">5 Min Pitch + Q&A + Final Evaluation</p>
               </div>
             </div>
           </div>
 
           {/* Round Status */}
-          <div className="event-card event-card-hover p-6 rounded-lg">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="mobile-card">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="flex items-center gap-3">
                 <div className={`w-3 h-3 rounded-full ${
                   roundStatuses.quiz.status === 'COMPLETED' ? 'bg-green-500' : 
@@ -376,7 +376,7 @@ export default function DashboardPage() {
                 }`}></div>
                 <div>
                   <h3 className="font-medium text-primary">Round 1: Quiz for Tokens</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="mobile-body text-muted-foreground">
                     {roundStatuses.quiz.status === 'COMPLETED' ? 'Completed ✅' : 
                      roundStatuses.quiz.status === 'ACTIVE' ? 'Active Now 🔴' : 
                      'Pending ⏳'}
@@ -391,7 +391,7 @@ export default function DashboardPage() {
                 }`}></div>
                 <div>
                   <h3 className="font-medium text-primary">Round 2: Pitch & Voting</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="mobile-body text-muted-foreground">
                     {roundStatuses.voting.status === 'COMPLETED' ? 'Completed ✅' : 
                      roundStatuses.voting.status === 'ACTIVE' ? 'Active Now 🔴' : 
                      'Pending ⏳'}
@@ -406,7 +406,7 @@ export default function DashboardPage() {
                 }`}></div>
                 <div>
                   <h3 className="font-medium text-primary">Round 3: Final Evaluation</h3>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="mobile-body text-muted-foreground">
                     {roundStatuses.final.status === 'COMPLETED' ? 'Completed ✅' : 
                      roundStatuses.final.status === 'ACTIVE' ? 'Active Now 🔴' : 
                      'Pending ⏳'}
@@ -421,17 +421,17 @@ export default function DashboardPage() {
         </section>
 
         {/* Quick Links */}
-        <section className="mt-8 max-w-4xl mx-auto">
-          <h2 className="text-xl font-semibold mb-4 event-text-gradient">Quick Links</h2>
-          <div className="flex flex-wrap gap-3">
-            <Link href="/scoreboard" className="event-button-primary inline-flex items-center rounded-md px-4 py-2 text-sm transition-colors">
+        <section className="mt-6 sm:mt-8 max-w-4xl mx-auto mb-4">
+          <h2 className="mobile-subtitle mb-4 event-text-gradient">Quick Links</h2>
+          <div className="mobile-button-group">
+            <Link href="/scoreboard" className="event-button-primary rounded-md px-4 py-2 mobile-body transition-colors">
               View Scoreboard
             </Link>
-            <Link href="/rules" className="inline-flex items-center rounded-md border border-border bg-card/50 backdrop-blur-sm px-4 py-2 text-sm hover:bg-accent transition-colors">
+            <Link href="/rules" className="inline-flex items-center justify-center rounded-md border border-border bg-card/50 backdrop-blur-sm px-4 py-2 mobile-body hover:bg-accent transition-colors min-h-[44px]">
               Competition Rules
             </Link>
             {user.isAdmin && (
-              <Link href="/admin" className="inline-flex items-center rounded-md border border-border px-3 py-2 text-sm hover:bg-accent transition-colors bg-primary text-primary-foreground">
+              <Link href="/admin" className="inline-flex items-center justify-center rounded-md border border-border px-3 py-2 mobile-body hover:bg-accent transition-colors bg-primary text-primary-foreground min-h-[44px]">
                 Admin Panel
               </Link>
             )}
