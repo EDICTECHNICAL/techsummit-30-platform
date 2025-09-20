@@ -148,6 +148,23 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  /* Mobile-first responsive typography */
+  html {
+    font-size: 14px;
+  }
+  
+  @media (min-width: 640px) {
+    html {
+      font-size: 15px;
+    }
+  }
+  
+  @media (min-width: 768px) {
+    html {
+      font-size: 16px;
+    }
+  }
 }
 
 /* Event-specific styling enhancements */
@@ -179,6 +196,18 @@
     transform: translateY(-2px);
   }
   
+  /* Mobile-specific hover states */
+  @media (hover: none) {
+    .event-card-hover:hover {
+      transform: none;
+    }
+    
+    .event-card-hover:active {
+      transform: scale(0.98);
+      transition: transform 0.1s ease;
+    }
+  }
+  
   .event-text-gradient {
     background: var(--event-gradient-primary);
     -webkit-background-clip: text;
@@ -191,6 +220,10 @@
     color: white;
     border: none;
     transition: all 0.3s ease;
+    min-height: 44px; /* Minimum touch target for mobile */
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
   }
   
   .event-button-primary:hover {
@@ -199,12 +232,122 @@
     box-shadow: 0 4px 8px rgba(70, 111, 137, 0.3);
   }
   
+  /* Mobile touch feedback */
+  @media (hover: none) {
+    .event-button-primary:hover {
+      transform: none;
+    }
+    
+    .event-button-primary:active {
+      transform: scale(0.96);
+      transition: transform 0.1s ease;
+    }
+  }
+  
   .event-hero-bg {
     background: linear-gradient(135deg, var(--event-night) 0%, var(--event-charcoal) 50%, var(--event-paynes-gray) 100%);
   }
   
   .event-section-bg {
     background: linear-gradient(180deg, transparent 0%, rgba(70, 111, 137, 0.05) 100%);
+  }
+  
+  /* Mobile-friendly spacing utilities */
+  .mobile-padding {
+    @apply px-4 sm:px-6 lg:px-8;
+  }
+  
+  .mobile-margin {
+    @apply mx-4 sm:mx-6 lg:mx-8;
+  }
+  
+  /* Mobile-optimized text sizes */
+  .mobile-title {
+    @apply text-2xl sm:text-3xl lg:text-4xl font-bold;
+  }
+  
+  .mobile-subtitle {
+    @apply text-lg sm:text-xl lg:text-2xl font-semibold;
+  }
+  
+  .mobile-body {
+    @apply text-sm sm:text-base;
+  }
+  
+  /* Mobile navigation */
+  .mobile-nav {
+    @apply fixed bottom-0 left-0 right-0 z-50 bg-card/95 backdrop-blur-md border-t border-border;
+  }
+  
+  .mobile-nav-item {
+    @apply flex-1 flex flex-col items-center justify-center py-2 px-1 text-xs font-medium transition-colors;
+    min-height: 60px;
+  }
+  
+  .mobile-nav-item.active {
+    @apply text-primary;
+  }
+  
+  .mobile-nav-item:not(.active) {
+    @apply text-muted-foreground;
+  }
+  
+  /* Safe area handling for mobile devices */
+  .safe-area-padding {
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+  
+  .safe-area-top {
+    padding-top: env(safe-area-inset-top);
+  }
+  
+  /* Mobile form improvements */
+  .mobile-input {
+    @apply w-full rounded-md border border-input bg-background/50 backdrop-blur-sm px-4 py-3 text-base outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300;
+    min-height: 48px; /* Adequate touch target */
+  }
+  
+  /* iOS specific fixes */
+  .mobile-input:focus {
+    transform: none; /* Prevent iOS zoom on focus */
+  }
+  
+  /* Tablet-specific styles */
+  @media (min-width: 768px) and (max-width: 1024px) {
+    .tablet-grid {
+      @apply grid-cols-2 gap-6;
+    }
+    
+    .tablet-padding {
+      @apply px-8 py-6;
+    }
+  }
+  
+  /* Hide scrollbars on mobile for cleaner look */
+  .mobile-scroll {
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  
+  .mobile-scroll::-webkit-scrollbar {
+    display: none;
+  }
+  
+  /* Mobile card adjustments */
+  .mobile-card {
+    @apply event-card event-card-hover rounded-lg p-4 sm:p-6;
+  }
+  
+  /* Mobile button spacing */
+  .mobile-button-group {
+    @apply flex flex-col sm:flex-row gap-3 w-full sm:w-auto;
+  }
+  
+  .mobile-button-group > * {
+    @apply w-full sm:w-auto;
   }
 }
 

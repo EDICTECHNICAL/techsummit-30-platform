@@ -49,27 +49,27 @@ function SignInPageContent() {
   const registrationSuccess = searchParams?.get("registered") === "true";
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 event-section-bg">
-      <div className="w-full max-w-md event-card event-card-hover rounded-xl shadow-2xl p-8">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center mobile-padding event-section-bg safe-area-padding">
+      <div className="w-full max-w-md mobile-card shadow-2xl">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold event-text-gradient">Welcome Back</h1>
-          <p className="text-muted-foreground mt-2">Sign in to your Techpreneur Summit 3.0 account</p>
+          <h1 className="mobile-title event-text-gradient">Welcome Back</h1>
+          <p className="text-muted-foreground mt-2 mobile-body">Sign in to your Techpreneur Summit 3.0 account</p>
         </div>
         {registrationSuccess && (
           <div className="mb-4 p-4 rounded-md bg-green-500/10 border border-green-500/20 backdrop-blur-sm">
-            <p className="text-sm text-green-600 dark:text-green-400">
+            <p className="mobile-body text-green-600 dark:text-green-400">
               Registration successful! Please sign in with your credentials.
             </p>
           </div>
         )}
         {error && (
           <div className="mb-4 p-4 rounded-md bg-red-500/10 border border-red-500/20 backdrop-blur-sm">
-            <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+            <p className="mobile-body text-red-600 dark:text-red-400">{error}</p>
           </div>
         )}
         <form className="space-y-4" onSubmit={onSubmit}>
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-foreground mb-2">
+            <label htmlFor="username" className="block mobile-body font-medium text-foreground mb-2">
               Username
             </label>
             <input
@@ -78,13 +78,13 @@ function SignInPageContent() {
               required
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full rounded-md border border-input bg-background/50 backdrop-blur-sm px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300"
+              className="mobile-input"
               placeholder="Enter your username"
               disabled={loading}
             />
           </div>
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+            <label htmlFor="password" className="block mobile-body font-medium text-foreground mb-2">
               Password
             </label>
             <input
@@ -93,13 +93,13 @@ function SignInPageContent() {
               required
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-md border border-input bg-background/50 backdrop-blur-sm px-4 py-3 text-sm outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all duration-300"
+              className="mobile-input"
               placeholder="Enter your password"
               disabled={loading}
             />
           </div>
-          <div className="flex items-center justify-between">
-            <label className="flex items-center gap-2 text-sm text-foreground">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 sm:gap-0">
+            <label className="flex items-center gap-2 mobile-body text-foreground">
               <input 
                 type="checkbox" 
                 checked={rememberMe} 
@@ -111,7 +111,7 @@ function SignInPageContent() {
             </label>
             <Link 
               href="/forgot-password" 
-              className="text-sm text-primary hover:underline transition-colors"
+              className="mobile-body text-primary hover:underline transition-colors"
             >
               Forgot password?
             </Link>
@@ -132,7 +132,7 @@ function SignInPageContent() {
           </button>
         </form>
         <div className="mt-6 text-center space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="mobile-body text-muted-foreground">
             Don't have an account?{" "}
             <Link href="/sign-up" className="text-primary hover:underline font-medium transition-colors">
               Create one here
@@ -140,7 +140,7 @@ function SignInPageContent() {
           </p>
           <Link 
             href="/" 
-            className="text-sm text-muted-foreground hover:text-primary underline transition-colors"
+            className="mobile-body text-muted-foreground hover:text-primary underline transition-colors"
           >
             ← Back to Techpreneur Summit 3.0
           </Link>

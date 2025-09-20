@@ -34,6 +34,25 @@ export function middleware(request: NextRequest) {
     }
   }
 
+  // Protect client routes from admin/judge access to prevent cheating
+  const clientRoutes = ['/quiz', '/voting', '/final', '/dashboard'];
+  const isClientRoute = clientRoutes.some(route => request.nextUrl.pathname.startsWith(route));
+  
+  if (isClientRoute) {
+    const adminToken = request.cookies.get('auth-token')?.value;
+    const judgeToken = request.cookies.get('judge-token')?.value;
+    
+    // Block access if user has admin or judge tokens
+    if (adminToken || judgeToken) {
+      // Redirect to appropriate console based on token type
+      if (adminToken) {
+        return NextResponse.redirect(new URL('/admin', request.url));
+      } else if (judgeToken) {
+        return NextResponse.redirect(new URL('/judge', request.url));
+      }
+    }
+  }
+
   return response;
 }
 

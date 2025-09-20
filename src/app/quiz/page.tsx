@@ -5,6 +5,7 @@ import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
 import PageLock from "@/components/ui/PageLock";
 import { useRoundStatus } from "@/hooks/useRoundStatus";
+import { useIsMobile } from "@/hooks/use-mobile";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
 interface Option {
@@ -340,12 +341,23 @@ const QuizResults: React.FC<{ result: QuizResult; onReturnToDashboard: () => voi
 );
 
 export default function QuizPage() {
+  const isMobile = useIsMobile();
+  
   // Page lock functionality
   const { isCompleted: isQuizCompleted, loading: roundLoading } = useRoundStatus('QUIZ');
 
   // Simple modal for rules
   const RulesModal: React.FC<{ open: boolean; onClose: () => void }> = ({ open, onClose }) => {
     if (!open) return null;
+    
+    const handleStartQuiz = () => {
+      if (!quizActive) {
+        setMessage("Quiz is not currently active. Please wait for the admin to start the quiz.");
+        return;
+      }
+      onClose();
+    };
+    
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
         <div className="bg-card rounded-lg shadow-lg max-w-md w-full p-6 relative">
@@ -358,11 +370,25 @@ export default function QuizPage() {
             <li className="text-foreground">If you close the browser, the timer and answers will resume from where you left off.</li>
             <li className="text-foreground">Submit before time runs out. Auto-submit on timeout.</li>
           </ul>
+          
+          {!quizActive && (
+            <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-md">
+              <p className="text-sm text-yellow-800 dark:text-yellow-200">
+                ⏳ Quiz is currently pending. Please wait for the admin to activate the quiz before proceeding.
+              </p>
+            </div>
+          )}
+          
           <button
-            className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:opacity-90"
-            onClick={onClose}
+            className={`w-full rounded-md px-4 py-2 font-medium transition-opacity ${
+              quizActive 
+                ? "bg-primary text-primary-foreground hover:opacity-90" 
+                : "bg-muted text-muted-foreground cursor-not-allowed opacity-50"
+            }`}
+            onClick={handleStartQuiz}
+            disabled={!quizActive}
           >
-            I Understand, Start Quiz
+            {quizActive ? "I Understand, Start Quiz" : "Quiz Not Available"}
           </button>
         </div>
       </div>
@@ -419,7 +445,7 @@ export default function QuizPage() {
     fetchQuestions();
   }, []);
 
-  // Check quiz status
+  // Check quiz status with real-time polling
   useEffect(() => {
     const fetchQuizStatus = async () => {
       try {
@@ -435,7 +461,13 @@ export default function QuizPage() {
         setQuizCompleted(false);
       }
     };
-    fetchQuizStatus();
+    
+    fetchQuizStatus(); // Initial fetch
+    
+    // Poll every 2 seconds for quiz status changes
+    const interval = setInterval(fetchQuizStatus, 2000);
+    
+    return () => clearInterval(interval);
   }, []);
 
   // Check if user has already submitted quiz
@@ -738,7 +770,7 @@ export default function QuizPage() {
           
           <div className="space-y-4 mb-6">
             <h3 className="text-lg font-medium text-blue-800 dark:text-blue-200">Your Results</h3>
-            <div className="grid grid-cols-2 gap-4 text-sm">
+            <div className={`grid gap-4 text-sm ${isMobile ? 'grid-cols-2' : 'grid-cols-4'}`}>
               <div className="bg-blue-100 dark:bg-blue-900 p-3 rounded">
                 <div className="font-medium text-blue-900 dark:text-blue-100">Marketing</div>
                 <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
@@ -772,13 +804,13 @@ export default function QuizPage() {
           <div className="space-y-3">
             <Link
               href="/dashboard"
-              className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+              className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 min-h-[44px] active:scale-95 transition-transform"
             >
               Return to Dashboard
             </Link>
             <Link
               href="/scoreboard"
-              className="inline-flex w-full items-center justify-center rounded-md border border-blue-300 dark:border-blue-700 bg-card px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900"
+              className="inline-flex w-full items-center justify-center rounded-md border border-blue-300 dark:border-blue-700 bg-card px-4 py-2 text-sm font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-50 dark:hover:bg-blue-900 min-h-[44px] active:scale-95 transition-transform"
             >
               View Scoreboard
             </Link>
@@ -797,15 +829,15 @@ export default function QuizPage() {
   // Main quiz interface
   return (
     <PageLock roundType="QUIZ" isCompleted={isQuizCompleted}>
-      <div className="min-h-screen bg-background text-foreground" ref={quizRef}>
+      <div className="min-h-screen bg-background text-foreground mobile-padding pb-20" ref={quizRef}>
       {/* Rules Modal */}
       <RulesModal open={showRules} onClose={() => setShowRules(false)} />
 
       {/* Back to Dashboard Button */}
       <div className="bg-card border-b border-border">
-        <div className="mx-auto max-w-6xl px-6 py-3">
+        <div className="mx-auto max-w-6xl px-4 md:px-6 py-3">
           <div className="flex items-center justify-between">
-            <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+            <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline min-h-[44px]">
               <ArrowLeft className="h-4 w-4" />
               Back to Dashboard
             </Link>
@@ -816,20 +848,20 @@ export default function QuizPage() {
 
       {/* Header */}
       <div className="border-b border-border bg-card">
-        <div className="mx-auto max-w-6xl px-6 py-6">
-          <div className="flex items-center justify-between">
+        <div className="mx-auto max-w-6xl px-4 md:px-6 py-6">
+          <div className={`flex ${isMobile ? 'flex-col gap-4' : 'items-center justify-between'}`}>
             <div>
               <div className="inline-flex items-center rounded-full bg-primary/10 px-3 py-1 text-sm font-medium text-primary mb-2">
                 Round 1 • Quiz Portal
               </div>
-              <h1 className="text-3xl font-bold tracking-tight text-foreground">
+              <h1 className={`font-bold tracking-tight text-foreground ${isMobile ? 'text-2xl' : 'text-3xl'}`}>
                 Techpreneur Summit 3.0 Quiz
               </h1>
-              <p className="text-muted-foreground mt-1">
+              <p className="text-muted-foreground mt-1 text-sm">
                 15 questions • 30 minutes • Token trade-offs per option
               </p>
             </div>
-            <div className="text-right">
+            <div className={`${isMobile ? 'text-left' : 'text-right'}`}>
               <p className="font-medium text-foreground">{user.name}</p>
               <p className="text-sm text-muted-foreground">
                 Team: {user.team?.name || `Team ID: ${user.teamId || 'None'}`}
@@ -841,20 +873,43 @@ export default function QuizPage() {
 
       {/* Quiz Content */}
       <div className="mx-auto max-w-6xl px-6 py-8">
-        <QuizComponent
-          questions={questions}
-          answers={answers}
-          onAnswerChange={handleAnswerChange}
-          currentQ={currentQ}
-          onCurrentQChange={setCurrentQ}
-          onSubmit={handleSubmitQuiz}
-          submitting={submitting}
-          quizActive={quizActive}
-          timeLeft={timeLeft}
-          isFullscreen={isFullscreen}
-          onToggleFullscreen={toggleFullscreen}
-          message={message}
-        />
+        {!quizActive && !showRules ? (
+          <div className="rounded-lg border border-border bg-card p-8 text-center">
+            <div className="mb-4">
+              <div className="inline-flex items-center rounded-full bg-yellow-100 dark:bg-yellow-900 px-3 py-1 text-sm font-medium text-yellow-800 dark:text-yellow-200 mb-4">
+                Quiz Pending
+              </div>
+              <h3 className="text-lg font-medium mb-2 text-foreground">Quiz Not Available</h3>
+              <p className="text-muted-foreground mb-4">
+                The quiz is currently set to pending status. Please wait for the admin to activate the quiz.
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Contact the event organizers if you believe this is an error.
+              </p>
+            </div>
+            <Link
+              href="/dashboard"
+              className="inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+            >
+              Return to Dashboard
+            </Link>
+          </div>
+        ) : (
+          <QuizComponent
+            questions={questions}
+            answers={answers}
+            onAnswerChange={handleAnswerChange}
+            currentQ={currentQ}
+            onCurrentQChange={setCurrentQ}
+            onSubmit={handleSubmitQuiz}
+            submitting={submitting}
+            quizActive={quizActive}
+            timeLeft={timeLeft}
+            isFullscreen={isFullscreen}
+            onToggleFullscreen={toggleFullscreen}
+            message={message}
+          />
+        )}
       </div>
     </div>
     </PageLock>

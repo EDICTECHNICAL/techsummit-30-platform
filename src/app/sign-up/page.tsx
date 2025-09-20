@@ -144,11 +144,11 @@ export default function SignUpPage() {
                      Object.keys(fieldErrors).length === 0;
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4 py-8 event-section-bg">
-      <div className="w-full max-w-md event-card event-card-hover rounded-xl shadow-2xl p-8">
+    <div className="min-h-screen bg-background text-foreground flex items-center justify-center mobile-padding py-8 event-section-bg safe-area-padding">
+      <div className="w-full max-w-md mobile-card shadow-2xl">
         <div className="text-center mb-6">
-          <h1 className="text-3xl font-bold event-text-gradient">Create Account</h1>
-          <p className="text-muted-foreground mt-2">Join Techpreneur Summit 3.0</p>
+          <h1 className="mobile-title event-text-gradient">Create Account</h1>
+          <p className="text-muted-foreground mt-2 mobile-body">Join Techpreneur Summit 3.0</p>
         </div>
 
         {/* Registration Status */}
@@ -158,7 +158,7 @@ export default function SignUpPage() {
               ? 'bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400' 
               : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
           }`}>
-            <p className="text-sm font-medium">
+            <p className="mobile-body font-medium">
               {registrationStatus.isOpen ? '🟢 Registration Open' : '🔴 Registration Closed'}
             </p>
             <p className="text-xs mt-1">{registrationStatus.message}</p>
@@ -168,15 +168,15 @@ export default function SignUpPage() {
         {/* Registration Closed Message */}
         {!registrationStatus.isOpen ? (
           <div className="text-center space-y-4">
-            <div className="event-card p-6 rounded-lg">
+            <div className="mobile-card">
               <div className="text-4xl mb-2">⏰</div>
               <h2 className="text-xl font-semibold mb-2 text-primary">Registration Closed</h2>
-              <p className="text-muted-foreground">
+              <p className="text-muted-foreground mobile-body">
                 The registration deadline has passed. New team registrations are no longer accepted.
               </p>
             </div>
             <div className="space-y-2">
-              <p className="text-sm text-muted-foreground">
+              <p className="mobile-body text-muted-foreground">
                 Already have an account?{" "}
                 <Link href="/sign-in" className="text-primary hover:underline font-medium transition-colors">
                   Sign in here
@@ -184,7 +184,7 @@ export default function SignUpPage() {
               </p>
               <Link 
                 href="/" 
-                className="text-sm text-muted-foreground hover:text-primary underline transition-colors"
+                className="mobile-body text-muted-foreground hover:text-primary underline transition-colors"
               >
                 ← Back to Techpreneur Summit 3.0
               </Link>
@@ -194,13 +194,13 @@ export default function SignUpPage() {
           <>
             {error && (
               <div className="mb-4 p-4 rounded-md bg-red-500/10 border border-red-500/20 backdrop-blur-sm">
-                <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
+                <p className="mobile-body text-red-600 dark:text-red-400">{error}</p>
               </div>
             )}
         
         <form className="space-y-4" onSubmit={onSubmit}>
           <div>
-            <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
+            <label htmlFor="name" className="block mobile-body font-medium text-foreground mb-2">
               Full Name *
             </label>
             <input
@@ -209,10 +209,10 @@ export default function SignUpPage() {
               required
               value={formData.name}
               onChange={(e) => handleInputChange("name", e.target.value)}
-              className={`w-full rounded-md border bg-background/50 backdrop-blur-sm px-4 py-3 text-sm outline-none focus:ring-2 transition-all duration-300 ${
+              className={`mobile-input ${
                 fieldErrors.name 
                   ? "border-destructive focus:ring-destructive" 
-                  : "border-input focus:ring-primary focus:border-transparent"
+                  : ""
               }`}
               placeholder="Enter your full name"
               disabled={loading}
@@ -221,7 +221,7 @@ export default function SignUpPage() {
           </div>
           
           <div>
-            <label htmlFor="username" className="block text-sm font-medium text-foreground mb-2">
+            <label htmlFor="username" className="block mobile-body font-medium text-foreground mb-2">
               Username *
             </label>
             <input
@@ -230,10 +230,10 @@ export default function SignUpPage() {
               required
               value={formData.username}
               onChange={(e) => handleInputChange("username", e.target.value)}
-              className={`w-full rounded-md border bg-background/50 backdrop-blur-sm px-4 py-3 text-sm outline-none focus:ring-2 transition-all duration-300 ${
+              className={`mobile-input ${
                 fieldErrors.username 
                   ? "border-destructive focus:ring-destructive" 
-                  : "border-input focus:ring-primary focus:border-transparent"
+                  : ""
               }`}
               placeholder="Choose a unique username"
               disabled={loading}
@@ -242,7 +242,7 @@ export default function SignUpPage() {
           </div>
           
           <div>
-            <label htmlFor="password" className="block text-sm font-medium text-muted-foreground mb-1">
+            <label htmlFor="password" className="block mobile-body font-medium text-foreground mb-2">
               Password *
             </label>
             <input
@@ -251,10 +251,10 @@ export default function SignUpPage() {
               required
               value={formData.password}
               onChange={(e) => handleInputChange("password", e.target.value)}
-              className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+              className={`mobile-input ${
                 fieldErrors.password 
                   ? "border-destructive focus:ring-destructive" 
-                  : "border-input focus:ring-primary focus:border-transparent"
+                  : ""
               }`}
               placeholder="Create a secure password"
               disabled={loading}
@@ -263,7 +263,7 @@ export default function SignUpPage() {
           </div>
           
           <div>
-            <label htmlFor="confirmPassword" className="block text-sm font-medium text-muted-foreground mb-1">
+            <label htmlFor="confirmPassword" className="block mobile-body font-medium text-foreground mb-2">
               Confirm Password *
             </label>
             <input
@@ -272,10 +272,10 @@ export default function SignUpPage() {
               required
               value={formData.confirmPassword}
               onChange={(e) => handleInputChange("confirmPassword", e.target.value)}
-              className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+              className={`mobile-input ${
                 fieldErrors.confirmPassword 
                   ? "border-destructive focus:ring-destructive" 
-                  : "border-input focus:ring-primary focus:border-transparent"
+                  : ""
               }`}
               placeholder="Confirm your password"
               disabled={loading}
@@ -284,7 +284,7 @@ export default function SignUpPage() {
           </div>
           
           <div>
-            <label htmlFor="teamName" className="block text-sm font-medium text-muted-foreground mb-1">
+            <label htmlFor="teamName" className="block mobile-body font-medium text-foreground mb-2">
               Team Name *
             </label>
             <input
@@ -293,10 +293,10 @@ export default function SignUpPage() {
               required
               value={formData.teamName}
               onChange={(e) => handleInputChange("teamName", e.target.value)}
-              className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+              className={`mobile-input ${
                 fieldErrors.teamName 
                   ? "border-destructive focus:ring-destructive" 
-                  : "border-input focus:ring-primary focus:border-transparent"
+                  : ""
               }`}
               placeholder="Choose your team name"
               disabled={loading}
@@ -305,7 +305,7 @@ export default function SignUpPage() {
           </div>
           
           <div>
-            <label htmlFor="college" className="block text-sm font-medium text-muted-foreground mb-1">
+            <label htmlFor="college" className="block mobile-body font-medium text-foreground mb-2">
               College/University *
             </label>
             <input
@@ -314,10 +314,10 @@ export default function SignUpPage() {
               required
               value={formData.college}
               onChange={(e) => handleInputChange("college", e.target.value)}
-              className={`w-full rounded-md border px-3 py-2 text-sm outline-none focus:ring-2 transition-colors ${
+              className={`mobile-input ${
                 fieldErrors.college 
                   ? "border-destructive focus:ring-destructive" 
-                  : "border-input focus:ring-primary focus:border-transparent"
+                  : ""
               }`}
               placeholder="Your college or university name"
               disabled={loading}
@@ -342,7 +342,7 @@ export default function SignUpPage() {
         </form>
         
         <div className="mt-6 text-center space-y-3">
-          <p className="text-sm text-muted-foreground">
+          <p className="mobile-body text-muted-foreground">
             Already have an account?{" "}
             <Link href="/sign-in" className="text-primary hover:underline font-medium">
               Sign in here
@@ -350,7 +350,7 @@ export default function SignUpPage() {
           </p>
           <Link 
             href="/" 
-            className="text-sm text-muted-foreground hover:text-foreground underline"
+            className="mobile-body text-muted-foreground hover:text-foreground underline"
           >
             ← Back to Home
           </Link>

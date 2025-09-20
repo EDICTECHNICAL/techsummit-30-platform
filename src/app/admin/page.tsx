@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { BackButton } from "@/components/BackButton";
 
 export default function AdminPage() {
   const [rounds, setRounds] = useState<any[]>([]);
@@ -1116,9 +1117,6 @@ export default function AdminPage() {
             <div className="rounded-lg border border-border bg-card p-6">
               <h3 className="font-semibold mb-4">Quick Actions</h3>
               <div className="flex flex-wrap gap-2">
-                <a href="/judge" className="rounded-md bg-green-600 px-4 py-2 text-white font-medium hover:bg-green-700">
-                  Judge Console
-                </a>
                 <a href="/scoreboard" className="rounded-md bg-purple-600 px-4 py-2 text-white font-medium hover:bg-purple-700">
                   Final Scoreboard
                 </a>
@@ -1594,9 +1592,7 @@ export default function AdminPage() {
     <div className="min-h-screen bg-background text-foreground p-6">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline transition-colors">
-            ← Back to Dashboard
-          </Link>
+          <BackButton />
           <ThemeToggle />
         </div>
         

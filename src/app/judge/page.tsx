@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useSession } from "@/lib/auth-client";
 import Link from 'next/link';
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { BackButton } from "@/components/BackButton";
 
 interface Team {
   id: number;
@@ -35,6 +36,7 @@ export default function JudgePage() {
   const [msg, setMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isJudgeAuthenticated, setIsJudgeAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
 
   // Form state for real-time rating
   const [realTimeRating, setRealTimeRating] = useState<string>('80');
@@ -49,15 +51,37 @@ export default function JudgePage() {
 
   const isAdmin = session?.user?.isAdmin;
 
-  // Check for judge authentication cookie
+  // Check for judge authentication - final working version
   useEffect(() => {
-    if (typeof window !== "undefined") {
-      const isJudge = document.cookie.includes("judge-auth=true") || document.cookie.includes("admin-auth=true");
-      setIsJudgeAuthenticated(isJudge);
-      if (!isJudge) {
-        window.location.href = "/judge/login";
+    const checkAuth = () => {
+      if (typeof window === "undefined") return;
+      
+      const cookies = document.cookie;
+      
+      if (!cookies || cookies.length === 0) {
+        setIsJudgeAuthenticated(false);
+        setAuthChecked(true);
+        return;
       }
-    }
+      
+      // Split and clean cookies
+      const cookieArray = cookies.split(';').map(cookie => cookie.trim());
+      
+      // Check for authentication cookies
+      const judgeUserCookie = cookieArray.find(cookie => cookie.startsWith('judge-user='));
+      const adminTokenCookie = cookieArray.find(cookie => cookie.startsWith('auth-token='));
+      
+      // Since judge-token is HTTP-only, we use judge-user as authentication indicator
+      const isAuthenticated = !!(judgeUserCookie || adminTokenCookie);
+      
+      setIsJudgeAuthenticated(isAuthenticated);
+      setAuthChecked(true);
+    };
+
+    // Check auth after a small delay to ensure cookies are available
+    const timeoutId = setTimeout(checkAuth, 200);
+    
+    return () => clearTimeout(timeoutId);
   }, []);
 
   // SSE Connection for real-time rating cycle updates
@@ -142,13 +166,62 @@ export default function JudgePage() {
     if (session?.user?.name) {
       setJudgeName(session.user.name);
     } else if (isJudgeAuthenticated) {
-      // Set a default judge name if not logged in via regular auth
-      setJudgeName('Judge');
+      // Fetch judge information from database
+      fetchJudgeProfile();
     }
     if (isJudgeAuthenticated) {
       loadData();
     }
   }, [session, isJudgeAuthenticated]);
+
+  // Fetch judge profile from database
+  const fetchJudgeProfile = async () => {
+    try {
+      const res = await fetch('/api/judge/profile');
+      if (res.ok) {
+        const data = await res.json();
+        if (data.success && data.judge) {
+          const judgeName = data.judge.name || data.judge.username || 'Judge';
+          setJudgeName(judgeName);
+          console.log('Successfully loaded judge profile:', data.judge.name, '(', data.judge.username, ')');
+        } else {
+          console.warn('Failed to get judge profile:', data.error);
+          setJudgeName('Judge');
+        }
+      } else {
+        console.warn('Failed to fetch judge profile:', res.status, res.statusText);
+        // Fallback to cookie method if API fails
+        fallbackToJudgeCookie();
+      }
+    } catch (error) {
+      console.error('Error fetching judge profile:', error);
+      // Fallback to cookie method if API fails
+      fallbackToJudgeCookie();
+    }
+  };
+
+  // Fallback method using judge cookie
+  const fallbackToJudgeCookie = () => {
+    if (typeof window !== "undefined") {
+      try {
+        const judgeUserCookie = document.cookie
+          .split('; ')
+          .find(row => row.startsWith('judge-user='));
+        
+        if (judgeUserCookie) {
+          const judgeUserData = JSON.parse(decodeURIComponent(judgeUserCookie.split('=')[1]));
+          setJudgeName(judgeUserData.name || judgeUserData.username || 'Judge');
+          console.log('Fallback: Using judge name from cookie:', judgeUserData.name);
+        } else {
+          setJudgeName('Judge');
+          console.warn('No judge cookie found, using default name');
+        }
+      } catch (error) {
+        console.error('Error parsing judge user data from cookie:', error);
+        setJudgeName('Judge');
+      }
+    }
+  };
 
   // Poll current rating status for real-time updates
   useEffect(() => {
@@ -270,13 +343,45 @@ export default function JudgePage() {
                          judgeName.trim().length > 0;
 
   const handleLogout = () => {
-    // Clear judge authentication cookie
-    document.cookie = "judge-auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    // Clear judge authentication cookies
+    document.cookie = "judge-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie = "judge-user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
     window.location.href = "/judge/login";
   };
 
-  if (isPending || loading || !isJudgeAuthenticated) return <div className="p-6">Loading...</div>;
-  if (!isJudgeAuthenticated) return <div className="p-6">Please sign in to access the judge panel.</div>;
+  // Show loading while checking authentication
+  if (isPending || loading || !authChecked) {
+    return <div className="p-6">Loading...</div>;
+  }
+
+  // Redirect to login if not authenticated
+  if (!isJudgeAuthenticated) {
+    return (
+      <div className="min-h-screen bg-background text-foreground flex items-center justify-center mobile-padding safe-area-padding">
+        <div className="w-full max-w-md mobile-card text-center">
+          <h2 className="mobile-subtitle mb-4">Authentication Required</h2>
+          <p className="text-muted-foreground mb-6 mobile-body">You need to be logged in as a judge to access this panel.</p>
+          <div className="mobile-button-group">
+            <a 
+              href="/judge/login"
+              className="event-button-primary rounded-md px-4 py-2 font-medium"
+            >
+              Go to Judge Login
+            </a>
+            <button 
+              onClick={() => window.location.reload()}
+              className="inline-flex items-center justify-center rounded-md border border-border px-4 py-2 mobile-body hover:bg-accent min-h-[44px]"
+            >
+              Refresh Page (Check Console)
+            </button>
+          </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            Open browser DevTools (F12) → Console to see debug information
+          </p>
+        </div>
+      </div>
+    );
+  }
 
   // Group scores by team for display
   const scoresByTeam = teams.map(team => {
@@ -298,23 +403,30 @@ export default function JudgePage() {
   const availableTeams = teams.filter(team => !myTeamIds.has(team.id));
 
   return (
-    <div className="min-h-screen bg-background text-foreground p-6">
+    <div className="min-h-screen bg-background text-foreground mobile-padding pb-20 sm:pb-6 safe-area-padding">
       <div className="max-w-6xl mx-auto">
-        <div className="flex items-center justify-between mb-4">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline transition-colors">
-            ← Back to Dashboard
-          </Link>
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
+          <div className="flex items-center gap-3">
+            <BackButton />
+            <h1 className="mobile-title mb-0">Judge Console</h1>
+          </div>
           <ThemeToggle />
         </div>
         
-        <h1 className="text-3xl font-bold mb-2">Judge Console</h1>
-        <p className="text-muted-foreground mb-6">
-          Submit scores for team presentations during the final round.
-        </p>
+        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
+          <p className="mobile-body text-muted-foreground">
+            Submit scores for team presentations during the final round.
+          </p>
+          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-full">
+            <span className="mobile-body font-medium text-blue-800 dark:text-blue-200">
+              👨‍⚖️ {judgeName}
+            </span>
+          </div>
+        </div>
 
         {/* Real-Time Rating Section */}
-        <div className="rounded-lg border bg-card p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">🎯 Real-Time Final Round Rating</h2>
+        <div className="mobile-card mb-6">
+          <h2 className="mobile-subtitle mb-4">🎯 Real-Time Final Round Rating</h2>
           
           {/* Current pitch team status */}
           {currentPitchTeam ? (
@@ -349,14 +461,13 @@ export default function JudgePage() {
           {/* Rating form for current pitch */}
           <div className="grid gap-4 md:grid-cols-2">
             <div>
-              <label className="block text-sm font-medium mb-2">Judge Name</label>
-              <input 
-                type="text" 
-                value={judgeName} 
-                onChange={(e) => setJudgeName(e.target.value)}
-                placeholder="Enter your judge name"
-                className="w-full rounded-md border border-input bg-background px-3 py-2"
-              />
+              <label className="block text-sm font-medium mb-2">Logged in as Judge</label>
+              <div className="w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+                <span className="font-medium">{judgeName}</span>
+                {judgeName === 'Judge' && (
+                  <span className="text-muted-foreground ml-2">(Loading...)</span>
+                )}
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">
@@ -494,18 +605,6 @@ export default function JudgePage() {
           >
             {loading ? 'Refreshing...' : 'Refresh Data'}
           </button>
-          <a 
-            href="/admin" 
-            className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium"
-          >
-            Admin Panel
-          </a>
-          <a 
-            href="/final" 
-            className="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-md text-sm font-medium"
-          >
-            Final Round
-          </a>
           <button 
             onClick={handleLogout}
             className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
