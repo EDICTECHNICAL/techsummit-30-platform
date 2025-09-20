@@ -61,6 +61,7 @@ export default function FinalPage() {
   const [myRatings, setMyRatings] = useState<PeerRating[]>([]);
   const [qualifiedTeams, setQualifiedTeams] = useState<any[]>([]);
   const [nonQualifiedTeams, setNonQualifiedTeams] = useState<any[]>([]);
+  const [qualificationNote, setQualificationNote] = useState<any>(null);
   const [isQualified, setIsQualified] = useState<boolean>(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [msgType, setMsgType] = useState<'success' | 'error' | 'info'>('info');
@@ -225,6 +226,45 @@ export default function FinalPage() {
     checkRoundCompletion();
   }, [session]);
 
+  // Poll current rating status for real-time updates
+  useEffect(() => {
+    const pollRatingStatus = async () => {
+      try {
+        const res = await fetch("/api/rating/current");
+        if (!res.ok) {
+          console.warn(`Failed to fetch rating status: ${res.status} ${res.statusText}`);
+          return;
+        }
+        
+        const data = await res.json();
+        setCurrentPitchTeam(data?.team ?? null);
+        
+        // Handle rating cycle state
+        const newRatingCycleActive = data?.ratingCycleActive ?? false;
+        const newCurrentPhase = data?.currentPhase ?? 'idle';
+        const newPhaseTimeLeft = data?.phaseTimeLeft ?? 0;
+        const newCycleStartTime = data?.cycleStartTime ?? null;
+        
+        setRatingCycleActive(newRatingCycleActive);
+        setCurrentPhase(newCurrentPhase);
+        setPhaseTimeLeft(newPhaseTimeLeft);
+        setCycleStartTime(newCycleStartTime);
+        
+        // Handle rating activation timing
+        const newRatingActive = data?.ratingActive ?? false;
+        setRatingActive(newRatingActive);
+        
+      } catch (error) {
+        console.error("Error polling rating status:", error);
+      }
+    };
+
+    pollRatingStatus(); // Initial fetch
+    const interval = setInterval(pollRatingStatus, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(interval);
+  }, []);
+
   // Show qualification popup when qualification status is determined
   useEffect(() => {
     if (userTeamId && qualifiedTeams.length > 0 && !loading) {
@@ -301,6 +341,7 @@ export default function FinalPage() {
         const qualifiedData = await qualifiedRes.json();
         setQualifiedTeams(qualifiedData.qualifiedTeams || []);
         setNonQualifiedTeams(qualifiedData.nonQualifiedTeams || []);
+        setQualificationNote(qualifiedData.qualificationNote || null);
         
         // Check if current user's team is qualified
         const userQualified = qualifiedData.qualifiedTeams.some((team: any) => team.teamId === userTeamId);
@@ -609,6 +650,20 @@ export default function FinalPage() {
             {qualifiedTeams.length > 0 && (
               <div className="rounded-lg border bg-card p-6">
                 <h2 className="text-xl font-semibold mb-4">🏆 Top 5 Qualified Teams</h2>
+                
+                {/* Qualification Tiebreaker Note */}
+                {qualificationNote && (
+                  <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <div className="text-blue-600 text-sm">⚖️</div>
+                      <div>
+                        <p className="text-sm font-medium text-blue-800 mb-1">Automatic Tiebreaker Applied</p>
+                        <p className="text-sm text-blue-700">{qualificationNote.message}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="grid gap-3">
                   {qualifiedTeams.map((team, index) => (
                     <div key={team.teamId} className="flex items-center justify-between p-3 rounded-lg bg-muted">

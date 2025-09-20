@@ -42,14 +42,66 @@ export async function GET(request: NextRequest) {
         return {
           ...team,
           combinedScore,
-          rank: 0 // Will be set below
+          rank: 0, // Will be set below
+          quizScore: team.quizScore || 0,
+          totalVotes: team.totalVotes || 0,
+          votesFromTokens: team.votesFromTokens || 0
         };
       })
-      .sort((a, b) => b.combinedScore - a.combinedScore)
+      .sort((a, b) => {
+        // Primary sort: combined score (descending)
+        if (b.combinedScore !== a.combinedScore) {
+          return b.combinedScore - a.combinedScore;
+        }
+        // Tiebreaker 1: Quiz score (descending)
+        if (b.quizScore !== a.quizScore) {
+          return b.quizScore - a.quizScore;
+        }
+        // Tiebreaker 2: Total votes (descending)
+        if (b.totalVotes !== a.totalVotes) {
+          return b.totalVotes - a.totalVotes;
+        }
+        // Tiebreaker 3: Team name (ascending for consistency)
+        return a.teamName.localeCompare(b.teamName);
+      })
       .map((team, index) => ({
         ...team,
         rank: index + 1
       }));
+
+    // Detect and resolve ties for 5th position (qualification cutoff)
+    let qualificationNote = null;
+    if (rankedTeams.length >= 5) {
+      const cutoffScore = rankedTeams[4].combinedScore;
+      const teamsWithCutoffScore = rankedTeams.filter(team => team.combinedScore === cutoffScore);
+      
+      if (teamsWithCutoffScore.length > 1) {
+        const qualifiedFromTie = teamsWithCutoffScore.filter(team => team.rank <= 5);
+        const nonQualifiedFromTie = teamsWithCutoffScore.filter(team => team.rank > 5);
+        
+        if (qualifiedFromTie.length > 0 && nonQualifiedFromTie.length > 0) {
+          // Generate tiebreaker explanation
+          const qualifiedTeam = qualifiedFromTie[0];
+          const firstNonQualified = nonQualifiedFromTie[0];
+          
+          let reason = "";
+          if (qualifiedTeam.quizScore > firstNonQualified.quizScore) {
+            reason = `higher quiz score (${qualifiedTeam.quizScore} vs ${firstNonQualified.quizScore})`;
+          } else if (qualifiedTeam.totalVotes > firstNonQualified.totalVotes) {
+            reason = `higher total votes (${qualifiedTeam.totalVotes} vs ${firstNonQualified.totalVotes})`;
+          } else {
+            reason = `alphabetical order of team name`;
+          }
+          
+          qualificationNote = {
+            type: 'tiebreaker',
+            message: `Tiebreaker applied for 5th position: ${qualifiedTeam.teamName} qualified over ${nonQualifiedFromTie.map(t => t.teamName).join(', ')} due to ${reason}.`,
+            tiedScore: cutoffScore,
+            tiedTeams: teamsWithCutoffScore.map(t => ({ name: t.teamName, rank: t.rank }))
+          };
+        }
+      }
+    }
 
     // Get top 5 qualified teams
     const top5Teams = rankedTeams.slice(0, 5);
@@ -59,7 +111,8 @@ export async function GET(request: NextRequest) {
       qualifiedTeams: top5Teams,
       nonQualifiedTeams: nonQualifiedTeams,
       totalTeams: rankedTeams.length,
-      cutoffScore: top5Teams.length > 0 ? top5Teams[top5Teams.length - 1].combinedScore : 0
+      cutoffScore: top5Teams.length > 0 ? top5Teams[top5Teams.length - 1].combinedScore : 0,
+      qualificationNote: qualificationNote
     });
 
   } catch (error) {

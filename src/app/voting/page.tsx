@@ -275,13 +275,45 @@ export default function VotingPage() {
   useEffect(() => {
     const pollPitchStatus = async () => {
       try {
-        const res = await fetch("/api/voting/current");
-        if (!res.ok) {
-          console.warn(`Failed to fetch pitch status: ${res.status} ${res.statusText}`);
+        // First try voting current API (for Round 2)
+        let res = await fetch("/api/voting/current");
+        let data: CurrentPitchData | null = null;
+        
+        if (res.ok) {
+          data = await res.json();
+        }
+        
+        // If no team in voting current, try rating current API (for Round 3)
+        if (!data?.team) {
+          try {
+            const ratingRes = await fetch("/api/rating/current");
+            if (ratingRes.ok) {
+              const ratingData = await ratingRes.json();
+              if (ratingData?.team) {
+                // Convert rating data to voting data format
+                data = {
+                  team: ratingData.team,
+                  votingActive: ratingData.ratingActive,
+                  allPitchesCompleted: ratingData.allPitchesCompleted,
+                  pitchCycleActive: ratingData.ratingCycleActive,
+                  currentPhase: ratingData.currentPhase === 'pitching' ? 'pitching' :
+                              ratingData.currentPhase === 'judges-rating' ? 'preparing' :
+                              ratingData.currentPhase === 'peers-rating' ? 'voting' : 'idle',
+                  phaseTimeLeft: ratingData.phaseTimeLeft,
+                  cycleStartTime: ratingData.cycleStartTime
+                };
+              }
+            }
+          } catch (ratingError) {
+            console.warn('Failed to fetch rating status:', ratingError);
+          }
+        }
+        
+        if (!data) {
+          console.warn('Failed to fetch any pitch status');
           return;
         }
         
-        const data: CurrentPitchData = await res.json();
         setCurrentPitchTeam(data?.team ?? null);
         
         // Handle pitch cycle state
@@ -898,7 +930,7 @@ export default function VotingPage() {
                 <div>Strategy: {tokenStatus.availableTokens.strategy}</div>
               </div>
               <div className="text-blue-600 font-medium">
-                Maximum possible conversions: {tokenStatus.maxPossibleConversions}
+                Maximum possible conversions: {Math.max(0, tokenStatus.maxPossibleConversions)}
               </div>
               {tokenStatus.totalVotesGained > 0 && (
                 <p className="mt-2 text-green-600 font-medium">

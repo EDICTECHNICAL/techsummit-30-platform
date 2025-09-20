@@ -150,6 +150,41 @@ export default function JudgePage() {
     }
   }, [session, isJudgeAuthenticated]);
 
+  // Poll current rating status for real-time updates
+  useEffect(() => {
+    if (!isJudgeAuthenticated) return;
+
+    const pollRatingStatus = async () => {
+      try {
+        const res = await fetch("/api/rating/current");
+        if (!res.ok) {
+          console.warn(`Failed to fetch rating status: ${res.status} ${res.statusText}`);
+          return;
+        }
+        
+        const data = await res.json();
+        setCurrentPitchTeam(data?.team ?? null);
+        
+        // Handle rating cycle state
+        const newRatingCycleActive = data?.ratingCycleActive ?? false;
+        const newCurrentPhase = data?.currentPhase ?? 'idle';
+        const newPhaseTimeLeft = data?.phaseTimeLeft ?? 0;
+        
+        setRatingCycleActive(newRatingCycleActive);
+        setCurrentPhase(newCurrentPhase);
+        setPhaseTimeLeft(newPhaseTimeLeft);
+        
+      } catch (error) {
+        console.error("Error polling rating status:", error);
+      }
+    };
+
+    pollRatingStatus(); // Initial fetch
+    const interval = setInterval(pollRatingStatus, 2000); // Poll every 2 seconds
+
+    return () => clearInterval(interval);
+  }, [isJudgeAuthenticated]);
+
   const loadData = async () => {
     try {
       setLoading(true);

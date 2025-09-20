@@ -41,6 +41,13 @@ interface LeaderboardTeam {
 
 interface LeaderboardData {
   leaderboard: LeaderboardTeam[];
+  winnerNotes?: Array<{
+    position: number;
+    type: string;
+    message: string;
+    tiedScore: number;
+    tiedTeams: Array<{ name: string; rank: number }>;
+  }>;
   metadata: {
     totalTeams: number;
     generatedAt: string;
@@ -236,6 +243,23 @@ export default function ScoreboardPage() {
         {lastUpdated && (
           <div className="text-xs text-muted-foreground mb-6">
             Last updated: {lastUpdated.toLocaleString()}
+          </div>
+        )}
+
+        {/* Winner Tiebreaker Notes */}
+        {data.winnerNotes && data.winnerNotes.length > 0 && (
+          <div className="mb-8 space-y-3">
+            {data.winnerNotes.map((note, index) => (
+              <div key={index} className="p-4 bg-blue-50 border border-blue-200 rounded-lg">
+                <div className="flex items-start gap-2">
+                  <div className="text-blue-600 text-sm">⚖️</div>
+                  <div>
+                    <p className="text-sm font-medium text-blue-800 mb-1">Automatic Tiebreaker Applied</p>
+                    <p className="text-sm text-blue-700">{note.message}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
           </div>
         )}
 

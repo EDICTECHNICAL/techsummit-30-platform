@@ -174,8 +174,16 @@ export async function GET(request: NextRequest) {
       if (b.finalCumulativeScore !== a.finalCumulativeScore) {
         return b.finalCumulativeScore - a.finalCumulativeScore;
       }
-      // Tiebreaker: total votes
-      return b.voting.totalVotes - a.voting.totalVotes;
+      // Tiebreaker 1: total votes
+      if (b.voting.totalVotes !== a.voting.totalVotes) {
+        return b.voting.totalVotes - a.voting.totalVotes;
+      }
+      // Tiebreaker 2: judge scores
+      if (b.judgeScores.total !== a.judgeScores.total) {
+        return b.judgeScores.total - a.judgeScores.total;
+      }
+      // Tiebreaker 3: team name (alphabetical for consistency)
+      return a.teamName.localeCompare(b.teamName);
     });
 
     // Add rankings
@@ -183,6 +191,47 @@ export async function GET(request: NextRequest) {
       ...team,
       rank: index + 1,
     }));
+
+    // Detect tiebreakers for top 3 positions
+    let winnerNotes = [];
+    
+    // Check for ties in top 3 positions
+    for (let position = 1; position <= 3; position++) {
+      if (rankedLeaderboard.length >= position) {
+        const currentTeam = rankedLeaderboard[position - 1];
+        const tiedTeams = rankedLeaderboard.filter(team => 
+          team.finalCumulativeScore === currentTeam.finalCumulativeScore
+        );
+        
+        if (tiedTeams.length > 1) {
+          const otherTiedTeams = tiedTeams.filter(team => team.rank > position);
+          
+          if (otherTiedTeams.length > 0) {
+            let reason = "";
+            const nextBestTeam = otherTiedTeams[0];
+            
+            if (currentTeam.voting.totalVotes > nextBestTeam.voting.totalVotes) {
+              reason = `higher total votes (${currentTeam.voting.totalVotes} vs ${nextBestTeam.voting.totalVotes})`;
+            } else if (currentTeam.judgeScores.total > nextBestTeam.judgeScores.total) {
+              reason = `higher judge scores (${currentTeam.judgeScores.total} vs ${nextBestTeam.judgeScores.total})`;
+            } else {
+              reason = `alphabetical order of team name`;
+            }
+            
+            const positionName = position === 1 ? "1st place (Winner)" : 
+                               position === 2 ? "2nd place" : "3rd place";
+            
+            winnerNotes.push({
+              position: position,
+              type: 'tiebreaker',
+              message: `Tiebreaker applied for ${positionName}: ${currentTeam.teamName} placed above ${otherTiedTeams.map(t => t.teamName).join(', ')} due to ${reason}.`,
+              tiedScore: currentTeam.finalCumulativeScore,
+              tiedTeams: tiedTeams.map(t => ({ name: t.teamName, rank: t.rank }))
+            });
+          }
+        }
+      }
+    }
 
     // Calculate participation statistics
     const totalQuizSubmissions = leaderboard.filter(t => t.hasQuizSubmission).length;
@@ -192,6 +241,7 @@ export async function GET(request: NextRequest) {
 
     return NextResponse.json({
       leaderboard: rankedLeaderboard,
+      winnerNotes: winnerNotes,
       metadata: {
         totalTeams: allTeams.length,
         generatedAt: new Date().toISOString(),
@@ -199,6 +249,8 @@ export async function GET(request: NextRequest) {
         rankingCriteria: [
           'Final cumulative score (token score + judge score)',
           'Total votes received (original + token conversions) as tiebreaker',
+          'Judge scores total as secondary tiebreaker',
+          'Team name alphabetical order as final tiebreaker'
         ],
         participation: {
           quizSubmissions: totalQuizSubmissions,
@@ -211,6 +263,7 @@ export async function GET(request: NextRequest) {
           voting: 'Original votes received plus additional votes gained from strategic token conversions',
           judgeScores: 'Total scores awarded by judges during final evaluation round',
           finalScore: 'Sum of cumulative token score and total judge score',
+          tiebreakers: 'Automatic tiebreaker resolution applied where teams have identical final scores'
         }
       }
     });
