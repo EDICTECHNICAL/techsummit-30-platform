@@ -1,18 +1,26 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { teams, quizSubmissions, votes, tokenConversions } from '@/db/schema';
+import { teams, quizSubmissions, votes, tokenConversions, judgeScores } from '@/db/schema';
 import { eq, sql, desc } from 'drizzle-orm';
 
 // GET handler - Get top 5 qualified teams for final round
 export async function GET(request: NextRequest) {
   try {
-    // Get all teams with their quiz scores and voting results
+    // Get all teams with their token scores and judge scores
     const teamsWithScores = await db
       .select({
         teamId: teams.id,
         teamName: teams.name,
         college: teams.college,
-        quizScore: sql<number>`COALESCE(${quizSubmissions.rawScore}, 0)`.as('quiz_score'),
+        tokensMarketing: sql<number>`COALESCE(${quizSubmissions.tokensMarketing}, 0)`.as('tokens_marketing'),
+        tokensCapital: sql<number>`COALESCE(${quizSubmissions.tokensCapital}, 0)`.as('tokens_capital'),
+        tokensTeam: sql<number>`COALESCE(${quizSubmissions.tokensTeam}, 0)`.as('tokens_team'),
+        tokensStrategy: sql<number>`COALESCE(${quizSubmissions.tokensStrategy}, 0)`.as('tokens_strategy'),
+        totalJudgeScore: sql<number>`
+          COALESCE(
+            (SELECT SUM(${judgeScores.score}) FROM ${judgeScores} WHERE ${judgeScores.teamId} = ${teams.id}), 0
+          )
+        `.as('total_judge_score'),
         totalVotes: sql<number>`
           COALESCE(
             (SELECT COUNT(*) FROM ${votes} WHERE ${votes.toTeamId} = ${teams.id} AND ${votes.value} = 1), 0
@@ -38,14 +46,23 @@ export async function GET(request: NextRequest) {
     // Calculate combined scores and rank teams
     const rankedTeams = teamsWithScores
       .map(team => {
-        const combinedScore = (team.quizScore || 0) + (team.totalVotes || 0) + (team.votesFromTokens || 0);
+        // Calculate cumulative token score from all 4 categories - ensure integers
+        const cumulativeTokenScore = Math.round(Number(team.tokensMarketing || 0)) + 
+                                    Math.round(Number(team.tokensCapital || 0)) + 
+                                    Math.round(Number(team.tokensTeam || 0)) + 
+                                    Math.round(Number(team.tokensStrategy || 0));
+        
+        // Combined score = Token Score + Judge Score (matching scoreboard calculation) - ensure integers
+        const combinedScore = cumulativeTokenScore + Math.round(Number(team.totalJudgeScore || 0));
+        
         return {
           ...team,
           combinedScore,
+          cumulativeTokenScore,
           rank: 0, // Will be set below
-          quizScore: team.quizScore || 0,
-          totalVotes: team.totalVotes || 0,
-          votesFromTokens: team.votesFromTokens || 0
+          totalVotes: Math.round(Number(team.totalVotes || 0)),
+          votesFromTokens: Math.round(Number(team.votesFromTokens || 0)),
+          totalJudgeScore: Math.round(Number(team.totalJudgeScore || 0))
         };
       })
       .sort((a, b) => {
@@ -53,13 +70,13 @@ export async function GET(request: NextRequest) {
         if (b.combinedScore !== a.combinedScore) {
           return b.combinedScore - a.combinedScore;
         }
-        // Tiebreaker 1: Quiz score (descending)
-        if (b.quizScore !== a.quizScore) {
-          return b.quizScore - a.quizScore;
-        }
-        // Tiebreaker 2: Total votes (descending)
+        // Tiebreaker 1: Total votes (descending)
         if (b.totalVotes !== a.totalVotes) {
           return b.totalVotes - a.totalVotes;
+        }
+        // Tiebreaker 2: Judge scores (descending)
+        if (b.totalJudgeScore !== a.totalJudgeScore) {
+          return b.totalJudgeScore - a.totalJudgeScore;
         }
         // Tiebreaker 3: Team name (ascending for consistency)
         return a.teamName.localeCompare(b.teamName);
@@ -85,8 +102,8 @@ export async function GET(request: NextRequest) {
           const firstNonQualified = nonQualifiedFromTie[0];
           
           let reason = "";
-          if (qualifiedTeam.quizScore > firstNonQualified.quizScore) {
-            reason = `higher quiz score (${qualifiedTeam.quizScore} vs ${firstNonQualified.quizScore})`;
+          if (qualifiedTeam.totalJudgeScore > firstNonQualified.totalJudgeScore) {
+            reason = `higher judge score (${qualifiedTeam.totalJudgeScore} vs ${firstNonQualified.totalJudgeScore})`;
           } else if (qualifiedTeam.totalVotes > firstNonQualified.totalVotes) {
             reason = `higher total votes (${qualifiedTeam.totalVotes} vs ${firstNonQualified.totalVotes})`;
           } else {

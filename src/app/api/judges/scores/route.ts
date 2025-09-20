@@ -36,21 +36,33 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check if final round is active
-    const finalRound = await db
-      .select()
-      .from(rounds)
-      .where(and(
-        eq(rounds.name, 'FINAL'),
-        eq(rounds.status, 'ACTIVE')
-      ))
-      .limit(1);
-
-    if (finalRound.length === 0) {
+    // Check if rating is currently active (using the rating API)
+    try {
+      const ratingResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/rating/current`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!ratingResponse.ok) {
+        throw new Error('Failed to fetch rating status');
+      }
+      
+      const ratingState = await ratingResponse.json();
+      
+      if (!ratingState.ratingActive || ratingState.currentPhase !== 'rating-active') {
+        return NextResponse.json({ 
+          error: 'Rating is not currently active', 
+          code: 'RATING_NOT_ACTIVE' 
+        }, { status: 400 });
+      }
+    } catch (error) {
+      console.error('Error checking rating status:', error);
       return NextResponse.json({ 
-        error: 'Final round is not currently active', 
-        code: 'FINAL_NOT_ACTIVE' 
-      }, { status: 400 });
+        error: 'Failed to verify rating status', 
+        code: 'RATING_CHECK_FAILED' 
+      }, { status: 500 });
     }
 
     // Verify team exists

@@ -14,22 +14,56 @@ export function middleware(request: NextRequest) {
     response.headers.set('X-RateLimit-Remaining', '99');
   }
 
-  // Protect admin routes
+  // Security: Restrict authenticated users to only access scoreboard and their respective dashboards
+  const judgeToken = request.cookies.get('judge-token')?.value;
+  const adminToken = request.cookies.get('auth-token')?.value;
+  
+  // If user is authenticated (judge or admin), restrict their access
+  if (judgeToken || adminToken) {
+    const pathname = request.nextUrl.pathname;
+    
+    // Allow access to essential routes
+    const allowedRoutes = [
+      '/scoreboard',
+      '/api/', // API routes
+      '/_next/', // Next.js internals
+      '/favicon.ico',
+      '/public/'
+    ];
+    
+    // Judge-specific allowed routes
+    if (judgeToken) {
+      allowedRoutes.push('/judge', '/judge/login');
+    }
+    
+    // Admin-specific allowed routes  
+    if (adminToken) {
+      allowedRoutes.push('/admin', '/admin/login', '/dashboard');
+    }
+    
+    // Check if current path is allowed
+    const isAllowed = allowedRoutes.some(route => pathname.startsWith(route));
+    
+    if (!isAllowed) {
+      // Redirect to scoreboard for security
+      return NextResponse.redirect(new URL('/scoreboard', request.url));
+    }
+  }
+
+  // Protect admin routes - only allow admin tokens, not judge tokens
   if (request.nextUrl.pathname.startsWith('/admin') && 
       !request.nextUrl.pathname.startsWith('/admin/login')) {
-    // This will be handled by client-side auth, but we can add server-side checks here
     const authToken = request.cookies.get('auth-token')?.value;
     if (!authToken) {
       return NextResponse.redirect(new URL('/admin/login', request.url));
     }
   }
 
-  // Protect judge routes  
+  // Protect judge routes - only allow judge tokens, not admin tokens
   if (request.nextUrl.pathname.startsWith('/judge') && 
       !request.nextUrl.pathname.startsWith('/judge/login')) {
     const judgeToken = request.cookies.get('judge-token')?.value;
-    const adminToken = request.cookies.get('auth-token')?.value;
-    if (!judgeToken && !adminToken) {
+    if (!judgeToken) {
       return NextResponse.redirect(new URL('/judge/login', request.url));
     }
   }

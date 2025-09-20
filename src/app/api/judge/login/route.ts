@@ -73,7 +73,16 @@ export async function POST(req: NextRequest) {
     response.cookies.set("judge-token", judgeToken, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24, // 24 hours
+      path: '/'
+    });
+
+    // Set judge authentication flag that the client can read
+    response.cookies.set("judge-auth", "true", {
+      httpOnly: false,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
       maxAge: 60 * 60 * 24, // 24 hours
       path: '/'
     });
@@ -86,8 +95,9 @@ export async function POST(req: NextRequest) {
     }), {
       httpOnly: false, // Allow client-side access for user data
       secure: process.env.NODE_ENV === "production",
-      sameSite: "strict",
-      maxAge: 60 * 60 * 24 // 24 hours
+      sameSite: "lax",
+      maxAge: 60 * 60 * 24, // 24 hours
+      path: '/'
     });
 
     return response;

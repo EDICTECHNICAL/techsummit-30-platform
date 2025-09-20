@@ -14,77 +14,97 @@ export default function JudgeLogin() {
     e.preventDefault();
     setLoading(true);
     setError(null);
+    
     try {
       const res = await fetch("/api/judge/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password })
       });
+      
       const result = await res.json();
+      
       if (!res.ok || !result.success) {
-        setError(result.error || "Invalid judge credentials");
+        setError(result.error || "Invalid credentials");
         setLoading(false);
         return;
       }
-      router.push("/judge");
+      
+      // Successful login - wait a moment for cookies to be set, then redirect
+      setTimeout(() => {
+        window.location.href = "/judge";
+      }, 100);
     } catch (err: any) {
-      setError(err?.message || "Login failed");
+      setError("Login failed. Please try again.");
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-xl border border-border bg-card p-6">
-        <div className="text-center mb-6">
-          <h1 className="text-2xl font-bold">Judge Console</h1>
-          <p className="text-sm text-muted-foreground mt-2">
-            Access the judging panel to score team presentations
-          </p>
-        </div>
-        {error && (
-          <p className="mt-3 rounded-md bg-destructive/10 px-3 py-2 text-sm text-destructive">{error}</p>
-        )}
-        <form className="mt-6 space-y-4" onSubmit={onSubmit}>
-          <div>
-            <label className="text-sm text-muted-foreground">Judge Username</label>
-            <input
-              type="text"
-              required
-              value={username}
-              onChange={(e) => setUsername(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 outline-none focus:ring-2"
-              placeholder="Your judge username"
-            />
+    <div className="min-h-screen bg-background flex items-center justify-center px-4">
+      <div className="w-full max-w-md">
+        <div className="bg-card rounded-lg border border-border p-8 shadow-lg">
+          <div className="text-center mb-6">
+            <h1 className="text-2xl font-bold text-foreground">Judge Login</h1>
+            <p className="text-muted-foreground mt-2">
+              Sign in to access the judging panel
+            </p>
           </div>
-          <div>
-            <label className="text-sm text-muted-foreground">Password</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              className="mt-1 w-full rounded-md border border-input bg-background px-3 py-2 outline-none focus:ring-2"
-              placeholder="••••••••"
-            />
+
+          {error && (
+            <div className="bg-destructive/10 text-destructive px-4 py-3 rounded-md mb-4 text-sm">
+              {error}
+            </div>
+          )}
+
+          <form onSubmit={onSubmit} className="space-y-4">
+            <div>
+              <label htmlFor="username" className="block text-sm font-medium text-foreground mb-2">
+                Username
+              </label>
+              <input
+                id="username"
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Enter your username"
+              />
+            </div>
+
+            <div>
+              <label htmlFor="password" className="block text-sm font-medium text-foreground mb-2">
+                Password
+              </label>
+              <input
+                id="password"
+                type="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                className="w-full px-3 py-2 border border-input rounded-md bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
+                placeholder="Enter your password"
+              />
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-primary text-primary-foreground py-2 px-4 rounded-md hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
+            >
+              {loading ? "Signing in..." : "Sign In"}
+            </button>
+          </form>
+
+          <div className="mt-6 text-center">
+            <Link 
+              href="/" 
+              className="text-sm text-muted-foreground hover:text-foreground underline"
+            >
+              Back to Home
+            </Link>
           </div>
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-          >
-            {loading ? "Signing in..." : "Access Judge Console"}
-          </button>
-        </form>
-        <div className="mt-6 text-center text-sm text-muted-foreground space-y-2">
-          <div>
-            <Link className="underline hover:text-foreground" href="/admin/login">Admin Login</Link>
-            <span className="mx-2">•</span>
-            <Link className="underline hover:text-foreground" href="/">Back to Home</Link>
-          </div>
-          <p className="text-xs">
-            Judge accounts are provided by event organizers
-          </p>
         </div>
       </div>
     </div>

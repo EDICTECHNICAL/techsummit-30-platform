@@ -8,6 +8,7 @@ import PageLock from "@/components/ui/PageLock";
 import { useRoundStatus } from "@/hooks/useRoundStatus";
 import { useRatingSSE } from "@/hooks/useRatingSSE";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { BackButton } from "@/components/BackButton";
 
 interface Team {
   id: number;
@@ -37,7 +38,7 @@ interface CurrentRatingData {
   allPitchesCompleted: boolean;
   // Rating cycle properties
   ratingCycleActive?: boolean;
-  currentPhase?: 'idle' | 'pitching' | 'judges-rating' | 'peers-rating';
+  currentPhase?: 'idle' | 'pitching' | 'qna-pause' | 'rating-warning' | 'rating-active';
   phaseTimeLeft?: number;
   cycleStartTime?: number | null;
 }
@@ -85,7 +86,7 @@ export default function FinalPage() {
   const [ratingActive, setRatingActive] = useState(false);
   const [allPitchesCompleted, setAllPitchesCompleted] = useState(false);
   const [ratingCycleActive, setRatingCycleActive] = useState<boolean>(false);
-  const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'judges-rating' | 'peers-rating'>('idle');
+  const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'qna-pause' | 'rating-warning' | 'rating-active'>('idle');
   const [phaseTimeLeft, setPhaseTimeLeft] = useState<number>(0);
   const [cycleStartTime, setCycleStartTime] = useState<number | null>(null);
 
@@ -191,24 +192,31 @@ export default function FinalPage() {
 
     const timer = setInterval(() => {
       const elapsed = Math.floor((Date.now() - cycleStartTime) / 1000);
-      let newPhase: 'idle' | 'pitching' | 'judges-rating' | 'peers-rating' = 'idle';
+      let newPhase: 'idle' | 'pitching' | 'qna-pause' | 'rating-warning' | 'rating-active' = 'idle';
       let timeLeft = 0;
       
       if (elapsed < 300) {
+        // Phase 1: 5 minutes pitching
         newPhase = 'pitching';
         timeLeft = 300 - elapsed;
-      } else if (elapsed < 360) {
-        newPhase = 'judges-rating';
-        timeLeft = 360 - elapsed;
-      } else if (elapsed < 420) {
-        newPhase = 'peers-rating';
-        timeLeft = 420 - elapsed;
+      } else if (currentPhase === 'qna-pause') {
+        // Phase 2: Q&A pause (controlled by admin, no timer)
+        newPhase = 'qna-pause';
+        timeLeft = 0; // No time limit, admin controlled
+      } else if (elapsed >= 300 && elapsed < 305) {
+        // Phase 3: 5 seconds warning before rating
+        newPhase = 'rating-warning';
+        timeLeft = 305 - elapsed;
+      } else if (elapsed >= 305 && elapsed < 425) {
+        // Phase 4: 2 minutes rating (judges + peers together)
+        newPhase = 'rating-active';
+        timeLeft = 425 - elapsed;
       }
       
       setCurrentPhase(newPhase);
       setPhaseTimeLeft(Math.max(0, timeLeft));
       
-      if (elapsed >= 420) {
+      if (elapsed >= 425) {
         // Cycle should end
         setRatingCycleActive(false);
         setCurrentPhase('idle');
@@ -219,7 +227,7 @@ export default function FinalPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [ratingCycleActive, cycleStartTime]);
+  }, [ratingCycleActive, cycleStartTime, currentPhase]);
 
   useEffect(() => {
     loadData();
@@ -471,12 +479,7 @@ export default function FinalPage() {
                 Finals round is currently locked
               </p>
             </div>
-            <a 
-              href="/dashboard" 
-              className="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-md text-sm font-medium transition-colors"
-            >
-              ← Back to Dashboard
-            </a>
+            <BackButton />
           </div>
 
           {/* Lock Message */}
@@ -524,13 +527,13 @@ export default function FinalPage() {
   const ratedTeamIds = new Set(myRatings.map(r => r.toTeamId));
   const unratedTeams = availableTeams.filter(team => !ratedTeamIds.has(team.id));
 
-  // Rating permissions
+  // Rating permissions - both judges and teams can rate during rating-active phase
   const canRateAsPeer = session?.user && 
                         userTeamId && 
                         currentPitchTeam && 
                         userTeamId !== currentPitchTeam.id &&
                         ratingCycleActive && 
-                        currentPhase === 'peers-rating' && 
+                        currentPhase === 'rating-active' && 
                         phaseTimeLeft > 0 &&
                         isQualified; // Only qualified teams can rate
 
@@ -538,10 +541,7 @@ export default function FinalPage() {
     <PageLock roundType="FINAL" isCompleted={isFinalCompleted}>
       <div className="max-w-6xl mx-auto px-6 pt-6 transition-all duration-300 ease-in-out">
         <div className="flex items-center justify-between mb-4">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline transition-colors">
-            <ArrowLeft className="h-4 w-4" />
-            Back to Dashboard
-          </Link>
+          <BackButton />
           <ThemeToggle />
         </div>
         
@@ -568,27 +568,31 @@ export default function FinalPage() {
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-lg font-bold text-purple-900">
                 {currentPhase === 'pitching' && '🎤 Team is Pitching (5 min)'}
-                {currentPhase === 'judges-rating' && '👨‍⚖️ Judges Rating (1 min)'}
-                {currentPhase === 'peers-rating' && '👥 Peers Rating (1 min)'}
+                {currentPhase === 'qna-pause' && '❓ Q&A Session (Admin Controlled)'}
+                {currentPhase === 'rating-warning' && '⚠️ Rating Starts Soon! (5 sec)'}
+                {currentPhase === 'rating-active' && '⭐ Rating Active - Judges & Teams (2 min)'}
                 {currentPhase === 'idle' && '⏸️ Rating Cycle Idle'}
               </h3>
               <div className="text-3xl font-bold text-purple-800">
-                {Math.floor(phaseTimeLeft / 60)}:{(phaseTimeLeft % 60).toString().padStart(2, '0')}
+                {currentPhase === 'qna-pause' ? '∞' : 
+                 `${Math.floor(phaseTimeLeft / 60)}:${(phaseTimeLeft % 60).toString().padStart(2, '0')}`}
               </div>
             </div>
             <div className="w-full bg-purple-200 rounded-full h-4 mb-2">
               <div 
                 className={`h-4 rounded-full transition-all duration-1000 ${
                   currentPhase === 'pitching' ? 'bg-blue-500' :
-                  currentPhase === 'judges-rating' ? 'bg-green-500' :
-                  currentPhase === 'peers-rating' ? 'bg-orange-500' :
+                  currentPhase === 'qna-pause' ? 'bg-yellow-500' :
+                  currentPhase === 'rating-warning' ? 'bg-red-500' :
+                  currentPhase === 'rating-active' ? 'bg-green-500' :
                   'bg-gray-400'
                 }`}
                 style={{ 
                   width: `${
                     currentPhase === 'pitching' ? (phaseTimeLeft / 300) * 100 :
-                    currentPhase === 'judges-rating' ? (phaseTimeLeft / 60) * 100 :
-                    currentPhase === 'peers-rating' ? (phaseTimeLeft / 60) * 100 :
+                    currentPhase === 'qna-pause' ? 100 :
+                    currentPhase === 'rating-warning' ? (phaseTimeLeft / 5) * 100 :
+                    currentPhase === 'rating-active' ? (phaseTimeLeft / 120) * 100 :
                     0
                   }%` 
                 }}
@@ -596,8 +600,9 @@ export default function FinalPage() {
             </div>
             <div className="text-sm text-purple-700">
               {currentPhase === 'pitching' && 'Listen to the team presentation (5 minutes total)'}
-              {currentPhase === 'judges-rating' && 'Judges: Rate the team now! (1 minute)'}
-              {currentPhase === 'peers-rating' && 'Teams: Rate the presenting team! (1 minute)'}
+              {currentPhase === 'qna-pause' && 'Q&A session in progress - Admin will start rating when ready'}
+              {currentPhase === 'rating-warning' && '⚠️ Get ready! Rating will begin in 5 seconds!'}
+              {currentPhase === 'rating-active' && 'Judges & Teams: Rate the team now! (2 minutes total)'}
               {currentPhase === 'idle' && 'Waiting for admin to start the next rating cycle'}
             </div>
           </div>
@@ -790,8 +795,10 @@ export default function FinalPage() {
                 <div className="mb-4 p-3 bg-yellow-50 rounded-md border border-yellow-200">
                   <p className="text-sm text-yellow-700">
                     {!ratingCycleActive && 'Waiting for rating cycle to start...'}
-                    {ratingCycleActive && currentPhase !== 'peers-rating' && 'Wait for peers rating phase...'}
-                    {ratingCycleActive && currentPhase === 'peers-rating' && phaseTimeLeft <= 0 && 'Peers rating time has ended.'}
+                    {ratingCycleActive && currentPhase === 'pitching' && 'Wait for rating phase to begin...'}
+                    {ratingCycleActive && currentPhase === 'qna-pause' && 'Q&A in progress - Rating will start soon...'}
+                    {ratingCycleActive && currentPhase === 'rating-warning' && 'Get ready! Rating starts in seconds...'}
+                    {ratingCycleActive && currentPhase === 'rating-active' && phaseTimeLeft <= 0 && 'Rating time has ended.'}
                     {!isQualified && 'Only qualified teams can rate in the finals.'}
                     {userTeamId === currentPitchTeam?.id && 'You cannot rate your own team.'}
                     {!currentPitchTeam && 'No team is currently presenting.'}
@@ -877,12 +884,6 @@ export default function FinalPage() {
             className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium"
           >
             View Scoreboard
-          </a>
-          <a 
-            href="/judge" 
-            className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md text-sm font-medium"
-          >
-            Judge Console
           </a>
         </div>
 

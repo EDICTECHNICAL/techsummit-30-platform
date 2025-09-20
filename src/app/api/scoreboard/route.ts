@@ -58,8 +58,11 @@ export async function GET(request: NextRequest) {
           strategy: quizData[0].tokensStrategy || 0,
         } : { marketing: 0, capital: 0, team: 0, strategy: 0 };
         
-        // Calculate cumulative token score (sum of all 4 categories)
-        const cumulativeTokenScore = tokens.marketing + tokens.capital + tokens.team + tokens.strategy;
+        // Calculate cumulative token score (sum of all 4 categories) - ensure integers
+        const cumulativeTokenScore = Math.round(Number(tokens.marketing)) + 
+                                   Math.round(Number(tokens.capital)) + 
+                                   Math.round(Number(tokens.team)) + 
+                                   Math.round(Number(tokens.strategy));
 
         // Get voting data (original votes)
         const voteData = await db
@@ -69,7 +72,7 @@ export async function GET(request: NextRequest) {
           .from(votes)
           .where(eq(votes.toTeamId, teamId));
 
-        const originalVotes = Number(voteData[0]?.totalVotes) || 0;
+        const originalVotes = Math.round(Number(voteData[0]?.totalVotes)) || 0;
 
         // Get token conversion votes
         const tokenVoteData = await db
@@ -80,8 +83,8 @@ export async function GET(request: NextRequest) {
           .from(tokenConversions)
           .where(eq(tokenConversions.teamId, teamId));
 
-        const votesFromTokens = Number(tokenVoteData[0]?.totalTokenVotes) || 0;
-        const tokensSpent = Number(tokenVoteData[0]?.tokensSpent) || 0;
+        const votesFromTokens = Math.round(Number(tokenVoteData[0]?.totalTokenVotes)) || 0;
+        const tokensSpent = Math.round(Number(tokenVoteData[0]?.tokensSpent)) || 0;
         const totalVotes = originalVotes + votesFromTokens;
 
         // Calculate remaining tokens
@@ -97,7 +100,7 @@ export async function GET(request: NextRequest) {
           .where(eq(peerRatings.toTeamId, teamId));
 
         const peerRatingAvg = Number(peerRatingData[0]?.avgRating) || 0;
-        const peerRatingCount = Number(peerRatingData[0]?.ratingCount) || 0;
+        const peerRatingCount = Math.round(Number(peerRatingData[0]?.ratingCount)) || 0;
 
         // Get judge scores
         const judgeScoreData = await db
@@ -109,11 +112,11 @@ export async function GET(request: NextRequest) {
           .from(judgeScores)
           .where(eq(judgeScores.teamId, teamId));
 
-        const totalJudgeScore = Number(judgeScoreData[0]?.totalJudgeScore) || 0;
+        const totalJudgeScore = Math.round(Number(judgeScoreData[0]?.totalJudgeScore)) || 0;
         const avgJudgeScore = Number(judgeScoreData[0]?.avgJudgeScore) || 0;
-        const judgeCount = Number(judgeScoreData[0]?.judgeCount) || 0;
+        const judgeCount = Math.round(Number(judgeScoreData[0]?.judgeCount)) || 0;
 
-        // Calculate final cumulative score: Token Score + Judge Score
+        // Calculate final cumulative score: Token Score + Judge Score - ensure integer
         const finalCumulativeScore = cumulativeTokenScore + totalJudgeScore;
 
         leaderboard.push({

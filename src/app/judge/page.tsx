@@ -1,9 +1,10 @@
 "use client"
 
 import { useState, useEffect } from "react";
-import { useSession } from "@/lib/auth-client";
 import Link from 'next/link';
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { BackButton } from "@/components/BackButton";
+import { SecurityGuard, AntiCheatMeasures } from "@/components/SecurityGuard";
 
 interface Team {
   id: number;
@@ -29,7 +30,6 @@ interface RatingCycleEvent {
 }
 
 export default function JudgePage() {
-  const { data: session, isPending } = useSession();
   const [teams, setTeams] = useState<Team[]>([]);
   const [scores, setScores] = useState<JudgeScore[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
@@ -46,17 +46,60 @@ export default function JudgePage() {
   const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'judges-rating' | 'peers-rating'>('idle');
   const [phaseTimeLeft, setPhaseTimeLeft] = useState<number>(0);
   const [ratingCycleActive, setRatingCycleActive] = useState(false);
+  
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
-  const isAdmin = session?.user?.isAdmin;
-
-  // Check for judge authentication cookie
+  // Check for judge authentication cookie and auto-fetch judge data
   useEffect(() => {
     if (typeof window !== "undefined") {
-      const isJudge = document.cookie.includes("judge-auth=true") || document.cookie.includes("admin-auth=true");
+      const isJudge = document.cookie.includes("judge-auth=true");
       setIsJudgeAuthenticated(isJudge);
+      
       if (!isJudge) {
         window.location.href = "/judge/login";
+        return;
       }
+
+      // Auto-fetch judge user data from cookie
+      const judgeUserCookie = document.cookie
+        .split('; ')
+        .find(row => row.startsWith('judge-user='));
+      
+      if (judgeUserCookie) {
+        try {
+          const judgeUserData = JSON.parse(decodeURIComponent(judgeUserCookie.split('=')[1]));
+          setJudgeName(judgeUserData.name || judgeUserData.username || 'Judge');
+        } catch (error) {
+          console.error('Error parsing judge user data:', error);
+          setJudgeName('Judge');
+        }
+      }
+
+      // Security: Block navigation to unauthorized pages
+      const blockNavigation = (e: BeforeUnloadEvent) => {
+        const allowedDomains = ['/scoreboard', '/judge'];
+        const currentPath = window.location.pathname;
+        if (!allowedDomains.some(domain => currentPath.startsWith(domain))) {
+          e.preventDefault();
+          window.location.href = '/scoreboard';
+        }
+      };
+
+      // Block back/forward navigation to unauthorized pages
+      const handlePopState = () => {
+        const currentPath = window.location.pathname;
+        const allowedPaths = ['/scoreboard', '/judge'];
+        if (!allowedPaths.some(path => currentPath.startsWith(path))) {
+          window.location.href = '/scoreboard';
+        }
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+      };
     }
   }, []);
 
@@ -111,13 +154,13 @@ export default function JudgePage() {
     };
   }, [isJudgeAuthenticated]);
 
-  // Load current rating cycle state with polling
+  // Load current rating cycle state with polling (reduced frequency)
   useEffect(() => {
     if (isJudgeAuthenticated) {
       loadCurrentRatingState();
       
-      // Poll every 1 second for real-time updates
-      const interval = setInterval(loadCurrentRatingState, 1000);
+      // Poll every 3 seconds for updates (reduced from 1 second to prevent glitching)
+      const interval = setInterval(loadCurrentRatingState, 3000);
       
       return () => clearInterval(interval);
     }
@@ -128,10 +171,20 @@ export default function JudgePage() {
       const res = await fetch('/api/rating/current');
       if (res.ok) {
         const data = await res.json();
-        setCurrentPitchTeam(data?.team ?? null);
-        setCurrentPhase(data?.currentPhase ?? 'idle');
-        setPhaseTimeLeft(data?.phaseTimeLeft ?? 0);
-        setRatingCycleActive(data?.ratingCycleActive ?? false);
+        
+        // Only update state if values have actually changed to prevent unnecessary re-renders
+        if (JSON.stringify(data?.team) !== JSON.stringify(currentPitchTeam)) {
+          setCurrentPitchTeam(data?.team ?? null);
+        }
+        if (data?.currentPhase !== currentPhase) {
+          setCurrentPhase(data?.currentPhase ?? 'idle');
+        }
+        if (data?.phaseTimeLeft !== phaseTimeLeft) {
+          setPhaseTimeLeft(data?.phaseTimeLeft ?? 0);
+        }
+        if (data?.ratingCycleActive !== ratingCycleActive) {
+          setRatingCycleActive(data?.ratingCycleActive ?? false);
+        }
       }
     } catch (error) {
       console.error('Error loading rating state:', error);
@@ -139,50 +192,9 @@ export default function JudgePage() {
   };
 
   useEffect(() => {
-    if (session?.user?.name) {
-      setJudgeName(session.user.name);
-    } else if (isJudgeAuthenticated) {
-      // Set a default judge name if not logged in via regular auth
-      setJudgeName('Judge');
-    }
     if (isJudgeAuthenticated) {
       loadData();
     }
-  }, [session, isJudgeAuthenticated]);
-
-  // Poll current rating status for real-time updates
-  useEffect(() => {
-    if (!isJudgeAuthenticated) return;
-
-    const pollRatingStatus = async () => {
-      try {
-        const res = await fetch("/api/rating/current");
-        if (!res.ok) {
-          console.warn(`Failed to fetch rating status: ${res.status} ${res.statusText}`);
-          return;
-        }
-        
-        const data = await res.json();
-        setCurrentPitchTeam(data?.team ?? null);
-        
-        // Handle rating cycle state
-        const newRatingCycleActive = data?.ratingCycleActive ?? false;
-        const newCurrentPhase = data?.currentPhase ?? 'idle';
-        const newPhaseTimeLeft = data?.phaseTimeLeft ?? 0;
-        
-        setRatingCycleActive(newRatingCycleActive);
-        setCurrentPhase(newCurrentPhase);
-        setPhaseTimeLeft(newPhaseTimeLeft);
-        
-      } catch (error) {
-        console.error("Error polling rating status:", error);
-      }
-    };
-
-    pollRatingStatus(); // Initial fetch
-    const interval = setInterval(pollRatingStatus, 2000); // Poll every 2 seconds
-
-    return () => clearInterval(interval);
   }, [isJudgeAuthenticated]);
 
   const loadData = async () => {
@@ -210,6 +222,32 @@ export default function JudgePage() {
       setLoading(false);
     }
   };
+
+  // Fullscreen functionality
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      console.error('Error toggling fullscreen:', error);
+      setMsg('Failed to toggle fullscreen mode');
+    }
+  };
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
 
   // Real-time judge rating with auto-submit
   const submitRealTimeRating = async (rating: number) => {
@@ -269,13 +307,25 @@ export default function JudgePage() {
                          currentPitchTeam && 
                          judgeName.trim().length > 0;
 
-  const handleLogout = () => {
-    // Clear judge authentication cookie
+  const handleLogout = async () => {
+    try {
+      await fetch("/api/judge/logout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" }
+      });
+    } catch (error) {
+      console.error("Logout error:", error);
+    }
+    
+    // Clear judge authentication cookie manually as backup
     document.cookie = "judge-auth=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie = "judge-token=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    document.cookie = "judge-user=; expires=Thu, 01 Jan 1970 00:00:00 UTC; path=/;";
+    
     window.location.href = "/judge/login";
   };
 
-  if (isPending || loading || !isJudgeAuthenticated) return <div className="p-6">Loading...</div>;
+  if (loading || !isJudgeAuthenticated) return <div className="p-6">Loading...</div>;
   if (!isJudgeAuthenticated) return <div className="p-6">Please sign in to access the judge panel.</div>;
 
   // Group scores by team for display
@@ -299,12 +349,30 @@ export default function JudgePage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
+      <SecurityGuard userType="judge" />
+      <AntiCheatMeasures />
+      
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline transition-colors">
-            ← Back to Dashboard
-          </Link>
-          <ThemeToggle />
+          <BackButton />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleFullscreen}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 w-10"
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            >
+              {isFullscreen ? (
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M15 9v-4.5M15 9h4.5M15 9l5.25-5.25M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 15v4.5M15 15h4.5m0 0l5.25 5.25" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+              )}
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
         
         <h1 className="text-3xl font-bold mb-2">Judge Console</h1>
@@ -350,13 +418,12 @@ export default function JudgePage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="block text-sm font-medium mb-2">Judge Name</label>
-              <input 
-                type="text" 
-                value={judgeName} 
-                onChange={(e) => setJudgeName(e.target.value)}
-                placeholder="Enter your judge name"
-                className="w-full rounded-md border border-input bg-background px-3 py-2"
-              />
+              <div className="w-full rounded-md border border-input bg-muted px-3 py-2 text-muted-foreground">
+                {judgeName || 'Loading...'}
+              </div>
+              <p className="text-xs text-muted-foreground mt-1">
+                Auto-detected from login
+              </p>
             </div>
             <div>
               <label className="block text-sm font-medium mb-2">
@@ -495,16 +562,10 @@ export default function JudgePage() {
             {loading ? 'Refreshing...' : 'Refresh Data'}
           </button>
           <a 
-            href="/admin" 
+            href="/scoreboard" 
             className="bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-md text-sm font-medium"
           >
-            Admin Panel
-          </a>
-          <a 
-            href="/final" 
-            className="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-md text-sm font-medium"
-          >
-            Final Round
+            View Scoreboard
           </a>
           <button 
             onClick={handleLogout}

@@ -19,9 +19,11 @@ let ratingState: {
   allPitchesCompleted: boolean;
   // Rating cycle state
   ratingCycleActive: boolean;
-  currentPhase: 'idle' | 'pitching' | 'judges-rating' | 'peers-rating';
+  currentPhase: 'idle' | 'pitching' | 'qna-pause' | 'rating-warning' | 'rating-active';
   phaseTimeLeft: number;
   cycleStartTime: number | null;
+  // Additional timing tracking
+  phaseStartTime: number | null;
 } = {
   team: null,
   ratingActive: false,
@@ -30,6 +32,7 @@ let ratingState: {
   currentPhase: 'idle',
   phaseTimeLeft: 0,
   cycleStartTime: null,
+  phaseStartTime: null,
 };
 
 // GET handler - Get current rating state (public endpoint)
@@ -38,47 +41,88 @@ export async function GET(request: NextRequest) {
     // Calculate real-time phase time left if in rating cycle
     let currentState = { ...ratingState };
     
-    if (currentState.ratingCycleActive && currentState.cycleStartTime) {
-      const elapsed = Math.floor((Date.now() - currentState.cycleStartTime) / 1000);
-      
-      if (elapsed < 300) {
-        // Pitching phase (5 minutes = 300 seconds)
-        currentState.currentPhase = 'pitching';
-        currentState.phaseTimeLeft = Math.max(0, 300 - elapsed);
-      } else if (elapsed < 360) {
-        // Judges rating phase (1 minute = 60 seconds)
-        currentState.currentPhase = 'judges-rating';
-        currentState.phaseTimeLeft = Math.max(0, 360 - elapsed);
-        // Auto-enable rating during judges rating phase
-        if (!currentState.ratingActive) {
-          currentState.ratingActive = true;
-          ratingState.ratingActive = true;
+    if (currentState.ratingCycleActive && currentState.phaseStartTime) {
+      if (currentState.currentPhase === 'pitching') {
+        // Phase 1: Pitching (5 minutes = 300 seconds) - use phase-specific timing
+        const pitchingElapsed = Math.floor((Date.now() - currentState.phaseStartTime) / 1000);
+        console.log('Pitching phase - elapsed:', pitchingElapsed, 'seconds, started at:', new Date(currentState.phaseStartTime).toISOString());
+        
+        if (pitchingElapsed < 300) {
+          currentState.phaseTimeLeft = Math.max(0, 300 - pitchingElapsed);
+          currentState.ratingActive = false;
+        } else {
+          // Auto-transition to Q&A pause only if still in pitching phase
+          console.log('Pitching phase complete (', pitchingElapsed, 'seconds elapsed), transitioning to Q&A pause');
+          currentState.currentPhase = 'qna-pause';
+          currentState.phaseTimeLeft = 0;
+          currentState.ratingActive = false;
+          currentState.phaseStartTime = Date.now();
+          
+          // Update the actual state
+          ratingState.currentPhase = 'qna-pause';
+          ratingState.phaseTimeLeft = 0;
+          ratingState.phaseStartTime = Date.now();
+          
+          console.log('Auto-transitioned to Q&A pause after', pitchingElapsed, 'seconds of pitching');
         }
-      } else if (elapsed < 420) {
-        // Peers rating phase (1 minute = 60 seconds)
-        currentState.currentPhase = 'peers-rating';
-        currentState.phaseTimeLeft = Math.max(0, 420 - elapsed);
-        // Keep rating active for peers
-        if (!currentState.ratingActive) {
-          currentState.ratingActive = true;
-          ratingState.ratingActive = true;
-        }
-      } else {
-        // Cycle should be completed
-        currentState.ratingCycleActive = false;
-        currentState.currentPhase = 'idle';
+      } else if (currentState.currentPhase === 'qna-pause') {
+        // Phase 2: Q&A Pause (admin controlled, no time limit)
         currentState.phaseTimeLeft = 0;
         currentState.ratingActive = false;
-        currentState.cycleStartTime = null;
+        console.log('Q&A pause phase - waiting for admin to start rating');
+      } else if (currentState.currentPhase === 'rating-warning') {
+        // Phase 3: Rating Warning (5 seconds)
+        const warningElapsed = Math.floor((Date.now() - currentState.phaseStartTime) / 1000);
+        console.log('Rating warning phase - elapsed:', warningElapsed, 'seconds, started at:', new Date(currentState.phaseStartTime).toISOString());
         
-        // Update the actual state
-        ratingState.ratingCycleActive = false;
-        ratingState.currentPhase = 'idle';
-        ratingState.phaseTimeLeft = 0;
-        ratingState.ratingActive = false;
-        ratingState.cycleStartTime = null;
+        if (warningElapsed < 5) {
+          currentState.phaseTimeLeft = Math.max(0, 5 - warningElapsed);
+          currentState.ratingActive = false;
+          console.log('Still in warning phase, time left:', currentState.phaseTimeLeft);
+        } else {
+          // Auto-transition to rating after 5 seconds
+          console.log('Warning phase complete (', warningElapsed, 'seconds elapsed), transitioning to rating-active');
+          currentState.currentPhase = 'rating-active';
+          currentState.phaseTimeLeft = 120; // 2 minutes
+          currentState.ratingActive = true;
+          currentState.phaseStartTime = Date.now();
+          
+          // Update actual state
+          ratingState.currentPhase = 'rating-active';
+          ratingState.phaseTimeLeft = 120;
+          ratingState.ratingActive = true;
+          ratingState.phaseStartTime = Date.now();
+          
+          console.log('Auto-transitioned to rating-active after', warningElapsed, 'second warning');
+        }
+      } else if (currentState.currentPhase === 'rating-active') {
+        // Phase 4: Rating Active (2 minutes = 120 seconds) - use phase-specific timing
+        const ratingElapsed = Math.floor((Date.now() - currentState.phaseStartTime) / 1000);
+        console.log('Rating active phase - elapsed:', ratingElapsed, 'seconds, started at:', new Date(currentState.phaseStartTime).toISOString());
         
-        console.log('Auto-completed rating cycle after timeout');
+        if (ratingElapsed < 120) {
+          currentState.phaseTimeLeft = Math.max(0, 120 - ratingElapsed);
+          currentState.ratingActive = true;
+        } else {
+          // Auto-complete after 2 minutes
+          console.log('Rating phase complete (', ratingElapsed, 'seconds elapsed), ending cycle');
+          currentState.ratingCycleActive = false;
+          currentState.currentPhase = 'idle';
+          currentState.phaseTimeLeft = 0;
+          currentState.ratingActive = false;
+          currentState.cycleStartTime = null;
+          currentState.phaseStartTime = null;
+          
+          // Update the actual state
+          ratingState.ratingCycleActive = false;
+          ratingState.currentPhase = 'idle';
+          ratingState.phaseTimeLeft = 0;
+          ratingState.ratingActive = false;
+          ratingState.cycleStartTime = null;
+          ratingState.phaseStartTime = null;
+          
+          console.log('Auto-completed rating cycle after', ratingElapsed, 'seconds of rating');
+        }
       }
     }
     
@@ -121,8 +165,9 @@ export async function POST(request: NextRequest) {
           ratingState.ratingCycleActive = true;
           ratingState.currentPhase = 'pitching';
           ratingState.cycleStartTime = Date.now();
+          ratingState.phaseStartTime = Date.now(); // Track current phase start
           ratingState.phaseTimeLeft = 300; // 5 minutes
-          ratingState.ratingActive = false; // Will be enabled during judge/peer phases
+          ratingState.ratingActive = false; // Will be enabled during rating phase
           
           console.log('Started rating cycle:', ratingState);
           
@@ -137,12 +182,67 @@ export async function POST(request: NextRequest) {
             ratingState,
             message: 'Rating cycle started successfully'
           });
+
+        case 'start-qna':
+          // Transition from pitching to Q&A pause (manual override)
+          if (ratingState.ratingCycleActive) {
+            ratingState.currentPhase = 'qna-pause';
+            ratingState.phaseStartTime = Date.now();
+            ratingState.phaseTimeLeft = 0;
+            ratingState.ratingActive = false;
+            
+            console.log('Manually started Q&A pause (overriding any previous phase):', ratingState);
+            
+            // Broadcast the change via SSE
+            ratingEmitter.broadcast({
+              type: 'ratingStateChanged',
+              data: ratingState
+            });
+            
+            return NextResponse.json({
+              success: true,
+              ratingState,
+              message: 'Q&A session started successfully'
+            });
+          } else {
+            return NextResponse.json({
+              error: 'No active rating cycle to start Q&A'
+            }, { status: 400 });
+          }
+
+        case 'start-rating':
+          // Transition from Q&A pause to rating (with 5 sec warning first)
+          if (ratingState.ratingCycleActive && ratingState.currentPhase === 'qna-pause') {
+            ratingState.currentPhase = 'rating-warning';
+            ratingState.phaseStartTime = Date.now();
+            ratingState.phaseTimeLeft = 5;
+            ratingState.ratingActive = false;
+            
+            console.log('Starting rating warning at:', new Date(ratingState.phaseStartTime).toISOString(), ratingState);
+            
+            // Broadcast the change via SSE
+            ratingEmitter.broadcast({
+              type: 'ratingStateChanged',
+              data: ratingState
+            });
+            
+            return NextResponse.json({
+              success: true,
+              ratingState,
+              message: 'Rating warning started - 5 seconds until rating begins'
+            });
+          } else {
+            return NextResponse.json({
+              error: 'Can only start rating from Q&A pause phase'
+            }, { status: 400 });
+          }
           
         case 'stop':
           // Stop rating cycle
           ratingState.ratingCycleActive = false;
           ratingState.currentPhase = 'idle';
           ratingState.cycleStartTime = null;
+          ratingState.phaseStartTime = null;
           ratingState.phaseTimeLeft = 0;
           ratingState.ratingActive = false;
           
@@ -162,7 +262,7 @@ export async function POST(request: NextRequest) {
           
         default:
           return NextResponse.json({
-            error: 'Invalid action. Supported actions: start, stop'
+            error: 'Invalid action. Supported actions: start, start-qna, start-rating, stop'
           }, { status: 400 });
       }
     }
@@ -246,7 +346,7 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const { ratingActive, allPitchesCompleted, ratingCycleActive, currentPhase, phaseTimeLeft, cycleStartTime } = await request.json();
+    const { ratingActive, allPitchesCompleted, ratingCycleActive, currentPhase, phaseTimeLeft, cycleStartTime, phaseStartTime } = await request.json();
     
     // Update rating state
     if (typeof ratingActive === 'boolean') {
@@ -262,7 +362,7 @@ export async function PATCH(request: NextRequest) {
       ratingState.ratingCycleActive = ratingCycleActive;
     }
     
-    if (currentPhase && ['idle', 'pitching', 'judges-rating', 'peers-rating'].includes(currentPhase)) {
+    if (currentPhase && ['idle', 'pitching', 'qna-pause', 'rating-warning', 'rating-active'].includes(currentPhase)) {
       ratingState.currentPhase = currentPhase;
     }
     
@@ -272,6 +372,10 @@ export async function PATCH(request: NextRequest) {
     
     if (typeof cycleStartTime === 'number' || cycleStartTime === null) {
       ratingState.cycleStartTime = cycleStartTime;
+    }
+    
+    if (typeof phaseStartTime === 'number' || phaseStartTime === null) {
+      ratingState.phaseStartTime = phaseStartTime;
     }
     
     // Broadcast the rating state change via SSE

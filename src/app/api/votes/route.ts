@@ -51,21 +51,48 @@ export async function POST(request: NextRequest) {
 
     // No teamMembers check; allow all authenticated users
 
-    // Check if voting round is active
-    const votingRound = await db
-      .select()
-      .from(rounds)
-      .where(and(
-        eq(rounds.name, 'VOTING'),
-        eq(rounds.status, 'ACTIVE')
-      ))
-      .limit(1);
-
-    if (votingRound.length === 0) {
+    // Check if rating is currently active (using the rating API) for final round team voting
+    try {
+      const ratingResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/rating/current`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json'
+        }
+      });
+      
+      if (!ratingResponse.ok) {
+        throw new Error('Failed to fetch rating status');
+      }
+      
+      const ratingState = await ratingResponse.json();
+      
+      // Allow voting when rating is active (finals) OR when voting round is active (earlier rounds)
+      const isRatingActive = ratingState.ratingActive && ratingState.currentPhase === 'rating-active';
+      
+      // Check if voting round is active (fallback for non-finals voting)
+      const votingRound = await db
+        .select()
+        .from(rounds)
+        .where(and(
+          eq(rounds.name, 'VOTING'),
+          eq(rounds.status, 'ACTIVE')
+        ))
+        .limit(1);
+      
+      const isVotingRoundActive = votingRound.length > 0;
+      
+      if (!isRatingActive && !isVotingRoundActive) {
+        return NextResponse.json({ 
+          error: 'Neither final rating nor voting round is currently active', 
+          code: 'VOTING_NOT_ACTIVE' 
+        }, { status: 400 });
+      }
+    } catch (error) {
+      console.error('Error checking voting status:', error);
       return NextResponse.json({ 
-        error: 'Voting round is not currently active', 
-        code: 'VOTING_NOT_ACTIVE' 
-      }, { status: 400 });
+        error: 'Failed to verify voting status', 
+        code: 'VOTING_CHECK_FAILED' 
+      }, { status: 500 });
     }
 
     // Cannot vote for own team

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState, useRef } from "react";
 import Link from "next/link";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, AlertCircle } from "lucide-react";
 import PageLock from "@/components/ui/PageLock";
 import { useRoundStatus } from "@/hooks/useRoundStatus";
 import { ThemeToggle } from "@/components/ThemeToggle";
@@ -368,12 +368,60 @@ export default function QuizPage() {
       </div>
     );
   };
+
+  // Fullscreen Warning Modal Component
+  const FullscreenWarningModal: React.FC<{ open: boolean; onStay: () => void; onExit: () => void }> = ({ 
+    open, 
+    onStay, 
+    onExit 
+  }) => {
+    if (!open) return null;
+    
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
+        <div className="bg-card rounded-lg shadow-lg max-w-lg w-full p-6 relative border-2 border-red-500">
+          <div className="text-center">
+            <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900 mb-4">
+              <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+            </div>
+            <h2 className="text-2xl font-bold mb-4 text-red-600 dark:text-red-400">⚠️ Fullscreen Exit Warning</h2>
+            <div className="mb-6 text-sm text-foreground space-y-2">
+              <p className="font-semibold text-red-600 dark:text-red-400">
+                You have exited fullscreen mode during the quiz!
+              </p>
+              <p>
+                For exam integrity, the quiz must be completed in fullscreen mode.
+              </p>
+              <p className="font-semibold bg-yellow-100 dark:bg-yellow-900 p-2 rounded">
+                ⚠️ WARNING: If you exit fullscreen again, your quiz will be automatically submitted and you will need to contact the nearest event coordinator.
+              </p>
+            </div>
+            <div className="flex gap-3">
+              <button
+                className="flex-1 rounded-md bg-green-600 px-4 py-2 font-medium text-white hover:bg-green-700"
+                onClick={onStay}
+              >
+                Stay in Quiz (Return to Fullscreen)
+              </button>
+              <button
+                className="flex-1 rounded-md bg-red-600 px-4 py-2 font-medium text-white hover:bg-red-700"
+                onClick={onExit}
+              >
+                Exit Quiz (Auto-Submit)
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
   const [user, setUser] = useState<User | null>(null);
   const [isPending, setIsPending] = useState(true);
   const [questions, setQuestions] = useState<Question[]>([]);
   const [answers, setAnswers] = useState<Record<number, number>>({});
   const [quizActive, setQuizActive] = useState<boolean>(false);
   const [quizCompleted, setQuizCompleted] = useState<boolean>(false);
+  const [quizPending, setQuizPending] = useState<boolean>(false);
   const [hasSubmitted, setHasSubmitted] = useState<boolean>(false); // Track if user already submitted
   const [previousSubmission, setPreviousSubmission] = useState<QuizResult | null>(null); // Store previous submission
   const [timeLeft, setTimeLeft] = useState(30 * 60); // 30 minutes
@@ -384,6 +432,12 @@ export default function QuizPage() {
   const [currentQ, setCurrentQ] = useState(0);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showRules, setShowRules] = useState(true); // Show rules modal initially
+  
+  // Fullscreen warning and auto-submission states
+  const [fullscreenWarningShown, setFullscreenWarningShown] = useState(false);
+  const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
+  const [autoSubmissionReason, setAutoSubmissionReason] = useState<string | null>(null);
+  
   const quizRef = useRef<HTMLDivElement>(null);
 
   // Load user from localStorage
@@ -429,10 +483,12 @@ export default function QuizPage() {
         const quizRound = rounds.find((r: any) => r.name === "QUIZ");
         setQuizActive(quizRound?.status === "ACTIVE");
         setQuizCompleted(quizRound?.status === "COMPLETED");
+        setQuizPending(quizRound?.status === "PENDING");
       } catch (e) {
         console.error("Failed to check quiz status:", e);
         setQuizActive(false);
         setQuizCompleted(false);
+        setQuizPending(false);
       }
     };
     fetchQuizStatus();
@@ -545,17 +601,37 @@ export default function QuizPage() {
     }
   }, [hasSubmitted]);
 
-  // Fullscreen management
+  // Enhanced fullscreen management with auto-submission
   useEffect(() => {
     if (!quizRef.current) return;
     
     const handleFullscreenChange = () => {
-      setIsFullscreen(document.fullscreenElement === quizRef.current);
+      const isCurrentlyFullscreen = document.fullscreenElement === quizRef.current;
+      setIsFullscreen(isCurrentlyFullscreen);
+      
+      // If user successfully returns to fullscreen, hide the warning modal (but keep warning state)
+      if (isCurrentlyFullscreen && quizActive && !quizCompleted && !hasSubmitted && showFullscreenWarning) {
+        // Only hide the warning modal, but keep fullscreenWarningShown as true
+        setShowFullscreenWarning(false);
+      }
+      
+      // If quiz is active and user exits fullscreen
+      if (!isCurrentlyFullscreen && quizActive && !quizCompleted && !hasSubmitted) {
+        if (!fullscreenWarningShown) {
+          // First time exiting - show warning
+          setFullscreenWarningShown(true);
+          setShowFullscreenWarning(true);
+        } else {
+          // Second time exiting - auto submit
+          setAutoSubmissionReason("Quiz auto-submitted due to exiting fullscreen mode after warning. Please contact the nearest event coordinator for assistance.");
+          handleAutoSubmitQuiz("Fullscreen exit violation after warning");
+        }
+      }
     };
     
     document.addEventListener("fullscreenchange", handleFullscreenChange);
     return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, []);
+  }, [quizActive, quizCompleted, hasSubmitted, fullscreenWarningShown]);
 
   const toggleFullscreen = () => {
     if (!quizRef.current) return;
@@ -649,8 +725,88 @@ export default function QuizPage() {
     }
   };
 
+  // Auto-submit function for fullscreen violations
+  const handleAutoSubmitQuiz = async (reason: string) => {
+    if (hasSubmitted || submitting) return; // Prevent double submission
+    
+    const teamId = user?.team?.id || user?.teamId;
+    if (!teamId) {
+      setAutoSubmissionReason("Quiz auto-submitted due to missing team information. Please contact the nearest event coordinator.");
+      return;
+    }
+
+    setSubmitting(true);
+    setMessage("Auto-submitting quiz due to violation...");
+
+    try {
+      const payload = {
+        teamId: teamId,
+        answers: Object.entries(answers).map(([qid, oid]) => ({
+          questionId: Number(qid),
+          optionId: oid
+        })),
+        durationSeconds: 30 * 60 - timeLeft,
+        autoSubmitted: true,
+        submissionReason: reason
+      };
+
+      const authToken = localStorage.getItem("auth-token") || btoa(JSON.stringify({ id: user.id }));
+
+      const res = await fetch("/api/quiz/submit", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`,
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data?.error || `HTTP ${res.status}: Auto-submission failed`);
+      }
+
+      setResult(data);
+      setShowResult(true);
+      setMessage(null);
+      
+      // Set quiz as submitted and lock future attempts
+      setHasSubmitted(true);
+      setPreviousSubmission(data);
+      
+      // Clear the quiz state
+      localStorage.removeItem('quiz_time_left');
+      localStorage.removeItem('quiz_answers');
+      
+    } catch (error: any) {
+      console.error("Auto-submission error:", error);
+      setAutoSubmissionReason(`Quiz auto-submitted due to violation, but submission failed: ${error?.message || 'Unknown error'}. Please contact the nearest event coordinator.`);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleReturnToDashboard = () => {
     window.location.href = "/dashboard";
+  };
+
+  // Fullscreen warning modal handlers
+  const handleStayInQuiz = () => {
+    setShowFullscreenWarning(false);
+    // Re-enter fullscreen
+    if (quizRef.current) {
+      quizRef.current.requestFullscreen().catch((e) => {
+        console.error("Failed to re-enter fullscreen:", e);
+        setMessage("Failed to re-enter fullscreen. Please try manually or contact event coordinator.");
+      });
+    }
+  };
+
+  const handleExitQuiz = () => {
+    setShowFullscreenWarning(false);
+    setAutoSubmissionReason("Quiz voluntarily submitted after fullscreen exit warning. Please contact the nearest event coordinator if this was unintentional.");
+    handleAutoSubmitQuiz("Voluntary submission after fullscreen warning");
   };
 
   // Loading state
@@ -789,9 +945,86 @@ export default function QuizPage() {
   }
 
 
-  // Show results
+  // Show results (with special handling for auto-submission)
   if (showResult && result) {
-    return <QuizResults result={result} onReturnToDashboard={handleReturnToDashboard} />;
+    return (
+      <div>
+        {autoSubmissionReason && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-75">
+            <div className="bg-card rounded-lg shadow-lg max-w-2xl w-full p-6 relative border-2 border-red-500 m-4">
+              <div className="text-center">
+                <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 dark:bg-red-900 mb-4">
+                  <AlertCircle className="h-6 w-6 text-red-600 dark:text-red-400" />
+                </div>
+                <h2 className="text-2xl font-bold mb-4 text-red-600 dark:text-red-400">⚠️ Quiz Auto-Submitted</h2>
+                <div className="mb-6 text-sm text-foreground space-y-2">
+                  <p className="font-semibold bg-red-100 dark:bg-red-900 p-3 rounded text-red-800 dark:text-red-200">
+                    {autoSubmissionReason}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Your quiz responses have been recorded. Click continue to view your results.
+                  </p>
+                </div>
+                <button
+                  className="w-full rounded-md bg-primary px-4 py-2 font-medium text-primary-foreground hover:opacity-90"
+                  onClick={() => setAutoSubmissionReason(null)}
+                >
+                  Continue to Results
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+        <QuizResults result={result} onReturnToDashboard={handleReturnToDashboard} />
+      </div>
+    );
+  }
+
+  // Block access when quiz is pending to prevent premature timer start and question revelation
+  if (quizPending) {
+    return (
+      <div className="min-h-screen bg-background text-foreground">
+        {/* Back to Dashboard Button */}
+        <div className="bg-card border-b border-border">
+          <div className="mx-auto max-w-6xl px-6 py-3">
+            <div className="flex items-center justify-between">
+              <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline">
+                <ArrowLeft className="h-4 w-4" />
+                Back to Dashboard
+              </Link>
+              <ThemeToggle />
+            </div>
+          </div>
+        </div>
+
+        {/* Pending Status Message */}
+        <div className="mx-auto max-w-4xl px-6 py-12">
+          <div className="rounded-lg border border-orange-200 bg-orange-50 dark:border-orange-800 dark:bg-orange-900/20 p-8 text-center">
+            <div className="mx-auto mb-4 h-16 w-16 rounded-full bg-orange-100 dark:bg-orange-900 flex items-center justify-center">
+              <AlertCircle className="h-8 w-8 text-orange-600 dark:text-orange-400" />
+            </div>
+            <h2 className="text-2xl font-bold text-orange-900 dark:text-orange-100 mb-4">
+              Quiz Not Yet Available
+            </h2>
+            <p className="text-orange-800 dark:text-orange-200 mb-6">
+              The quiz is currently in preparation mode. Access will be granted once the round becomes active.
+              Please return to the dashboard and wait for the official announcement.
+            </p>
+            <div className="space-y-3">
+              <Link
+                href="/dashboard"
+                className="inline-flex w-full items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 max-w-xs mx-auto"
+              >
+                Return to Dashboard
+              </Link>
+              <p className="text-sm text-orange-700 dark:text-orange-300">
+                🔒 This prevents premature access to questions and timer activation
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   // Main quiz interface
@@ -799,7 +1032,23 @@ export default function QuizPage() {
     <PageLock roundType="QUIZ" isCompleted={isQuizCompleted}>
       <div className="min-h-screen bg-background text-foreground" ref={quizRef}>
       {/* Rules Modal */}
-      <RulesModal open={showRules} onClose={() => setShowRules(false)} />
+      <RulesModal open={showRules} onClose={() => {
+        setShowRules(false);
+        // Auto-enter fullscreen when quiz starts
+        if (quizRef.current && !isFullscreen) {
+          quizRef.current.requestFullscreen().catch((e) => {
+            console.error("Failed to auto-enter fullscreen on quiz start:", e);
+            setMessage("Warning: Could not enter fullscreen mode. Please manually enter fullscreen for the best quiz experience.");
+          });
+        }
+      }} />
+
+      {/* Fullscreen Warning Modal */}
+      <FullscreenWarningModal 
+        open={showFullscreenWarning} 
+        onStay={handleStayInQuiz}
+        onExit={handleExitQuiz}
+      />
 
       {/* Back to Dashboard Button */}
       <div className="bg-card border-b border-border">

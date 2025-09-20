@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/ThemeToggle";
+import { BackButton } from "@/components/BackButton";
+import { SecurityGuard, AntiCheatMeasures } from "@/components/SecurityGuard";
 
 export default function AdminPage() {
   const [rounds, setRounds] = useState<any[]>([]);
@@ -16,14 +18,14 @@ export default function AdminPage() {
   
   // Pitch cycle state
   const [pitchCycleActive, setPitchCycleActive] = useState(false);
-  const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'judges-rating' | 'peers-rating'>('idle');
+  const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'qna-pause' | 'rating-warning' | 'rating-active'>('idle');
   const [votingPhase, setVotingPhase] = useState<'preparing' | 'voting'>('preparing');
   const [phaseTimeLeft, setPhaseTimeLeft] = useState<number>(0);
   const [cycleStartTime, setCycleStartTime] = useState<number | null>(null);
   
   // Rating cycle state (for finals)
   const [ratingCycleActive, setRatingCycleActive] = useState<boolean>(false);
-  const [ratingPhase, setRatingPhase] = useState<'idle' | 'pitching' | 'judges-rating' | 'peers-rating'>('idle');
+  const [ratingPhase, setRatingPhase] = useState<'idle' | 'pitching' | 'qna-pause' | 'rating-warning' | 'rating-active'>('idle');
   const [ratingPhaseTimeLeft, setRatingPhaseTimeLeft] = useState<number>(0);
   const [ratingCycleStartTime, setRatingCycleStartTime] = useState<number | null>(null);
   
@@ -45,6 +47,9 @@ export default function AdminPage() {
       { text: '', tokenDeltaMarketing: 0, tokenDeltaCapital: 0, tokenDeltaTeam: 0, tokenDeltaStrategy: 0 }
     ]
   });
+  
+  // Fullscreen state
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Check for admin session cookie
   useEffect(() => {
@@ -52,7 +57,23 @@ export default function AdminPage() {
       const isAdmin = document.cookie.includes("admin-auth=true");
       if (!isAdmin) {
         window.location.href = "/admin/login";
+        return;
       }
+
+      // Security: Block navigation to unauthorized pages for admin users
+      const handlePopState = () => {
+        const currentPath = window.location.pathname;
+        const allowedPaths = ['/scoreboard', '/admin', '/dashboard'];
+        if (!allowedPaths.some(path => currentPath.startsWith(path))) {
+          window.location.href = '/scoreboard';
+        }
+      };
+
+      window.addEventListener('popstate', handlePopState);
+      
+      return () => {
+        window.removeEventListener('popstate', handlePopState);
+      };
     }
   }, []);
 
@@ -111,7 +132,11 @@ export default function AdminPage() {
       if (teamsRes.status === 'fulfilled' && teamsRes.value.ok) {
         const teamsData = await teamsRes.value.json();
         let allTeams = Array.isArray(teamsData) ? teamsData : [];
+        console.log('Teams loaded:', allTeams.length, 'teams');
         setTeams(allTeams);
+      } else {
+        console.error('Failed to load teams:', teamsRes.status === 'rejected' ? teamsRes.reason : 'Request failed');
+        setError('Failed to load teams data');
       }
 
       if (votingRes.status === 'fulfilled' && votingRes.value.ok) {
@@ -233,11 +258,22 @@ export default function AdminPage() {
         });
         if (res.ok) {
           const data = await res.json();
-          console.log('Polling rating cycle data:', data); // Debug log
-          setRatingCycleActive(data.ratingCycleActive || false);
-          setRatingPhase(data.currentPhase || 'idle');
-          setRatingPhaseTimeLeft(data.phaseTimeLeft || 0);
-          setRatingCycleStartTime(data.cycleStartTime || null);
+          // console.log('Polling rating cycle data:', data); // Debug log
+          // console.log('Setting ratingPhase to:', data.currentPhase); // Debug log
+          
+          // Only update state if values have actually changed to prevent unnecessary re-renders
+          if (data.ratingCycleActive !== ratingCycleActive) {
+            setRatingCycleActive(data.ratingCycleActive || false);
+          }
+          if (data.currentPhase !== ratingPhase) {
+            setRatingPhase(data.currentPhase || 'idle');
+          }
+          if (data.phaseTimeLeft !== ratingPhaseTimeLeft) {
+            setRatingPhaseTimeLeft(data.phaseTimeLeft || 0);
+          }
+          if (data.cycleStartTime !== ratingCycleStartTime) {
+            setRatingCycleStartTime(data.cycleStartTime || null);
+          }
           
           // Update current pitch team if changed
           if (data.team?.id && data.team.id !== currentPitchTeamId) {
@@ -249,11 +285,11 @@ export default function AdminPage() {
       }
     };
 
-    // Poll every 1 second when on finals tab
+    // Poll every 2 seconds when on finals tab (reduced frequency to prevent glitching)
     if (activeTab === 'final') {
       console.log('Starting rating cycle polling for finals tab'); // Debug log
       pollRatingCycle(); // Initial fetch
-      interval = setInterval(pollRatingCycle, 1000);
+      interval = setInterval(pollRatingCycle, 2000); // Changed from 1000ms to 2000ms
     } else {
       console.log('Not on finals tab, stopping polling'); // Debug log
     }
@@ -757,6 +793,80 @@ export default function AdminPage() {
     }
   };
 
+  const startQnaSession = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/rating/current", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start-qna" })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to start Q&A session");
+      }
+
+      await fetchRatingCycleStatus();
+      setSuccess("Q&A session started - timer paused for Q&A between presenter and pitcher");
+    } catch (error) {
+      console.error("Error starting Q&A session:", error);
+      setError("Failed to start Q&A session");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const startRatingFromQna = async () => {
+    try {
+      setLoading(true);
+      const res = await fetch("/api/rating/current", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ action: "start-rating" })
+      });
+
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData.error || "Failed to start rating phase");
+      }
+
+      await fetchRatingCycleStatus();
+      setSuccess("Q&A completed - starting 5 second warning then 2 minute rating phase");
+    } catch (error) {
+      console.error("Error starting rating phase:", error);
+      setError("Failed to start rating phase");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Fullscreen functionality
+  const toggleFullscreen = async () => {
+    try {
+      if (!document.fullscreenElement) {
+        await document.documentElement.requestFullscreen();
+        setIsFullscreen(true);
+      } else {
+        await document.exitFullscreen();
+        setIsFullscreen(false);
+      }
+    } catch (error) {
+      console.error('Error toggling fullscreen:', error);
+      setError('Failed to toggle fullscreen mode');
+    }
+  };
+
+  // Listen for fullscreen changes
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(!!document.fullscreenElement);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => document.removeEventListener('fullscreenchange', handleFullscreenChange);
+  }, []);
+
   // System management functions
   const updateSystemSetting = async (key: string, value: string) => {
     try {
@@ -885,10 +995,38 @@ export default function AdminPage() {
                     disabled={pitchCycleActive}
                   >
                     <option value={''}>-- Select Team --</option>
-                    {teams.map(t => (
-                      <option key={t.id} value={t.id}>{t.name} (#{t.id})</option>
-                    ))}
+                    {(() => {
+                      const qualifiedTeams = teams.filter(team => team.qualifiedForFinal);
+                      const availableTeams = qualifiedTeams.length > 0 ? qualifiedTeams : teams;
+                      return availableTeams.map(t => (
+                        <option key={t.id} value={t.id}>
+                          {t.name} (#{t.id}){t.qualifiedForFinal ? ' ✅' : ''}
+                        </option>
+                      ));
+                    })()}
                   </select>
+                  {(() => {
+                    const qualifiedTeams = teams.filter(team => team.qualifiedForFinal);
+                    if (teams.length === 0) {
+                      return (
+                        <div className="text-xs text-red-600 mt-1">
+                          ❌ No teams loaded - check database connection
+                        </div>
+                      );
+                    }
+                    if (qualifiedTeams.length === 0) {
+                      return (
+                        <div className="text-xs text-yellow-600 mt-1">
+                          ⚠️ No qualified teams yet - showing all {teams.length} teams
+                        </div>
+                      );
+                    }
+                    return (
+                      <div className="text-xs text-green-600 mt-1">
+                        ✅ Showing {qualifiedTeams.length} qualified teams for finals (out of {teams.length} total)
+                      </div>
+                    );
+                  })()}
                 </div>
                 <div className="flex flex-col gap-2">
                   <div className="text-sm text-muted-foreground">
@@ -1051,22 +1189,83 @@ export default function AdminPage() {
                 </select>
               </div>
 
-              {/* Cycle Control Buttons - Simplified */}
-              <div className="grid gap-3 md:grid-cols-2 mb-6">
-                <button 
-                  onClick={startRatingCycle}
-                  disabled={loading || !currentPitchTeamId || ratingCycleActive}
-                  className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium disabled:opacity-50"
-                >
-                  🚀 Start Rating Cycle
-                </button>
-                <button 
-                  onClick={stopRatingCycle}
-                  disabled={loading || !ratingCycleActive}
-                  className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium disabled:opacity-50"
-                >
-                  ⏹️ Stop Cycle
-                </button>
+              {/* Cycle Control Buttons - Enhanced with Q&A Controls */}
+              <div className="space-y-4 mb-6">
+                {/* Primary Controls */}
+                <div className="grid gap-3 md:grid-cols-2">
+                  <button 
+                    onClick={startRatingCycle}
+                    disabled={loading || !currentPitchTeamId || ratingCycleActive}
+                    className="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium disabled:opacity-50"
+                  >
+                    🚀 Start Rating Cycle (5min Pitch)
+                  </button>
+                  <button 
+                    onClick={stopRatingCycle}
+                    disabled={loading || !ratingCycleActive}
+                    className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md font-medium disabled:opacity-50"
+                  >
+                    ⏹️ Stop Cycle
+                  </button>
+                </div>
+
+                {/* Q&A Control Buttons - Only show when relevant */}
+                {ratingCycleActive && (
+                  <div className="border border-yellow-200 dark:border-yellow-800 bg-yellow-50 dark:bg-yellow-900/20 rounded-lg p-4">
+                    <h4 className="font-medium text-yellow-800 dark:text-yellow-200 mb-3">
+                      🎤 Q&A Session Control
+                    </h4>
+                    
+                    {/* Debug info */}
+                    <div className="text-xs text-gray-500 mb-2">
+                      Debug: ratingPhase = "{ratingPhase}", ratingCycleActive = {ratingCycleActive ? 'true' : 'false'}
+                    </div>
+                    
+                    {ratingPhase === 'pitching' && (
+                      <div className="space-y-3">
+                        <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                          🕐 Pitch in progress... Click below when 5 minutes are up or team finishes early.
+                        </p>
+                        <button 
+                          onClick={startQnaSession}
+                          disabled={loading}
+                          className="w-full bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md font-medium disabled:opacity-50"
+                        >
+                          ❓ Start Q&A Session (Pause Timer)
+                        </button>
+                      </div>
+                    )}
+                    
+                    {ratingPhase === 'qna-pause' && (
+                      <div className="space-y-3">
+                        <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                          🗣️ Q&A session active - Timer paused for questions between presenter and pitcher.
+                        </p>
+                        <button 
+                          onClick={startRatingFromQna}
+                          disabled={loading}
+                          className="w-full bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-md font-medium disabled:opacity-50"
+                        >
+                          ⭐ End Q&A & Start Rating (5sec warning + 2min rating)
+                        </button>
+                      </div>
+                    )}
+                    
+                    {(ratingPhase === 'rating-warning' || ratingPhase === 'rating-active') && (
+                      <div className="space-y-3">
+                        <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                          {ratingPhase === 'rating-warning' 
+                            ? '⚠️ 5-second warning active - Rating will start automatically'
+                            : '⭐ Rating phase active - Judges and peers can now submit scores'
+                          }
+                        </p>
+                        <div className="text-xs text-yellow-600 dark:text-yellow-400">
+                          Rating phase will auto-complete after 2 minutes or click Stop Cycle to end early.
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                )}
               </div>
 
               {/* Phase Progress Bar */}
@@ -1080,15 +1279,18 @@ export default function AdminPage() {
                     <div 
                       className={`h-3 rounded-full transition-all duration-1000 ${
                         ratingPhase === 'pitching' ? 'bg-blue-600' :
-                        ratingPhase === 'judges-rating' ? 'bg-green-600' :
-                        ratingPhase === 'peers-rating' ? 'bg-purple-600' :
+                        ratingPhase === 'qna-pause' ? 'bg-yellow-600' :
+                        ratingPhase === 'rating-warning' ? 'bg-red-600' :
+                        ratingPhase === 'rating-active' ? 'bg-green-600' :
                         'bg-gray-400'
                       }`}
                       style={{ 
                         width: `${Math.max(0, (ratingPhaseTimeLeft / (
                           ratingPhase === 'pitching' ? 300 : // 5 minutes = 300 seconds
-                          ratingPhase === 'judges-rating' ? 60 : // 1 minute = 60 seconds
-                          60 // 1 minute for peers = 60 seconds
+                          ratingPhase === 'qna-pause' ? 100 : // No timer, show full
+                          ratingPhase === 'rating-warning' ? 5 : // 5 seconds
+                          ratingPhase === 'rating-active' ? 120 : // 2 minutes = 120 seconds
+                          100 // Default
                         )) * 100)}%` 
                       }}
                     ></div>
@@ -1097,18 +1299,22 @@ export default function AdminPage() {
               )}
 
               {/* Quick Status Info */}
-              <div className="grid gap-3 md:grid-cols-3 text-sm">
+              <div className="grid gap-3 md:grid-cols-4 text-sm">
                 <div className={`p-3 rounded-lg ${ratingPhase === 'pitching' ? 'bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800' : 'bg-muted'}`}>
                   <div className="font-medium">📽️ Pitching Phase</div>
                   <div className="text-muted-foreground">5 minutes presentation</div>
                 </div>
-                <div className={`p-3 rounded-lg ${ratingPhase === 'judges-rating' ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-muted'}`}>
-                  <div className="font-medium">⚖️ Judges Rating</div>
-                  <div className="text-muted-foreground">1 minute scoring</div>
+                <div className={`p-3 rounded-lg ${ratingPhase === 'qna-pause' ? 'bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800' : 'bg-muted'}`}>
+                  <div className="font-medium">❓ Q&A Session</div>
+                  <div className="text-muted-foreground">Admin controlled</div>
                 </div>
-                <div className={`p-3 rounded-lg ${ratingPhase === 'peers-rating' ? 'bg-purple-50 dark:bg-purple-900/20 border border-purple-200 dark:border-purple-800' : 'bg-muted'}`}>
-                  <div className="font-medium">👥 Peer Rating</div>
-                  <div className="text-muted-foreground">1 minute team scoring</div>
+                <div className={`p-3 rounded-lg ${ratingPhase === 'rating-warning' ? 'bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800' : 'bg-muted'}`}>
+                  <div className="font-medium">⚠️ Rating Warning</div>
+                  <div className="text-muted-foreground">5 seconds warning</div>
+                </div>
+                <div className={`p-3 rounded-lg ${ratingPhase === 'rating-active' ? 'bg-green-50 dark:bg-green-900/20 border border-green-200 dark:border-green-800' : 'bg-muted'}`}>
+                  <div className="font-medium">⭐ Rating Active</div>
+                  <div className="text-muted-foreground">2 minutes scoring</div>
                 </div>
               </div>
             </div>
@@ -1116,9 +1322,6 @@ export default function AdminPage() {
             <div className="rounded-lg border border-border bg-card p-6">
               <h3 className="font-semibold mb-4">Quick Actions</h3>
               <div className="flex flex-wrap gap-2">
-                <a href="/judge" className="rounded-md bg-green-600 px-4 py-2 text-white font-medium hover:bg-green-700">
-                  Judge Console
-                </a>
                 <a href="/scoreboard" className="rounded-md bg-purple-600 px-4 py-2 text-white font-medium hover:bg-purple-700">
                   Final Scoreboard
                 </a>
@@ -1592,12 +1795,30 @@ export default function AdminPage() {
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6">
+      <SecurityGuard userType="admin" />
+      <AntiCheatMeasures />
+      
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline transition-colors">
-            ← Back to Dashboard
-          </Link>
-          <ThemeToggle />
+          <BackButton />
+          <div className="flex items-center gap-2">
+            <button
+              onClick={toggleFullscreen}
+              className="inline-flex items-center justify-center rounded-md text-sm font-medium ring-offset-background transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:pointer-events-none disabled:opacity-50 border border-input bg-background hover:bg-accent hover:text-accent-foreground h-10 w-10"
+              title={isFullscreen ? "Exit Fullscreen" : "Enter Fullscreen"}
+            >
+              {isFullscreen ? (
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 9V4.5M9 9H4.5M9 9L3.75 3.75M15 9v-4.5M15 9h4.5M15 9l5.25-5.25M9 15v4.5M9 15H4.5M9 15l-5.25 5.25M15 15v4.5M15 15h4.5m0 0l5.25 5.25" />
+                </svg>
+              ) : (
+                <svg className="h-4 w-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15" />
+                </svg>
+              )}
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
         
         <h1 className="text-3xl font-bold">Comprehensive Admin Console</h1>
