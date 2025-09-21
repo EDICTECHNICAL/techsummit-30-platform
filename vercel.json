@@ -1,22 +1,21 @@
 {
   "framework": "nextjs",
   "functions": {
-    "src/app/api/sse/voting/route.ts": {
+    "src/app/api/sse/**/*.ts": {
       "maxDuration": 300
+    },
+    "src/app/api/**/*.ts": {
+      "maxDuration": 30
     }
   },
   "installCommand": "npm install --legacy-peer-deps",
   "buildCommand": "npm run build",
-  "outputDirectory": ".next",
   "env": {
     "NODE_ENV": "production"
   },
-  "regions": ["iad1"],
+  "regions": ["sin1"],
   "cleanUrls": true,
   "trailingSlash": false,
-  "analytics": {
-    "speedInsights": true
-  },
   "headers": [
     {
       "source": "/api/sse/(.*)",
@@ -53,6 +52,10 @@
         {
           "key": "Referrer-Policy",
           "value": "strict-origin-when-cross-origin"
+        },
+        {
+          "key": "X-XSS-Protection",
+          "value": "1; mode=block"
         }
       ]
     }
