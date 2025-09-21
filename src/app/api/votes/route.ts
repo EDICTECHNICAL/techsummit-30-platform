@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
-import { votes, rounds } from '@/db/schema';
+import { votes, rounds, user } from '@/db/schema';
 import { eq, and, count } from 'drizzle-orm';
 import jwt from 'jsonwebtoken';
+import { createSafeErrorResponse } from '@/lib/utils';
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -52,6 +53,27 @@ export async function POST(request: NextRequest) {
         error: 'From team ID, to team ID, and valid vote value (+1 or -1) are required', 
         code: 'MISSING_REQUIRED_FIELDS' 
       }, { status: 400 });
+    }
+
+    // Validate that the user belongs to the team they're voting for
+    const userRecord = await db
+      .select({ teamId: user.teamId })
+      .from(user)
+      .where(eq(user.id, decoded.userId))
+      .limit(1);
+
+    if (userRecord.length === 0) {
+      return NextResponse.json({ 
+        error: 'User not found', 
+        code: 'USER_NOT_FOUND' 
+      }, { status: 404 });
+    }
+
+    if (userRecord[0].teamId !== fromTeamId) {
+      return NextResponse.json({ 
+        error: 'You can only vote as a member of your own team', 
+        code: 'TEAM_MEMBERSHIP_REQUIRED' 
+      }, { status: 403 });
     }
 
     // No teamMembers check; allow all authenticated users
@@ -165,10 +187,11 @@ export async function POST(request: NextRequest) {
       message: error instanceof Error ? error.message : 'Unknown error',
       stack: error instanceof Error ? error.stack : undefined
     });
+    const safeError = createSafeErrorResponse(error, 'Failed to cast vote');
     return NextResponse.json({ 
-      error: 'Internal server error occurred while casting vote',
-      details: error instanceof Error ? error.message : 'Unknown error'
-    }, { status: 500 });
+      error: safeError.error,
+      details: safeError.details
+    }, { status: safeError.statusCode });
   }
 }
 
@@ -227,6 +250,10 @@ export async function GET(request: NextRequest) {
     }
   } catch (error) {
     console.error('GET votes error:', error);
-    return NextResponse.json({ error: 'Internal server error: ' + error }, { status: 500 });
+    const safeError = createSafeErrorResponse(error, 'Failed to fetch voting data');
+    return NextResponse.json({ 
+      error: safeError.error,
+      details: safeError.details
+    }, { status: safeError.statusCode });
   }
 }

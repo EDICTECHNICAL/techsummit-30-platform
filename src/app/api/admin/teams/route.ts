@@ -2,22 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { eq } from "drizzle-orm";
 import { db } from "@/db";
 import { teams } from "@/db/schema";
-
-// Middleware to check admin authentication
-function requireAdmin(req: NextRequest) {
-  const cookieHeader = req.headers.get("cookie") || "";
-  if (!cookieHeader.includes("admin-auth=true")) {
-    return false;
-  }
-  return true;
-}
+import { requireAdmin } from "@/lib/auth-middleware";
 
 export async function PATCH(req: NextRequest) {
-  if (!requireAdmin(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    await requireAdmin(req);
+
     const { teamId, status } = await req.json();
 
     if (!teamId || !status) {
@@ -29,16 +19,14 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ success: true, message: "Team status updated" });
   } catch (error) {
     console.error("Error updating team status:", error);
-    return NextResponse.json({ error: "Failed to update team status" }, { status: 500 });
+    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 }
 
 export async function DELETE(req: NextRequest) {
-  if (!requireAdmin(req)) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
   try {
+    await requireAdmin(req);
+
     const { teamId } = await req.json();
 
     if (!teamId) {
@@ -52,6 +40,6 @@ export async function DELETE(req: NextRequest) {
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("Error deleting team:", error);
-    return NextResponse.json({ error: "Failed to delete team" }, { status: 500 });
+    return NextResponse.json({ error: "Admin access required" }, { status: 403 });
   }
 }

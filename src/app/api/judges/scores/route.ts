@@ -36,20 +36,11 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check if rating is currently active (using the rating API)
+    // Check if rating is currently active (using database query instead of API call)
     try {
-      const ratingResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/rating/current`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!ratingResponse.ok) {
-        throw new Error('Failed to fetch rating status');
-      }
-      
-      const ratingState = await ratingResponse.json();
+      // Import rating state functions
+      const { getRatingState } = await import('@/lib/rating-state');
+      const ratingState = getRatingState();
       
       if (!ratingState.ratingActive || ratingState.currentPhase !== 'rating-active') {
         return NextResponse.json({ 

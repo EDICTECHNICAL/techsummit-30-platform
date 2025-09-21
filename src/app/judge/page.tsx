@@ -3,6 +3,8 @@
 import { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BackButton } from "@/components/BackButton";
+import { useCentralizedTimer } from "@/hooks/useCentralizedTimer";
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface Team {
   id: number;
@@ -35,17 +37,22 @@ export default function JudgePage() {
   const [isJudgeAuthenticated, setIsJudgeAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
+  // Centralized Timer Hook
+  const {
+    currentPitchTeam,
+    ratingActive,
+    allPitchesCompleted,
+    ratingCycleActive,
+    currentPhase,
+    phaseTimeLeft,
+    cycleStartTime,
+    pollRatingStatus
+  } = useCentralizedTimer();
+
   // Form state for real-time rating
   const [realTimeRating, setRealTimeRating] = useState<string>('80');
   const [judgeName, setJudgeName] = useState<string>('');
-  const [ratingTimeout, setRatingTimeout] = useState<NodeJS.Timeout | null>(null);
 
-  // Real-time rating cycle state
-  const [currentPitchTeam, setCurrentPitchTeam] = useState<Team | null>(null);
-  const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'judges-rating' | 'peers-rating'>('idle');
-  const [phaseTimeLeft, setPhaseTimeLeft] = useState<number>(0);
-  const [ratingCycleActive, setRatingCycleActive] = useState(false);
-  
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
 
@@ -97,16 +104,16 @@ export default function JudgePage() {
             const data: RatingCycleEvent = JSON.parse(event.data);
             
             if (data.type === 'pitch-started' && data.data.team) {
-              setCurrentPitchTeam(data.data.team);
-              setRatingCycleActive(true);
+              // setCurrentPitchTeam(data.data.team); // This is now managed by useCentralizedTimer
+              // setRatingCycleActive(true); // This is now managed by useCentralizedTimer
             } else if (data.type === 'phase-changed') {
-              setCurrentPhase(data.data.phase || 'idle');
-              setPhaseTimeLeft(data.data.timeLeft || 0);
+              // setCurrentPhase(data.data.phase || 'idle'); // This is now managed by useCentralizedTimer
+              // setPhaseTimeLeft(data.data.timeLeft || 0); // This is now managed by useCentralizedTimer
             } else if (data.type === 'pitch-ended') {
-              setCurrentPitchTeam(null);
-              setCurrentPhase('idle');
-              setRatingCycleActive(false);
-              setPhaseTimeLeft(0);
+              // setCurrentPitchTeam(null); // This is now managed by useCentralizedTimer
+              // setCurrentPhase('idle'); // This is now managed by useCentralizedTimer
+              // setRatingCycleActive(false); // This is now managed by useCentralizedTimer
+              // setPhaseTimeLeft(0); // This is now managed by useCentralizedTimer
             }
           } catch (error) {
             console.error('Error parsing SSE data:', error);
@@ -152,18 +159,18 @@ export default function JudgePage() {
         const data = await res.json();
         
         // Only update state if values have actually changed to prevent unnecessary re-renders
-        if (JSON.stringify(data?.team) !== JSON.stringify(currentPitchTeam)) {
-          setCurrentPitchTeam(data?.team ?? null);
-        }
-        if (data?.currentPhase !== currentPhase) {
-          setCurrentPhase(data?.currentPhase ?? 'idle');
-        }
-        if (data?.phaseTimeLeft !== phaseTimeLeft) {
-          setPhaseTimeLeft(data?.phaseTimeLeft ?? 0);
-        }
-        if (data?.ratingCycleActive !== ratingCycleActive) {
-          setRatingCycleActive(data?.ratingCycleActive ?? false);
-        }
+        // if (JSON.stringify(data?.team) !== JSON.stringify(currentPitchTeam)) {
+        //   setCurrentPitchTeam(data?.team ?? null);
+        // }
+        // if (data?.currentPhase !== currentPhase) {
+        //   setCurrentPhase(data?.currentPhase ?? 'idle');
+        // }
+        // if (data?.phaseTimeLeft !== phaseTimeLeft) {
+        //   setPhaseTimeLeft(data?.phaseTimeLeft ?? 0);
+        // }
+        // if (data?.ratingCycleActive !== ratingCycleActive) {
+        //   setRatingCycleActive(data?.ratingCycleActive ?? false);
+        // }
       }
     } catch (error) {
       console.error('Error loading rating state:', error);
@@ -281,7 +288,7 @@ export default function JudgePage() {
 
   // Real-time judge rating with auto-submit
   const submitRealTimeRating = async (rating: number) => {
-    if (!currentPitchTeam || !judgeName.trim() || rating < 0 || rating > 100) {
+    if (!currentPitchTeam?.id || !judgeName.trim() || rating < 0 || rating > 100) {
       return;
     }
 
@@ -302,8 +309,21 @@ export default function JudgePage() {
         setMsg(`✅ Rating submitted: ${rating}/100 for ${currentPitchTeam.name}`);
         // Clear message after 2 seconds
         setTimeout(() => setMsg(null), 2000);
+        
+        // Reload scores after successful submission
+        loadData();
       } else {
-        setMsg(data?.error || "Failed to submit rating");
+        const errorData = await res.json();
+        console.error("API Error submitting rating:", errorData?.error || res.statusText);
+        
+        if (res.status === 409) {
+          // Judge already scored this team
+          setMsg(`⚠️ You have already scored ${currentPitchTeam.name}. Each judge can only score each team once.`);
+        } else if (res.status === 400 && errorData?.code === 'RATING_NOT_ACTIVE') {
+          setMsg("❌ Rating is not currently active. Please wait for the rating phase to begin.");
+        } else {
+          setMsg(errorData?.error || "Failed to submit rating");
+        }
       }
     } catch (error) {
       console.error("Error submitting rating:", error);
@@ -311,28 +331,15 @@ export default function JudgePage() {
     }
   };
 
-  // Handle real-time rating input change
+  // Handle real-time rating input change (no auto-submit)
   const handleRatingChange = (value: string) => {
     setRealTimeRating(value);
-    
-    // Auto-submit if it's a valid number between 0-100
-    const numValue = parseInt(value);
-    if (!isNaN(numValue) && numValue >= 0 && numValue <= 100 && canRateRealTime) {
-      // Debounce the submission to avoid too many requests
-      if (ratingTimeout) {
-        clearTimeout(ratingTimeout);
-      }
-      const newTimeout = setTimeout(() => {
-        submitRealTimeRating(numValue);
-      }, 500);
-      setRatingTimeout(newTimeout);
-    }
   };
 
   // Check if judge can rate in real-time
   const canRateRealTime = isJudgeAuthenticated && 
                          ratingCycleActive && 
-                         currentPhase === 'judges-rating' && 
+                         currentPhase === 'rating-active' && // Changed from 'judges-rating'
                          phaseTimeLeft > 0 && 
                          currentPitchTeam && 
                          judgeName.trim().length > 0;
@@ -366,9 +373,9 @@ export default function JudgePage() {
   // SSR/CSR flash protection: show loading spinner until authentication is checked
   if (!authChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-background">
-        <div className="p-8 rounded-xl bg-card shadow-lg text-center">
-          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+      <div className="min-h-screen flex items-center justify-center bg-background dark:bg-gray-950">
+        <div className="p-8 rounded-xl bg-card dark:bg-gray-800 shadow-lg text-center">
+          <div className="w-16 h-16 border-4 border-primary dark:border-primary-foreground border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
           <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             Loading Judge Console
           </h2>
@@ -390,32 +397,25 @@ export default function JudgePage() {
   return (
     <div className="min-h-screen bg-background text-foreground mobile-padding pb-20 sm:pb-6 safe-area-padding">
       <div className="max-w-6xl mx-auto">
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-4 gap-3">
-          <div className="flex items-center gap-3">
-            <BackButton />
+        <div className="flex items-center justify-between mb-4">
+          <div>
             <h1 className="mobile-title mb-0">Judge Console</h1>
+            <p className="mobile-body text-muted-foreground">
+              Submit scores for team presentations during the final round.
+            </p>
           </div>
-          <ThemeToggle />
-        </div>
-        
-        <div className="flex flex-col sm:flex-row sm:items-center gap-3 mb-4">
-          <p className="mobile-body text-muted-foreground">
-            Submit scores for team presentations during the final round.
-          </p>
-          <div className="inline-flex items-center gap-2 px-3 py-1 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-full">
-            <span className="mobile-body font-medium text-blue-800 dark:text-blue-200">
-              👨‍⚖️ {judgeName}
-            </span>
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
           </div>
         </div>
 
         {/* Real-Time Rating Section */}
-        <div className="mobile-card mb-6">
-          <h2 className="mobile-subtitle mb-4">🎯 Real-Time Final Round Rating</h2>
+        <div className="rounded-lg border border-border dark:border-border/50 bg-card dark:bg-card/50 p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-4">🎯 Real-Time Final Round Rating</h2>
           
           {/* Current pitch team status */}
           {currentPitchTeam ? (
-            <div className="mb-4 p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border border-green-200 dark:border-green-800">
+            <div className="mb-4 p-4 bg-green-50 dark:bg-green-950 rounded-lg border border-green-200 dark:border-green-700">
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-lg font-medium text-green-800 dark:text-green-200">
@@ -436,7 +436,7 @@ export default function JudgePage() {
               </div>
             </div>
           ) : (
-            <div className="mb-4 p-4 bg-muted rounded-lg border">
+            <div className="mb-4 p-4 bg-muted dark:bg-muted/50 rounded-lg border dark:border-border/50">
               <p className="text-muted-foreground">
                 🕐 No team is currently presenting. Waiting for pitch to start...
               </p>
@@ -447,7 +447,7 @@ export default function JudgePage() {
           <div className="grid gap-4 md:grid-cols-2">
             <div>
               <label className="block text-sm font-medium mb-2">Logged in as Judge</label>
-              <div className="w-full rounded-md border border-input bg-muted px-3 py-2 text-sm">
+              <div className="w-full rounded-md border border-input bg-muted dark:bg-muted/50 px-3 py-2 text-sm">
                 <span className="font-medium">{judgeName}</span>
                 {judgeName === 'Judge' && (
                   <span className="text-muted-foreground ml-2">(Loading...)</span>
@@ -466,24 +466,40 @@ export default function JudgePage() {
                   value={realTimeRating}
                   onChange={(e) => handleRatingChange(e.target.value)}
                   placeholder="80"
-                  className="w-full rounded-md border border-input bg-background px-3 py-2 pr-12"
+                  className="w-full rounded-md border border-input bg-background dark:bg-background/50 px-3 py-2 pr-12"
                   disabled={!canRateRealTime}
                 />
                 <span className="absolute right-3 top-2 text-sm text-muted-foreground">/100</span>
               </div>
               <p className="text-xs text-muted-foreground mt-1">
-                {canRateRealTime ? 'Auto-saves as you type' : 'Wait for judges rating phase'}
+                {canRateRealTime ? 'Enter your rating and click submit' : 'Wait for judges rating phase'}
               </p>
             </div>
           </div>
 
+          {/* Submit Button */}
+          <div className="mt-4">
+            <button
+              onClick={() => {
+                const numValue = parseInt(realTimeRating);
+                if (!isNaN(numValue) && numValue >= 0 && numValue <= 100) {
+                  submitRealTimeRating(numValue);
+                }
+              }}
+              disabled={!canRateRealTime || loading}
+              className="w-full bg-blue-600 hover:bg-blue-700 dark:bg-blue-700 dark:hover:bg-blue-800 text-white px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {loading ? 'Submitting...' : `Submit Rating (${realTimeRating}/100)`}
+            </button>
+          </div>
+
           {/* Real-time rating restrictions */}
           {!canRateRealTime && (
-            <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-900/20 rounded-md border border-yellow-200 dark:border-yellow-800">
+            <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-md border border-yellow-200 dark:border-yellow-700">
               <p className="text-sm text-yellow-700 dark:text-yellow-300">
                 {!ratingCycleActive && '⏳ Waiting for rating cycle to start...'}
-                {ratingCycleActive && currentPhase !== 'judges-rating' && '⏱️ Wait for judges rating phase...'}
-                {ratingCycleActive && currentPhase === 'judges-rating' && phaseTimeLeft <= 0 && '⏰ Judges rating time has ended.'}
+                {ratingCycleActive && currentPhase !== 'rating-active' && '⏱️ Wait for judges rating phase...'}
+                {ratingCycleActive && currentPhase === 'rating-active' && phaseTimeLeft <= 0 && '⏰ Judges rating time has ended.'}
                 {!currentPitchTeam && '👥 No team is currently presenting.'}
                 {!judgeName.trim() && currentPitchTeam && '📝 Please enter your judge name.'}
               </p>
@@ -493,20 +509,20 @@ export default function JudgePage() {
 
         {/* My Submitted Scores */}
         {myScores.length > 0 && (
-          <div className="rounded-lg border bg-card p-6 mb-6">
+          <div className="rounded-lg border bg-card dark:bg-card/50 p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Your Submitted Scores ({myScores.length})</h2>
             <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-3">
               {myScores.map((score) => {
                 const team = teams.find(t => t.id === score.teamId);
                 return (
-                  <div key={score.id} className="rounded-lg border bg-muted p-3">
+                  <div key={score.id} className="rounded-lg border bg-muted dark:bg-muted/50 p-3">
                     <div className="flex justify-between items-start">
                       <div>
                         <h3 className="font-medium">{team?.name || `Team #${score.teamId}`}</h3>
                         <p className="text-sm text-muted-foreground">{team?.college}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-lg font-bold text-green-600">{score.score} pts</p>
+                        <p className="text-lg font-bold text-green-600 dark:text-green-400">{score.score} pts</p>
                         <p className="text-xs text-muted-foreground">
                           {new Date(score.createdAt).toLocaleDateString()}
                         </p>
@@ -520,12 +536,12 @@ export default function JudgePage() {
         )}
 
         {/* All Team Scores Overview */}
-        <div className="rounded-lg border bg-card p-6">
+        <div className="rounded-lg border bg-card dark:bg-card/50 p-6">
           <h2 className="text-xl font-semibold mb-4">Judge Scores Overview</h2>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b">
+                <tr className="border-b dark:border-border/50">
                   <th className="text-left p-2">Team</th>
                   <th className="text-left p-2">College</th>
                   <th className="text-center p-2">Judges</th>
@@ -536,18 +552,18 @@ export default function JudgePage() {
               </thead>
               <tbody>
                 {scoresByTeam.map(({ team, scores: teamScores, totalScore, averageScore, judgeCount }) => (
-                  <tr key={team.id} className="border-b hover:bg-muted/50">
+                  <tr key={team.id} className="border-b dark:border-border/50 hover:bg-muted/50">
                     <td className="p-2 font-medium">{team.name}</td>
                     <td className="p-2 text-muted-foreground">{team.college}</td>
                     <td className="p-2 text-center">{judgeCount}</td>
-                    <td className="p-2 text-center font-bold text-green-600">{totalScore}</td>
-                    <td className="p-2 text-center text-blue-600">{averageScore}</td>
+                    <td className="p-2 text-center font-bold text-green-600 dark:text-green-400">{totalScore}</td>
+                    <td className="p-2 text-center text-blue-600 dark:text-blue-400">{averageScore}</td>
                     <td className="p-2">
                       <div className="flex flex-wrap gap-1">
                         {teamScores.map(score => (
                           <span 
                             key={score.id}
-                            className="bg-muted px-2 py-1 rounded text-xs"
+                            className="bg-muted dark:bg-muted/50 px-2 py-1 rounded text-xs"
                             title={`${score.judgeName}: ${score.score} pts`}
                           >
                             {score.judgeName}: {score.score}
@@ -564,20 +580,16 @@ export default function JudgePage() {
 
         {/* Message Display */}
         {msg && (
-          <div className={`mt-6 rounded-lg border p-4 ${
+          <div className={`mt-6 rounded-md border px-4 py-3 text-center font-medium flex items-center justify-center gap-2 ${
             msg.includes('successfully') || msg.includes('✅') 
-              ? 'bg-green-50 border-green-200 text-green-800' 
+              ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-700 text-green-800 dark:text-green-300"
               : msg.includes('Failed') || msg.includes('❌')
-              ? 'bg-red-50 border-red-200 text-red-800'
-              : 'bg-blue-50 border-blue-200 text-blue-800'
+              ? "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-700 text-red-800 dark:text-red-300"
+              : "bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300"
           }`}>
-            <p className="font-medium">{msg}</p>
-            <button 
-              onClick={() => setMsg(null)}
-              className="mt-2 text-sm underline opacity-70 hover:opacity-100"
-            >
-              Dismiss
-            </button>
+            {msg.includes('successfully') || msg.includes('✅') && <CheckCircle2 className="h-5 w-5" />}
+            {msg.includes('Failed') || msg.includes('❌') && <AlertCircle className="h-5 w-5" />}
+            <span>{msg}</span>
           </div>
         )}
 
@@ -592,7 +604,7 @@ export default function JudgePage() {
           </button>
           <button 
             onClick={handleLogout}
-            className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-md text-sm font-medium"
+            className="bg-red-600 hover:bg-red-700 dark:bg-red-700 dark:hover:bg-red-800 text-white px-4 py-2 rounded-md text-sm font-medium"
           >
             Logout
           </button>

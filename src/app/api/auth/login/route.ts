@@ -4,6 +4,7 @@ import { user, teams } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { compareSync } from 'bcryptjs';
 import jwt from 'jsonwebtoken';
+import { checkRateLimit, createSafeErrorResponse } from '@/lib/utils';
 
 const JWT_SECRET = process.env.JWT_SECRET!;
 
@@ -13,6 +14,28 @@ if (!JWT_SECRET) {
 
 export async function POST(req: NextRequest) {
   try {
+    // Get client IP for rate limiting
+    const clientIP = req.headers.get('x-forwarded-for') ||
+                     req.headers.get('x-real-ip') ||
+                     'unknown';
+
+    // Rate limit: 5 login attempts per 15 minutes per IP
+    const rateLimit = checkRateLimit(`login_${clientIP}`, 5, 15 * 60 * 1000);
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json({
+        error: 'Too many login attempts. Please try again later.',
+        retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
+      }, {
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString(),
+          'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+          'X-RateLimit-Reset': rateLimit.resetTime.toString()
+        }
+      });
+    }
+
     const { username, password } = await req.json();
     
     if (!username || !password) {

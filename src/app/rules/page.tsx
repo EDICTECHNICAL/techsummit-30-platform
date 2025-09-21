@@ -252,31 +252,31 @@ export default function RulesPage() {
 
                 {/* Round 3: Final */}
                 <div className="relative group">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-primary/15 to-accent/15 rounded-xl blur opacity-50 group-hover:opacity-75 transition-opacity"></div>
-                  <div className="relative border border-primary/20 rounded-xl p-6 bg-gradient-to-br from-primary/5 to-accent/5 backdrop-blur-sm">
+                  <div className="absolute -inset-1 bg-gradient-to-r from-primary/15 to-accent/15 dark:from-primary/25 dark:to-accent/25 rounded-xl blur opacity-50 group-hover:opacity-75 transition-opacity"></div>
+                  <div className="relative border border-primary/20 dark:border-primary/30 rounded-xl p-6 bg-gradient-to-br from-primary/5 to-accent/5 dark:from-primary/10 dark:to-accent/10 backdrop-blur-sm">
                     <div className="flex items-center gap-4 mb-4">
-                      <div className="bg-gradient-to-br from-primary to-accent text-white rounded-full w-12 h-12 flex items-center justify-center text-lg font-bold shadow-lg">3</div>
+                      <div className="bg-gradient-to-br from-primary to-accent text-white rounded-full w-12 h-12 flex items-center justify-center text-lg font-bold shadow-lg dark:shadow-primary/20">3</div>
                       <div>
                         <h3 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-1">Final Round (Presentation)</h3>
-                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/30">Team</Badge>
+                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/30 dark:bg-primary/20 dark:text-primary-foreground dark:border-primary/40">Team</Badge>
                       </div>
                     </div>
-                    <p className="text-muted-foreground mb-4 leading-relaxed">
-                      Present your startup concept, business model, and growth strategy to a panel of judges 
+                    <p className="text-muted-foreground dark:text-muted-foreground/80 mb-4 leading-relaxed">
+                      Present your startup concept, business model, and growth strategy to a panel of judges
                       and receive peer evaluations from other teams.
                     </p>
                     <div className="space-y-3">
-                      <div className="flex items-center gap-3 text-sm bg-background/50 backdrop-blur-sm p-3 rounded-lg border border-border/50">
-                        <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
-                        <span className="font-medium">5-minute team presentation</span>
+                      <div className="flex items-center gap-3 text-sm bg-background/50 dark:bg-background/30 backdrop-blur-sm p-3 rounded-lg border border-border/50 dark:border-border/30">
+                        <CheckCircle className="h-4 w-4 text-primary dark:text-primary/90 flex-shrink-0" />
+                        <span className="font-medium text-foreground dark:text-foreground/90">5-minute team presentation</span>
                       </div>
-                      <div className="flex items-center gap-3 text-sm bg-background/50 backdrop-blur-sm p-3 rounded-lg border border-border/50">
-                        <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
-                        <span className="font-medium">Judge evaluation and scoring</span>
+                      <div className="flex items-center gap-3 text-sm bg-background/50 dark:bg-background/30 backdrop-blur-sm p-3 rounded-lg border border-border/50 dark:border-border/30">
+                        <CheckCircle className="h-4 w-4 text-primary dark:text-primary/90 flex-shrink-0" />
+                        <span className="font-medium text-foreground dark:text-foreground/90">Judge evaluation and scoring</span>
                       </div>
-                      <div className="flex items-center gap-3 text-sm bg-background/50 backdrop-blur-sm p-3 rounded-lg border border-border/50">
-                        <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
-                        <span className="font-medium">Peer rating system</span>
+                      <div className="flex items-center gap-3 text-sm bg-background/50 dark:bg-background/30 backdrop-blur-sm p-3 rounded-lg border border-border/50 dark:border-border/30">
+                        <CheckCircle className="h-4 w-4 text-primary dark:text-primary/90 flex-shrink-0" />
+                        <span className="font-medium text-foreground dark:text-foreground/90">Peer rating system</span>
                       </div>
                     </div>
                   </div>

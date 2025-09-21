@@ -11,14 +11,16 @@ import {
   setAllPitchesCompleted,
 } from '@/lib/voting-state';
 
-// Helper function to check admin authentication (both JWT and cookie-based)
+// Helper function to check admin authentication (JWT-based only)
 function checkAdminAuth(req: NextRequest): boolean {
-  // Check cookie-based admin auth first
-  const cookieHeader = req.headers.get("cookie") || "";
-  if (cookieHeader.includes("admin-auth=true")) {
+  try {
+    const { requireAdmin } = require('@/lib/auth-middleware');
+    // This will throw if not authenticated
+    requireAdmin(req);
     return true;
+  } catch (error) {
+    return false;
   }
-  return false;
 }
 
 // Centralized voting state and ticker live in `src/lib/voting-state.ts`.

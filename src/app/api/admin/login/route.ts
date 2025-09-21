@@ -3,31 +3,47 @@ import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from '@/db/index';
 import { admins } from '@/db/schema';
-import { sql } from 'drizzle-orm';
+import { eq } from 'drizzle-orm';
 import jwt from "jsonwebtoken";
+import { checkRateLimit, createSafeErrorResponse } from '@/lib/utils';
 
 export async function POST(req: NextRequest) {
-  const { username, password } = await req.json();
+  try {
+    // Get client IP for rate limiting
+    const clientIP = req.headers.get('x-forwarded-for') ||
+                     req.headers.get('x-real-ip') ||
+                     'unknown';
+
+    // Rate limit: 3 admin login attempts per 15 minutes per IP (stricter for admin)
+    const rateLimit = checkRateLimit(`admin_login_${clientIP}`, 3, 15 * 60 * 1000);
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json({
+        error: 'Too many login attempts. Please try again later.',
+        retryAfter: Math.ceil((rateLimit.resetTime - Date.now()) / 1000)
+      }, {
+        status: 429,
+        headers: {
+          'Retry-After': Math.ceil((rateLimit.resetTime - Date.now()) / 1000).toString(),
+          'X-RateLimit-Remaining': rateLimit.remaining.toString(),
+          'X-RateLimit-Reset': rateLimit.resetTime.toString()
+        }
+      });
+    }
+
+    const { username, password } = await req.json();
   
-  console.log('Login attempt - Username:', username);
-  console.log('Login attempt - Password:', password);
-  console.log('Login attempt - Password length:', password?.length);
+  console.log('Admin login attempt for username:', username);
   
   // Find admin by username
-  const admin = await db.select().from(admins).where(sql`username = ${username}`).limit(1);
-  console.log('Admin query result:', admin);
+  const admin = await db.select().from(admins).where(eq(admins.username, username)).limit(1);
   
   if (!admin.length) {
     console.log('No admin found for username:', username);
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
   
-  console.log('Stored hash:', admin[0].password);
-  console.log('Comparing password:', password);
-  console.log('Against hash:', admin[0].password);
-  
   const valid = await bcrypt.compare(password, admin[0].password);
-  console.log('Password valid:', valid);
   
   if (!valid) {
     console.log('Password mismatch for username:', username);
@@ -53,4 +69,12 @@ export async function POST(req: NextRequest) {
     path: "/"
   });
   return response;
+  } catch (error) {
+    console.error('Admin login error:', error);
+    const safeError = createSafeErrorResponse(error, 'Login failed');
+    return NextResponse.json({ 
+      error: safeError.error,
+      details: safeError.details
+    }, { status: safeError.statusCode });
+  }
 }

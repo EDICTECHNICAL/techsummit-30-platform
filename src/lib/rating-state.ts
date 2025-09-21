@@ -172,15 +172,21 @@ function tick() {
 
   if (ratingState.ratingCycleActive && ratingState.phaseStartTime) {
     const elapsed = Math.floor((now - ratingState.phaseStartTime) / 1000);
+    
+    // Debug logging for timer transitions
+    if (elapsed % 10 === 0) { // Log every 10 seconds
+      console.log(`Timer tick: phase=${ratingState.currentPhase}, elapsed=${elapsed}s, timeLeft=${ratingState.phaseTimeLeft}s`);
+    }
 
     if (ratingState.currentPhase === 'pitching') {
       if (elapsed < PITCH_SEC) {
         ratingState.phaseTimeLeft = Math.max(0, PITCH_SEC - elapsed);
       } else {
-        // transition to qna-pause
+        // Auto-transition to qna-pause after pitching time ends
         ratingState.currentPhase = 'qna-pause';
         ratingState.phaseStartTime = now;
         ratingState.phaseTimeLeft = 0;
+        ratingState.ratingActive = false;
         markStateChanged();
       }
     } else if (ratingState.currentPhase === 'qna-pause') {
@@ -190,6 +196,7 @@ function tick() {
       if (elapsed < WARNING_SEC) {
         ratingState.phaseTimeLeft = Math.max(0, WARNING_SEC - elapsed);
       } else {
+        // Auto-transition to rating-active after warning period
         ratingState.currentPhase = 'rating-active';
         ratingState.phaseStartTime = now;
         ratingState.phaseTimeLeft = RATING_SEC;
@@ -211,12 +218,17 @@ function tick() {
       if (elapsed < RATING_SEC) {
         ratingState.phaseTimeLeft = Math.max(0, RATING_SEC - elapsed);
       } else {
+        // Auto-end the rating cycle after rating time expires
         ratingState.ratingCycleActive = false;
         ratingState.currentPhase = 'idle';
         ratingState.phaseStartTime = null;
         ratingState.phaseTimeLeft = 0;
         ratingState.ratingActive = false;
         ratingState.cycleStartTime = null;
+        if (ratingTimeout) {
+          clearTimeout(ratingTimeout);
+          ratingTimeout = null;
+        }
         markStateChanged();
       }
     }

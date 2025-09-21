@@ -12,6 +12,7 @@ import { useRatingSSE } from "@/hooks/useRatingSSE";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BackButton } from "@/components/BackButton";
+import { useCentralizedTimer } from "@/hooks/useCentralizedTimer"; // Import the new hook
 
 interface Team {
   id: number;
@@ -35,16 +36,6 @@ interface JudgeScore {
   createdAt: string;
 }
 
-interface CurrentRatingData {
-  team: Team | null;
-  ratingActive: boolean;
-  allPitchesCompleted: boolean;
-  // Rating cycle properties
-  ratingCycleActive?: boolean;
-  currentPhase?: 'idle' | 'pitching' | 'qna-pause' | 'rating-warning' | 'rating-active';
-  phaseTimeLeft?: number;
-  cycleStartTime?: number | null;
-}
 
 interface RatingResponse {
   success?: boolean;
@@ -74,6 +65,18 @@ export default function FinalPage() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'rate' | 'status'>('status');
 
+  // Centralized Timer Hook
+  const { 
+    currentPitchTeam, 
+    ratingActive, 
+    allPitchesCompleted, 
+    ratingCycleActive, 
+    currentPhase, 
+    phaseTimeLeft, 
+    cycleStartTime, 
+    pollRatingStatus 
+  } = useCentralizedTimer();
+
   // Round completion tracking
   const [quizCompleted, setQuizCompleted] = useState<boolean>(false);
   const [votingCompleted, setVotingCompleted] = useState<boolean>(false);
@@ -86,20 +89,13 @@ export default function FinalPage() {
   // Popup state for qualification status
   const [showQualificationPopup, setShowQualificationPopup] = useState<boolean>(false);
 
-  // Rating cycle state
-  const [currentPitchTeam, setCurrentPitchTeam] = useState<Team | null>(null);
-  const [ratingActive, setRatingActive] = useState(false);
-  const [allPitchesCompleted, setAllPitchesCompleted] = useState(false);
-  const [ratingCycleActive, setRatingCycleActive] = useState<boolean>(false);
-  const [currentPhase, setCurrentPhase] = useState<'idle' | 'pitching' | 'qna-pause' | 'rating-warning' | 'rating-active'>('idle');
-  const [phaseTimeLeft, setPhaseTimeLeft] = useState<number>(0);
-  const [cycleStartTime, setCycleStartTime] = useState<number | null>(null);
-
-  // Check for judge authentication
-  const [isJudgeAuthenticated, setIsJudgeAuthenticated] = useState(false);
-
   const userTeamId = session?.user?.team?.id;
   const isAdmin = session?.user?.isAdmin;
+
+  // Timer constants - match server-side constants from rating-state.ts
+  const PITCH_SEC = 300; // 5 minutes (match server)
+  const WARNING_SEC = 5; // 5 seconds
+  const RATING_SEC = 120; // 2 minutes
 
   // Show message with auto-dismiss
   const showMessage = useCallback((text: string, type: 'success' | 'error' | 'info' = 'info') => {
@@ -117,26 +113,12 @@ export default function FinalPage() {
     switch (lastEvent.type) {
       case 'teamChanged':
         if (lastEvent.data) {
-          setCurrentPitchTeam(lastEvent.data.team);
-          setRatingActive(lastEvent.data.ratingActive);
-          setAllPitchesCompleted(lastEvent.data.allPitchesCompleted);
-          setRatingCycleActive(lastEvent.data.ratingCycleActive);
-          setCurrentPhase(lastEvent.data.currentPhase);
-          setPhaseTimeLeft(lastEvent.data.phaseTimeLeft);
-          setCycleStartTime(lastEvent.data.cycleStartTime);
           showMessage(`New team is pitching: ${lastEvent.data.team?.name || 'None'}`, 'info');
         }
         break;
       
       case 'ratingStateChanged':
         if (lastEvent.data) {
-          setRatingActive(lastEvent.data.ratingActive);
-          setAllPitchesCompleted(lastEvent.data.allPitchesCompleted);
-          setRatingCycleActive(lastEvent.data.ratingCycleActive);
-          setCurrentPhase(lastEvent.data.currentPhase);
-          setPhaseTimeLeft(lastEvent.data.phaseTimeLeft);
-          setCycleStartTime(lastEvent.data.cycleStartTime);
-          
           // Handle rating state changes
           if (lastEvent.data.ratingActive && !ratingActive) {
             showMessage('Rating is now active!', 'success');
@@ -152,134 +134,12 @@ export default function FinalPage() {
     }
   }, [lastEvent, ratingActive, showMessage]);
 
-  // Poll current rating status
   useEffect(() => {
-    const pollRatingStatus = async () => {
-      try {
-        const res = await fetch("/api/rating/current");
-        if (!res.ok) {
-          console.warn(`Failed to fetch rating status: ${res.status} ${res.statusText}`);
-          return;
-        }
-        
-        const data: CurrentRatingData = await res.json();
-        setCurrentPitchTeam(data?.team ?? null);
-        
-        // Handle rating cycle state
-        const newRatingCycleActive = data?.ratingCycleActive ?? false;
-        const newCurrentPhase = data?.currentPhase ?? 'idle';
-        const newPhaseTimeLeft = data?.phaseTimeLeft ?? 0;
-        const newCycleStartTime = data?.cycleStartTime ?? null;
-        
-        setRatingCycleActive(newRatingCycleActive);
-        setCurrentPhase(newCurrentPhase);
-        setPhaseTimeLeft(newPhaseTimeLeft);
-        setCycleStartTime(newCycleStartTime);
-        
-        setRatingActive(data?.ratingActive ?? false);
-        setAllPitchesCompleted(data?.allPitchesCompleted ?? false);
-      } catch (error) {
-        console.warn("Error polling rating status:", error);
-      }
-    };
-
-    const interval = setInterval(pollRatingStatus, 2000);
-    pollRatingStatus();
-    
-    return () => clearInterval(interval);
-  }, []);
-
-  // Real-time timer update for rating cycle
-  useEffect(() => {
-    if (!ratingCycleActive || !cycleStartTime) {
-      return;
-    }
-
-    const timer = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - cycleStartTime) / 1000);
-      let newPhase: 'idle' | 'pitching' | 'qna-pause' | 'rating-warning' | 'rating-active' = 'idle';
-      let timeLeft = 0;
-      
-      if (elapsed < 300) {
-        // Phase 1: 5 minutes pitching
-        newPhase = 'pitching';
-        timeLeft = 300 - elapsed;
-      } else if (currentPhase === 'qna-pause') {
-        // Phase 2: Q&A pause (controlled by admin, no timer)
-        newPhase = 'qna-pause';
-        timeLeft = 0; // No time limit, admin controlled
-      } else if (elapsed >= 300 && elapsed < 305) {
-        // Phase 3: 5 seconds warning before rating
-        newPhase = 'rating-warning';
-        timeLeft = 305 - elapsed;
-      } else if (elapsed >= 305 && elapsed < 425) {
-        // Phase 4: 2 minutes rating (judges + peers together)
-        newPhase = 'rating-active';
-        timeLeft = 425 - elapsed;
-      }
-      
-      setCurrentPhase(newPhase);
-      setPhaseTimeLeft(Math.max(0, timeLeft));
-      
-      if (elapsed >= 425) {
-        // Cycle should end
-        setRatingCycleActive(false);
-        setCurrentPhase('idle');
-        setPhaseTimeLeft(0);
-        setRatingActive(false);
-        setCycleStartTime(null);
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [ratingCycleActive, cycleStartTime, currentPhase]);
-
-  useEffect(() => {
+    // Initial data load and round completion check
     loadData();
     checkRoundCompletion();
-  }, [session]);
 
-  // Poll current rating status for real-time updates
-  useEffect(() => {
-    const pollRatingStatus = async () => {
-      try {
-        const res = await fetch("/api/rating/current");
-        if (!res.ok) {
-          console.warn(`Failed to fetch rating status: ${res.status} ${res.statusText}`);
-          return;
-        }
-        
-        const data = await res.json();
-        setCurrentPitchTeam(data?.team ?? null);
-        
-        // Handle rating cycle state
-        const newRatingCycleActive = data?.ratingCycleActive ?? false;
-        const newCurrentPhase = data?.currentPhase ?? 'idle';
-        const newPhaseTimeLeft = data?.phaseTimeLeft ?? 0;
-        const newCycleStartTime = data?.cycleStartTime ?? null;
-        
-        setRatingCycleActive(newRatingCycleActive);
-        setCurrentPhase(newCurrentPhase);
-        setPhaseTimeLeft(newPhaseTimeLeft);
-        setCycleStartTime(newCycleStartTime);
-        
-        // Handle rating activation timing
-        const newRatingActive = data?.ratingActive ?? false;
-        setRatingActive(newRatingActive);
-        
-      } catch (error) {
-        console.error("Error polling rating status:", error);
-      }
-    };
-
-    pollRatingStatus(); // Initial fetch
-    const interval = setInterval(pollRatingStatus, 2000); // Poll every 2 seconds
-
-    return () => clearInterval(interval);
-  }, []);
-
-  // Poll scoreboard for updated final scores
-  useEffect(() => {
+    // Poll scoreboard for updated final scores
     const pollScoreboard = async () => {
       try {
         const scoreboardRes = await fetch('/api/scoreboard');
@@ -292,16 +152,42 @@ export default function FinalPage() {
       }
     };
 
-    // Poll less frequently to avoid overwhelming the server
-    const interval = setInterval(pollScoreboard, 5000); // Poll every 5 seconds
+    const scoreboardInterval = setInterval(pollScoreboard, 5000); // Poll every 5 seconds
 
-    return () => clearInterval(interval);
-  }, []);
+    // Poll ratings during active rating sessions to prevent hard-refresh issues
+    const pollRatings = async () => {
+      if (userTeamId && ratingCycleActive && currentPhase === 'rating-active') {
+        try {
+          const ratingsRes = await fetch(`/api/final/ratings?fromTeamId=${userTeamId}`);
+          if (ratingsRes.ok) {
+            const ratingsData = await ratingsRes.json();
+            setMyRatings(ratingsData.ratings || []);
+          }
+        } catch (error) {
+          console.error("Error polling ratings:", error);
+        }
+      }
+    };
 
-  // Show qualification popup when qualification status is determined
+    const ratingsInterval = setInterval(pollRatings, 3000); // Poll every 3 seconds during rating
+
+    return () => {
+      clearInterval(scoreboardInterval);
+      clearInterval(ratingsInterval);
+    };
+  }, [session, userTeamId, ratingCycleActive, currentPhase]);
+
+  // Show qualification popup when qualification status is determined (only once per session)
   useEffect(() => {
     if (userTeamId && qualifiedTeams.length > 0 && !loading) {
-      setShowQualificationPopup(true);
+      // Check if popup has already been shown in this session
+      const popupShownKey = `qualification-popup-shown-${userTeamId}`;
+      const hasBeenShown = sessionStorage.getItem(popupShownKey) === 'true';
+
+      if (!hasBeenShown) {
+        setShowQualificationPopup(true);
+        sessionStorage.setItem(popupShownKey, 'true');
+      }
     }
   }, [userTeamId, qualifiedTeams.length, loading]);
 
@@ -395,14 +281,14 @@ export default function FinalPage() {
         setTeams(teamsData);
       }
 
-      // Load my ratings if user has a team and is qualified
-      if (userTeamId && isQualified) {
-        const ratingsRes = await fetch(`/api/final/ratings?fromTeamId=${userTeamId}`);
-        if (ratingsRes.ok) {
-          const ratingsData = await ratingsRes.json();
-          setMyRatings(ratingsData.ratings || []);
-        }
-      }
+  // Load my ratings if user has a team (don't wait for qualification check to avoid timing issues)
+  if (userTeamId) {
+    const ratingsRes = await fetch(`/api/final/ratings?fromTeamId=${userTeamId}`);
+    if (ratingsRes.ok) {
+      const ratingsData = await ratingsRes.json();
+      setMyRatings(ratingsData.ratings || []);
+    }
+  }
 
     } catch (error) {
       console.error('Error loading data:', error);
@@ -456,18 +342,46 @@ export default function FinalPage() {
       if (res.ok && data.success) {
         showMessage(data.message || `Successfully rated ${currentPitchTeam.name} with ${rating}/10`, 'success');
         setRating(5); // Reset to default
-        // Reload ratings
-        const ratingsRes = await fetch(`/api/final/ratings?fromTeamId=${userTeamId}`);
-        if (ratingsRes.ok) {
-          const ratingsData = await ratingsRes.json();
-          setMyRatings(ratingsData.ratings || []);
-        }
+        
+        // Reload ratings with retry mechanism
+        let retryCount = 0;
+        const maxRetries = 3;
+        
+        const reloadRatings = async () => {
+          try {
+            const ratingsRes = await fetch(`/api/final/ratings?fromTeamId=${userTeamId}`);
+            if (ratingsRes.ok) {
+              const ratingsData = await ratingsRes.json();
+              setMyRatings(ratingsData.ratings || []);
+              return true;
+            } else {
+              throw new Error(`HTTP ${ratingsRes.status}`);
+            }
+          } catch (error) {
+            console.error(`Failed to reload ratings (attempt ${retryCount + 1}):`, error);
+            return false;
+          }
+        };
+        
+        // Try to reload ratings with exponential backoff
+        const tryReload = async () => {
+          const success = await reloadRatings();
+          if (!success && retryCount < maxRetries) {
+            retryCount++;
+            setTimeout(tryReload, 1000 * Math.pow(2, retryCount)); // Exponential backoff
+          } else if (!success) {
+            showMessage("Rating submitted successfully, but your ratings list may not update immediately. Please refresh the page if needed.", 'info');
+          }
+        };
+        
+        tryReload();
       } else {
+        console.error("API Error submitting rating:", data?.error || res.statusText);
         showMessage(data?.error || "Failed to submit rating", 'error');
-      }
-    } catch (error) {
-      console.error("Error submitting rating:", error);
-      showMessage("Network error while submitting rating", 'error');
+      } 
+    } catch (error: any) {
+      console.error("Network or unexpected error submitting rating:", error);
+      showMessage(`An unexpected error occurred: ${error.message || String(error)}`, 'error');
     } finally {
       setLoading(false);
     }
@@ -477,7 +391,7 @@ export default function FinalPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
           <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Loading...</h2>
           <p className="text-muted-foreground">Checking round status and loading data</p>
         </div>
@@ -489,7 +403,7 @@ export default function FinalPage() {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">
-          <Trophy className="h-12 w-12 text-orange-500 mx-auto mb-4" />
+          <Trophy className="h-12 w-12 text-orange-500 dark:text-orange-400 mx-auto mb-4" />
           <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Authentication Required</h2>
           <p className="mb-4 text-muted-foreground">
             You need to be signed in with a team account or judge account to participate in the finals.
@@ -497,13 +411,13 @@ export default function FinalPage() {
           <div className="space-y-3">
             <a 
               href="/sign-in" 
-              className="block w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
+              className="block w-full px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors"
             >
               Sign In to Team
             </a>
             <div className="text-sm text-muted-foreground">
               <span>Are you a judge? </span>
-              <a href="/judge/login" className="text-blue-600 hover:underline">
+              <a href="/judge/login" className="text-blue-600 dark:text-blue-400 hover:underline">
                 Judge Login
               </a>
             </div>
@@ -530,25 +444,25 @@ export default function FinalPage() {
           </div>
 
           {/* Lock Message */}
-          <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+          <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-700 rounded-lg p-6">
             <div className="flex items-center gap-3">
               <div className="text-2xl">🔒</div>
               <div>
-                <h2 className="text-lg font-semibold text-yellow-800 mb-2">Finals Round Locked</h2>
-                <p className="text-yellow-700 mb-4">
+                <h2 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Finals Round Locked</h2>
+                <p className="text-yellow-700 dark:text-yellow-300 mb-4">
                   The finals round will be unlocked once all teams have completed both the Quiz and Voting rounds.
                 </p>
                 
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <div className={`w-3 h-3 rounded-full ${quizCompleted ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span className={quizCompleted ? 'text-green-700' : 'text-red-700'}>
+                    <span className={quizCompleted ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>
                       Quiz Round: {quizCompleted ? 'All teams completed ✓' : 'Waiting for all teams to complete ✗'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
                     <div className={`w-3 h-3 rounded-full ${votingCompleted ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span className={votingCompleted ? 'text-green-700' : 'text-red-700'}>
+                    <span className={votingCompleted ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>
                       Voting Round: {votingCompleted ? 'All teams completed ✓' : 'Waiting for all teams to complete ✗'}
                     </span>
                   </div>
@@ -557,7 +471,7 @@ export default function FinalPage() {
                 <div className="mt-4">
                   <button 
                     onClick={checkRoundCompletion}
-                    className="bg-yellow-600 hover:bg-yellow-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
+                    className="bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors"
                   >
                     Check Again
                   </button>
@@ -577,7 +491,7 @@ export default function FinalPage() {
   // Rating permissions - both judges and teams can rate during rating-active phase
   const canRateAsPeer = session?.user && 
                         userTeamId && 
-                        currentPitchTeam && 
+                        currentPitchTeam?.id && // Ensure currentPitchTeam and its id exist
                         userTeamId !== currentPitchTeam.id &&
                         ratingCycleActive && 
                         currentPhase === 'rating-active' && 
@@ -603,50 +517,51 @@ export default function FinalPage() {
         {/* SSE Connection Status */}
         <div className={`mb-4 p-2 rounded-md text-xs font-medium ${
           sseConnected 
-            ? 'bg-green-50 text-green-700 border border-green-200' 
-            : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
+            ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700' 
+            : 'bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700'
         }`}>
           {sseConnected ? '🟢 Real-time updates connected' : '🟡 Connecting to real-time updates...'}
         </div>
 
         {/* Rating Cycle Timer Display */}
         {ratingCycleActive && (
-          <Card className="mb-6">
-            <CardContent className="p-4">
+          <Card className="mb-6 border-purple-200 dark:border-purple-700">
+            <CardContent className="p-4 bg-purple-50 dark:bg-purple-950/20">
               <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold text-purple-900">
+                <h3 className="text-lg font-bold text-purple-900 dark:text-purple-100">
                   {currentPhase === 'pitching' && '🎤 Team is Pitching (5 min)'}
                   {currentPhase === 'qna-pause' && '❓ Q&A Session (Admin Controlled)'}
                   {currentPhase === 'rating-warning' && '⚠️ Rating Starts Soon! (5 sec)'}
                   {currentPhase === 'rating-active' && '⭐ Rating Active - Judges & Teams (2 min)'}
                   {currentPhase === 'idle' && '⏸️ Rating Cycle Idle'}
                 </h3>
-                <div className="text-3xl font-bold text-purple-800">
+                <div className="text-3xl font-bold text-purple-800 dark:text-purple-200">
                   {currentPhase === 'qna-pause' ? '∞' : 
                    `${Math.floor(phaseTimeLeft / 60)}:${(phaseTimeLeft % 60).toString().padStart(2, '0')}`}
                 </div>
               </div>
-              <div className="w-full bg-purple-200 rounded-full h-4 mb-2">
+              <div className="w-full bg-purple-200 dark:bg-purple-900 rounded-full h-4 mb-2 overflow-hidden">
                 <div 
-                  className={`h-4 rounded-full transition-all duration-1000 ${
-                    currentPhase === 'pitching' ? 'bg-blue-500' :
-                    currentPhase === 'qna-pause' ? 'bg-yellow-500' :
-                    currentPhase === 'rating-warning' ? 'bg-red-500' :
-                    currentPhase === 'rating-active' ? 'bg-green-500' :
-                    'bg-gray-400'
+                  className={`h-4 rounded-full transition-all duration-1000 ease-linear ${
+                    currentPhase === 'pitching' ? 'bg-blue-500 dark:bg-blue-600' :
+                    currentPhase === 'qna-pause' ? 'bg-yellow-500 dark:bg-yellow-600' :
+                    currentPhase === 'rating-warning' ? 'bg-red-500 dark:bg-red-600' :
+                    currentPhase === 'rating-active' ? 'bg-green-500 dark:bg-green-600' :
+                    'bg-gray-400 dark:bg-gray-500'
                   }`}
                   style={{ 
                     width: `${
-                      currentPhase === 'pitching' ? (phaseTimeLeft / 300) * 100 :
+                      currentPhase === 'pitching' ? Math.max(0, Math.min(100, ((PITCH_SEC - phaseTimeLeft) / PITCH_SEC) * 100)) :
                       currentPhase === 'qna-pause' ? 100 :
-                      currentPhase === 'rating-warning' ? (phaseTimeLeft / 5) * 100 :
-                      currentPhase === 'rating-active' ? (phaseTimeLeft / 120) * 100 :
+                      currentPhase === 'rating-warning' ? Math.max(0, Math.min(100, ((WARNING_SEC - phaseTimeLeft) / WARNING_SEC) * 100)) :
+                      currentPhase === 'rating-active' ? Math.max(0, Math.min(100, ((RATING_SEC - phaseTimeLeft) / RATING_SEC) * 100)) :
                       0
-                    }%` 
+                    }%`,
+                    transition: 'width 1s linear'
                   }}
                 ></div>
               </div>
-              <div className="text-sm text-purple-700">
+              <div className="text-sm text-purple-700 dark:text-purple-300">
                 {currentPhase === 'pitching' && 'Listen to the team presentation (5 minutes total)'}
                 {currentPhase === 'qna-pause' && 'Q&A session in progress - Admin will start rating when ready'}
                 {currentPhase === 'rating-warning' && '⚠️ Get ready! Rating will begin in 5 seconds!'}
@@ -662,7 +577,7 @@ export default function FinalPage() {
           <Card className="mb-6">
             <CardContent className="p-4">
               <h3 className="font-semibold mb-2">Currently Presenting</h3>
-              <div className="text-lg font-bold text-blue-800">
+              <div className="text-lg font-bold text-blue-800 dark:text-blue-300">
                 {currentPitchTeam.name} (#{currentPitchTeam.id})
               </div>
             </CardContent>
@@ -712,12 +627,12 @@ export default function FinalPage() {
 
                   {/* Qualification Tiebreaker Note */}
                   {qualificationNote && (
-                    <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-700 rounded-lg">
                       <div className="flex items-start gap-2">
-                        <div className="text-blue-600 text-sm">⚖️</div>
+                        <div className="text-blue-600 dark:text-blue-400 text-sm">⚖️</div>
                         <div>
-                          <p className="text-sm font-medium text-blue-800 mb-1">Automatic Tiebreaker Applied</p>
-                          <p className="text-sm text-blue-700">{qualificationNote.message}</p>
+                          <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">Automatic Tiebreaker Applied</p>
+                          <p className="text-sm text-blue-700 dark:text-blue-300">{qualificationNote.message}</p>
                         </div>
                       </div>
                     </div>
@@ -725,7 +640,7 @@ export default function FinalPage() {
 
                   <div className="grid gap-3">
                     {getQualifiedTeamsWithFinalScores().map((team, index) => (
-                      <div key={team.teamId} className="flex items-center justify-between p-3 rounded-lg bg-muted">
+                      <div key={team.teamId} className="flex items-center justify-between p-3 rounded-lg bg-muted dark:bg-muted/50">
                         <div className="flex items-center gap-3">
                           <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
                             index === 0 ? 'bg-yellow-500 text-white' :
@@ -766,9 +681,9 @@ export default function FinalPage() {
                   </p>
                   <div className="grid gap-2">
                     {nonQualifiedTeams.map((team) => (
-                      <div key={team.teamId} className="flex items-center justify-between p-2 rounded-lg bg-muted/50">
+                      <div key={team.teamId} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 dark:bg-muted/30">
                         <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-gray-300 text-gray-700">
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
                             #{team.rank}
                           </div>
                           <div>
@@ -794,7 +709,7 @@ export default function FinalPage() {
                   <h2 className="text-xl font-semibold mb-4">Your Team Status</h2>
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Peer Ratings Submitted:</p>
-                    <p className="text-sm text-blue-600">
+                    <p className="text-sm text-blue-600 dark:text-blue-400">
                       {myRatings.length} rating{myRatings.length !== 1 ? 's' : ''} submitted
                     </p>
                     <p className="text-xs text-muted-foreground">
@@ -814,14 +729,14 @@ export default function FinalPage() {
                     {myRatings.map((rating) => {
                       const ratedTeam = teams.find(t => t.id === rating.toTeamId);
                       return (
-                        <div key={rating.id} className="rounded-lg border bg-muted p-3">
+                        <div key={rating.id} className="rounded-lg border bg-muted dark:bg-muted/50 p-3">
                           <div className="flex justify-between items-start">
                             <div>
                               <h3 className="font-medium">{ratedTeam?.name || `Team #${rating.toTeamId}`}</h3>
                               <p className="text-sm text-muted-foreground">{ratedTeam?.college}</p>
                             </div>
                             <div className="text-right">
-                              <p className="text-lg font-bold text-blue-600">{rating.rating}/10</p>
+                              <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{rating.rating}/10</p>
                               <p className="text-xs text-muted-foreground">
                                 {new Date(rating.createdAt).toLocaleDateString()}
                               </p>
@@ -850,8 +765,8 @@ export default function FinalPage() {
 
                 {/* Current presenting team info */}
                 {currentPitchTeam && (
-                  <div className="mb-4 p-3 bg-blue-50 rounded-md border">
-                    <p className="text-sm text-blue-700">
+                  <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border">
+                    <p className="text-sm text-blue-700 dark:text-blue-300">
                       <strong>Currently Presenting:</strong> {currentPitchTeam.name} (#{currentPitchTeam.id})
                     </p>
                   </div>
@@ -859,8 +774,8 @@ export default function FinalPage() {
 
                 {/* Rating restrictions info */}
                 {!canRateAsPeer && (
-                  <div className="mb-4 p-3 bg-yellow-50 rounded-md border border-yellow-200">
-                    <p className="text-sm text-yellow-700">
+                  <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-md border border-yellow-200 dark:border-yellow-700">
+                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
                       {!ratingCycleActive && 'Waiting for rating cycle to start...'}
                       {ratingCycleActive && currentPhase === 'pitching' && 'Wait for rating phase to begin...'}
                       {ratingCycleActive && currentPhase === 'qna-pause' && 'Q&A in progress - Rating will start soon...'}
@@ -883,7 +798,7 @@ export default function FinalPage() {
                     max="10"
                     value={rating}
                     onChange={(e) => setRating(parseInt(e.target.value))}
-                    className="w-full h-2 bg-gray-200 rounded-lg appearance-none cursor-pointer"
+                    className="w-full h-2 bg-gray-200 dark:bg-gray-700 rounded-lg appearance-none cursor-pointer"
                   />
                   <div className="flex justify-between text-xs text-muted-foreground mt-1">
                     <span>3 (Poor)</span>
@@ -908,9 +823,9 @@ export default function FinalPage() {
                       <span>Teams Rated:</span>
                       <span>{myRatings.length} / {availableTeams.length}</span>
                     </div>
-                    <div className="w-full bg-muted rounded-full h-2">
+                    <div className="w-full bg-muted dark:bg-muted/50 rounded-full h-2">
                       <div 
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
                         style={{ width: `${(myRatings.length / availableTeams.length) * 100}%` }}
                       ></div>
                     </div>
@@ -925,10 +840,10 @@ export default function FinalPage() {
         {msg && (
           <div className={`mb-6 rounded-md border px-4 py-3 text-center font-medium flex items-center justify-center gap-2 ${
             msgType === 'success'
-              ? "bg-green-50 border-green-200 text-green-800"
+              ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-700 text-green-800 dark:text-green-300"
               : msgType === 'error'
-              ? "bg-red-50 border-red-200 text-red-800"
-              : "bg-blue-50 border-blue-200 text-blue-800"
+              ? "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-700 text-red-800 dark:text-red-300"
+              : "bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300"
           }`}>
             {msgType === 'success' && <CheckCircle2 className="h-5 w-5" />}
             {msgType === 'error' && <AlertCircle className="h-5 w-5" />}
@@ -955,7 +870,7 @@ export default function FinalPage() {
                   {isQualified ? '🎉' : '👀'}
                 </div>
                 <h2 className={`text-2xl font-bold mb-3 ${
-                  isQualified ? 'text-green-600' : 'text-yellow-600'
+                  isQualified ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'
                 }`}>
                   {isQualified 
                     ? '🏆 Congratulations!' 
@@ -980,8 +895,8 @@ export default function FinalPage() {
                   onClick={() => setShowQualificationPopup(false)}
                   className={`w-full px-4 py-2 rounded-md font-medium text-white transition-colors ${
                     isQualified 
-                      ? 'bg-green-600 hover:bg-green-700' 
-                      : 'bg-yellow-600 hover:bg-yellow-700'
+                      ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' 
+                      : 'bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800'
                   }`}
                 >
                   Continue to Finals

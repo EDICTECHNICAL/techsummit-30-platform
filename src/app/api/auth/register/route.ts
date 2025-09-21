@@ -3,32 +3,44 @@ import { db } from '@/db';
 import { user, teams } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 import { hashSync } from 'bcryptjs';
+import { sanitizeInput } from '@/lib/utils';
 
 export async function POST(req: NextRequest) {
   try {
     const { username, password, name, teamName, college } = await req.json();
     
+    // Sanitize inputs
+    const sanitizedUsername = sanitizeInput(username || '');
+    const sanitizedName = sanitizeInput(name || '');
+    const sanitizedTeamName = sanitizeInput(teamName || '');
+    const sanitizedCollege = sanitizeInput(college || '');
+    
     // Validate required fields
-    if (!username || !password || !name || !teamName || !college) {
+    if (!sanitizedUsername || !password || !sanitizedName || !sanitizedTeamName || !sanitizedCollege) {
       return NextResponse.json({ 
         error: 'All fields are required (username, password, name, teamName, college)' 
       }, { status: 400 });
     }
 
     // Validate input lengths and format
-    if (username.length < 3 || username.length > 50) {
+    if (sanitizedUsername.length < 3 || sanitizedUsername.length > 50) {
       return NextResponse.json({ error: 'Username must be between 3-50 characters' }, { status: 400 });
     }
-    if (password.length < 6) {
-      return NextResponse.json({ error: 'Password must be at least 6 characters' }, { status: 400 });
+    if (password.length < 10 ||
+        !/[A-Z]/.test(password) ||
+        !/[a-z]/.test(password) ||
+        !/[0-9]/.test(password) ||
+        !/[^A-Za-z0-9]/.test(password)
+    ) {
+      return NextResponse.json({ error: 'Password must be at least 10 characters and include uppercase, lowercase, number, and special character' }, { status: 400 });
     }
-    if (name.length > 100) {
+    if (sanitizedName.length > 100) {
       return NextResponse.json({ error: 'Name must be less than 100 characters' }, { status: 400 });
     }
-    if (teamName.length > 100) {
+    if (sanitizedTeamName.length > 100) {
       return NextResponse.json({ error: 'Team name must be less than 100 characters' }, { status: 400 });
     }
-    if (college.length > 200) {
+    if (sanitizedCollege.length > 200) {
       return NextResponse.json({ error: 'College name must be less than 200 characters' }, { status: 400 });
     }
 
@@ -36,7 +48,7 @@ export async function POST(req: NextRequest) {
     const existingUser = await db
       .select({ id: user.id })
       .from(user)
-      .where(eq(user.username, username.trim().toLowerCase()));
+      .where(eq(user.username, sanitizedUsername.trim().toLowerCase()));
       
     if (existingUser.length > 0) {
       return NextResponse.json({ error: 'Username already taken' }, { status: 409 });
@@ -46,7 +58,7 @@ export async function POST(req: NextRequest) {
     const existingTeam = await db
       .select({ id: teams.id })
       .from(teams)
-      .where(eq(teams.name, teamName.trim()));
+      .where(eq(teams.name, sanitizedTeamName.trim()));
       
     if (existingTeam.length > 0) {
       return NextResponse.json({ error: 'Team name already taken' }, { status: 409 });
@@ -60,8 +72,8 @@ export async function POST(req: NextRequest) {
 
     // Create team first
     const newTeam = await db.insert(teams).values({
-      name: teamName.trim(),
-      college: college.trim(),
+      name: sanitizedTeamName.trim(),
+      college: sanitizedCollege.trim(),
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
@@ -69,8 +81,8 @@ export async function POST(req: NextRequest) {
     // Create user and assign them to the team
     const newUser = await db.insert(user).values({
       id: userId,
-      username: username.trim().toLowerCase(),
-      name: name.trim(),
+      username: sanitizedUsername.trim().toLowerCase(),
+      name: sanitizedName.trim(),
       password: hashedPassword,
       isAdmin: false,
       teamId: newTeam[0].id, // Assign user to the team

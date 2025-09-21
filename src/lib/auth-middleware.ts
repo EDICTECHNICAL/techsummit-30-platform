@@ -5,11 +5,18 @@ import { db } from '@/db';
 import { user, teams } from '@/db/schema';
 import { eq } from 'drizzle-orm';
 
-const JWT_SECRET = process.env.JWT_SECRET!;
+const JWT_SECRET = process.env.JWT_SECRET;
 
 if (!JWT_SECRET) {
-  throw new Error('JWT_SECRET environment variable is required');
+  throw new Error('JWT_SECRET environment variable is required and must be set');
 }
+
+if (JWT_SECRET.length < 32) {
+  throw new Error('JWT_SECRET must be at least 32 characters long for security');
+}
+
+// Now we know JWT_SECRET is defined and long enough
+const validatedJWT_SECRET = JWT_SECRET;
 
 interface AuthUser {
   id: string;
@@ -40,7 +47,7 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthUser | 
     }
 
     // Verify JWT token
-    const decoded = jwt.verify(token, JWT_SECRET) as any;
+    const decoded = jwt.verify(token, validatedJWT_SECRET) as any;
 
     if (!decoded.userId) {
       return null;
@@ -158,7 +165,7 @@ export async function requireJudge(req: NextRequest): Promise<boolean> {
     }
 
     // Verify judge JWT token
-    const decoded = jwt.verify(judgeToken, JWT_SECRET) as any;
+    const decoded = jwt.verify(judgeToken, validatedJWT_SECRET) as any;
     
     return decoded.isJudge === true && decoded.judgeId;
   } catch (error) {
