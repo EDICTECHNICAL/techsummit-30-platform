@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
 
+import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import { db } from '@/db/index';
 import { admins } from '@/db/schema';
 import { sql } from 'drizzle-orm';
+import jwt from "jsonwebtoken";
 
 export async function POST(req: NextRequest) {
   const { username, password } = await req.json();
@@ -32,11 +33,24 @@ export async function POST(req: NextRequest) {
     console.log('Password mismatch for username:', username);
     return NextResponse.json({ error: "Invalid credentials" }, { status: 401 });
   }
-  // Set admin session (for demo, use cookie)
-  return NextResponse.json({ success: true }, {
-    status: 200,
-    headers: {
-      "Set-Cookie": `auth-token=true; Path=/; SameSite=Strict`,
-    },
+  // Set admin session with JWT
+  const JWT_SECRET = process.env.JWT_SECRET;
+  if (!JWT_SECRET) {
+    return NextResponse.json({ error: "Server misconfiguration: JWT_SECRET missing" }, { status: 500 });
+  }
+
+  // Use admin id for JWT payload
+  const adminId = admin[0].id;
+  const token = jwt.sign({ userId: adminId, isAdmin: true }, JWT_SECRET, { expiresIn: "24h" });
+
+  // Set cookie using NextResponse
+  const response = NextResponse.json({ success: true }, { status: 200 });
+  response.cookies.set("auth-token", token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === "production",
+    sameSite: "lax",
+    maxAge: 60 * 60 * 24, // 24 hours
+    path: "/"
   });
+  return response;
 }

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { Timer, Users, Trophy, AlertCircle, CheckCircle2, ArrowLeft } from 'lucide-react';
+import { Timer, Users, Trophy, AlertCircle, CheckCircle2, ArrowLeft, Zap, Vote, Clock, Play, Pause, Target, Coins, TrendingUp, BarChart3, Wifi, WifiOff } from 'lucide-react';
 import Link from 'next/link';
 import VotingLayout from '@/components/ui/VotingLayout';
 import PageLock from "@/components/ui/PageLock";
@@ -29,7 +29,6 @@ interface CurrentPitchData {
   team: Team | null;
   votingActive: boolean;
   allPitchesCompleted: boolean;
-  // Pitch cycle properties
   pitchCycleActive?: boolean;
   currentPhase?: 'idle' | 'pitching' | 'preparing' | 'voting';
   phaseTimeLeft?: number;
@@ -211,7 +210,6 @@ export default function VotingPage() {
         setTeams(Array.isArray(data) ? data : []);
       } catch (error) {
         console.error("Error loading teams:", error);
-        // Don't show error message to user for teams loading failure
       }
     };
 
@@ -594,11 +592,20 @@ export default function VotingPage() {
   // Show loading state while session is loading
   if (isPending) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 mobile-padding">
-        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-6 md:p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto mb-4"></div>
-          <h2 className={`font-bold mb-2 text-gray-900 dark:text-white ${isMobile ? 'text-lg' : 'text-xl'}`}>Loading...</h2>
-          <p className="text-muted-foreground text-sm">Checking authentication status</p>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground">
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+        </div>
+        
+        <div className="relative flex items-center justify-center min-h-screen">
+          <div className="text-center p-8 bg-card/50 backdrop-blur-sm border border-border/50 rounded-3xl shadow-2xl">
+            <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+            <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              Loading Voting Portal
+            </h2>
+            <p className="text-muted-foreground">Checking authentication status...</p>
+          </div>
         </div>
       </div>
     );
@@ -607,25 +614,33 @@ export default function VotingPage() {
   // Show authentication required if not logged in
   if (!user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 mobile-padding">
-        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-6 md:p-8 text-center">
-          <Trophy className="h-12 w-12 text-orange-500 mx-auto mb-4" />
-          <h2 className={`font-bold mb-2 text-gray-900 dark:text-white ${isMobile ? 'text-lg' : 'text-xl'}`}>Authentication Required</h2>
-          <p className="mb-4 text-muted-foreground text-sm">
-            You need to be signed in with a team account to participate in voting.
-          </p>
-          <div className="space-y-3">
-            <a 
-              href="/sign-in" 
-              className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors min-h-[44px] flex items-center justify-center active:scale-95"
-            >
-              Sign In to Team
-            </a>
-            <div className="text-sm text-muted-foreground">
-              <span>Are you a judge? </span>
-              <a href="/judge/login" className="text-blue-600 hover:underline">
-                Judge Login
-              </a>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground">
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-red-500/10 rounded-full blur-3xl animate-pulse"></div>
+        </div>
+        
+        <div className="relative flex items-center justify-center min-h-screen p-6">
+          <div className="text-center p-8 bg-card/50 backdrop-blur-sm border border-red-500/20 rounded-3xl shadow-2xl max-w-md w-full">
+            <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Vote className="w-8 h-8 text-red-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-red-500 mb-4">Authentication Required</h2>
+            <p className="text-muted-foreground mb-6">
+              You need to be signed in with a team account to participate in voting.
+            </p>
+            <div className="space-y-3">
+              <Link
+                href="/sign-in" 
+                className="block w-full px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1"
+              >
+                Sign In to Team
+              </Link>
+              <div className="text-sm text-muted-foreground">
+                <span>Are you a judge? </span>
+                <Link href="/judge/login" className="text-primary hover:underline">
+                  Judge Login
+                </Link>
+              </div>
             </div>
           </div>
         </div>
@@ -638,26 +653,34 @@ export default function VotingPage() {
   
   if (isJudgeUser) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">
-          <Trophy className="h-12 w-12 text-purple-500 mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Judge Account Detected</h2>
-          <p className="mb-4 text-muted-foreground">
-            Judge accounts cannot participate in team voting. Please use the judge console for scoring.
-          </p>
-          <div className="space-y-3">
-            <a 
-              href="/judge" 
-              className="block w-full px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors"
-            >
-              Go to Judge Console
-            </a>
-            <a 
-              href="/dashboard" 
-              className="block w-full px-4 py-2 border border-border text-foreground rounded-lg hover:bg-accent transition-colors"
-            >
-              Back to Dashboard
-            </a>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground">
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-purple-500/10 rounded-full blur-3xl animate-pulse"></div>
+        </div>
+        
+        <div className="relative flex items-center justify-center min-h-screen p-6">
+          <div className="text-center p-8 bg-card/50 backdrop-blur-sm border border-purple-500/20 rounded-3xl shadow-2xl max-w-md w-full">
+            <div className="w-16 h-16 bg-purple-500/10 rounded-full flex items-center justify-center mx-auto mb-6">
+              <Trophy className="w-8 h-8 text-purple-500" />
+            </div>
+            <h2 className="text-2xl font-bold text-purple-500 mb-4">Judge Account Detected</h2>
+            <p className="text-muted-foreground mb-6">
+              Judge accounts cannot participate in team voting. Please use the judge console for scoring.
+            </p>
+            <div className="space-y-3">
+              <Link
+                href="/judge" 
+                className="block w-full px-6 py-3 bg-gradient-to-r from-purple-500 to-purple-600 text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 hover:-translate-y-1"
+              >
+                Go to Judge Console
+              </Link>
+              <Link
+                href="/dashboard" 
+                className="block w-full px-6 py-3 bg-card/50 backdrop-blur-sm border border-border font-semibold rounded-xl hover:bg-accent/10 transition-all duration-300 hover:-translate-y-1"
+              >
+                Back to Dashboard
+              </Link>
+            </div>
           </div>
         </div>
       </div>
@@ -680,404 +703,572 @@ export default function VotingPage() {
 
   return (
     <PageLock roundType="VOTING" isCompleted={isVotingCompleted || votingRoundCompleted}>
-      <div className="max-w-3xl mx-auto px-6 pt-6 transition-all duration-300 ease-in-out">
-      <div className="flex items-center justify-between mb-4">
-        <Link href="/dashboard" className="inline-flex items-center gap-2 text-sm font-medium text-primary hover:underline transition-colors">
-          <ArrowLeft className="h-4 w-4" />
-          Back to Dashboard
-        </Link>
-        <ThemeToggle />
-      </div>
-      
-      {/* SSE Connection Status */}
-      <div className={`mb-4 p-2 rounded-md text-xs font-medium ${
-        sseConnected 
-          ? 'bg-green-50 text-green-700 border border-green-200' 
-          : 'bg-yellow-50 text-yellow-700 border border-yellow-200'
-      }`}>
-        {sseConnected ? '🟢 Real-time updates connected' : '🟡 Connecting to real-time updates...'}
-      </div>
-      
-      <VotingLayout
-        header="Team Voting Portal"
-        subheader="Peer evaluation • 1 token from each category = 1 vote • Unlimited Yes • Max 3 No"
-        teamName={userTeam ? userTeam.name : undefined}
-        teamMembers={undefined}
-        showRules={true}
-      >
-      
-      {/* Pitch Cycle Timer Display */}
-      {pitchCycleActive && (
-        <div className="mb-6 p-4 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-xl">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-lg font-bold text-blue-900">
-              {currentPhase === 'pitching' && '🎤 Team is Pitching'}
-              {currentPhase === 'preparing' && '⏳ Get Ready to Vote'}
-              {currentPhase === 'voting' && '🗳️ Voting is Active'}
-              {currentPhase === 'idle' && '⏸️ Pitch Cycle Idle'}
-            </h3>
-            <div className="text-3xl font-bold text-blue-800">
-              {phaseTimeLeft}s
-            </div>
-          </div>
-          <div className="w-full bg-blue-200 rounded-full h-4 mb-2">
-            <div 
-              className={`h-4 rounded-full transition-all duration-1000 ${
-                currentPhase === 'pitching' ? 'bg-green-500' :
-                currentPhase === 'preparing' ? 'bg-yellow-500' :
-                currentPhase === 'voting' ? 'bg-red-500' :
-                'bg-gray-400'
-              }`}
-              style={{ 
-                width: `${
-                  currentPhase === 'pitching' ? (phaseTimeLeft / 90) * 100 :
-                  currentPhase === 'preparing' ? (phaseTimeLeft / 5) * 100 :
-                  currentPhase === 'voting' ? (phaseTimeLeft / 30) * 100 :
-                  0
-                }%` 
-              }}
-            ></div>
-          </div>
-          <div className="text-sm text-blue-700">
-            {currentPhase === 'pitching' && 'Listen to the team presentation (90 seconds total)'}
-            {currentPhase === 'preparing' && 'Prepare to make your voting decision (5 seconds)'}
-            {currentPhase === 'voting' && 'Vote now! Time is running out (30 seconds total)'}
-            {currentPhase === 'idle' && 'Waiting for admin to start the next pitch cycle'}
-          </div>
+      <div className="min-h-screen bg-gradient-to-br from-background via-background to-primary/5 text-foreground overflow-x-hidden">
+        {/* Animated background elements */}
+        <div className="fixed inset-0 overflow-hidden pointer-events-none">
+          <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/10 rounded-full blur-3xl animate-pulse"></div>
+          <div className="absolute top-1/2 -left-40 w-96 h-96 bg-accent/10 rounded-full blur-3xl animate-pulse" style={{animationDelay: '2s'}}></div>
+          <div className="absolute bottom-0 right-1/4 w-64 h-64 bg-primary/5 rounded-full blur-2xl animate-pulse" style={{animationDelay: '4s'}}></div>
         </div>
-      )}
 
-      <div className="flex flex-col gap-8 md:flex-row md:gap-12 animate-in fade-in-50 slide-in-from-bottom-4 duration-500">
-        {/* Cast Vote Card */}
-        <div className="flex-1 rounded-xl border bg-card p-6 shadow transition-all duration-300 hover:shadow-lg">
-          <h2 className="text-xl font-bold mb-4">Cast Your Vote</h2>
-          
-          {/* Team Info Display */}
-          <div className="mb-4 p-3 bg-blue-50 rounded-md border transition-all duration-200">
-            <p className="text-sm text-blue-700">
-              <strong>Your Team:</strong> {userTeam ? `${userTeam.name} (#${userTeam.id})` : 'Not assigned to a team'}
-            </p>
-            {!userTeam && !user?.isAdmin && (
-              <p className="text-xs text-orange-600 mt-1">
-                ⚠️ You need to be assigned to a team to participate in voting. Please contact an administrator.
-              </p>
-            )}
-            {user?.isAdmin && (
-              <p className="text-xs text-green-600 mt-1">
-                👑 Admin account - Contact organizers to get a team assignment for voting participation.
-              </p>
-            )}
-            {votingStatus && userTeam && (
-              <p className="text-xs text-blue-600 mt-1">
-                Votes cast: {votingStatus.votescast?.length || 0} | Downvotes remaining: {votingStatus.remainingDownvotes || 0}
-              </p>
-            )}
+        <div className="relative max-w-7xl mx-auto px-6 pt-6">
+          {/* Header */}
+          <div className="flex items-center justify-between mb-6">
+            <Link href="/dashboard" className="inline-flex items-center gap-2 px-4 py-2 bg-card/50 backdrop-blur-sm border border-border/50 rounded-xl hover:border-primary/30 transition-all duration-300 hover:-translate-y-1">
+              <ArrowLeft className="h-4 w-4" />
+              <span className="font-medium">Back to Dashboard</span>
+            </Link>
+            <ThemeToggle />
           </div>
           
-          {currentPitchTeam ? (
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-1">
-                Currently Pitching Team
-              </label>
-              <div className="rounded-md border px-3 py-2 text-lg font-bold bg-primary/80 text-white">
-                {currentPitchTeam.name} (#{currentPitchTeam.id})
+          {/* Title Section */}
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center gap-3 mb-4">
+              <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center">
+                <Vote className="w-6 h-6 text-white" />
               </div>
-              {userTeamId === currentPitchTeam.id && (
-                <p className="text-sm text-amber-600 mt-1 flex items-center gap-1">
-                  <AlertCircle className="h-4 w-4" />
-                  This is your team - you cannot vote for yourself
-                </p>
-              )}
-              {votingStatus?.votedTeams?.includes(currentPitchTeam.id) && (
-                <p className="text-sm text-green-600 mt-1 flex items-center gap-1">
-                  <CheckCircle2 className="h-4 w-4" />
-                  You have already voted for this team
-                </p>
-              )}
+              <div>
+                <h1 className="text-3xl lg:text-4xl font-black tracking-tight bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
+                  TEAM VOTING PORTAL
+                </h1>
+                <p className="text-muted-foreground">Peer Evaluation • Token Strategy • Customer Validation</p>
+              </div>
             </div>
-          ) : (
-            <div className="mb-4 p-3 bg-muted rounded-md">
-              <p className="text-muted-foreground">No team is currently pitching.</p>
-            </div>
-          )}
-
-          <div className="mb-4">
-            <label className="block text-sm font-medium mb-2">
-              Are you the customer for this product?
-            </label>
-            <div className={`flex gap-4 ${isMobile ? 'flex-col' : ''}`}>
-              <Button
-                onClick={() => setVoteValue(1)}
-                variant={voteValue === 1 ? "default" : "outline"}
-                className={`rounded-md border px-4 py-2 text-sm font-semibold transition-colors min-h-[44px] active:scale-95 ${
-                  voteValue === 1
-                    ? "bg-green-600 border-green-600 text-white"
-                    : "border-border text-foreground hover:bg-accent"
-                }`}
-                disabled={isLoading}
-              >
-                Yes
-              </Button>
-              <Button
-                onClick={() => setVoteValue(-1)}
-                variant={voteValue === -1 ? "default" : "outline"}
-                className={`rounded-md border px-4 py-2 text-sm font-semibold transition-colors min-h-[44px] active:scale-95 ${
-                  voteValue === -1
-                    ? "bg-red-600 border-red-600 text-white"
-                    : "border-border text-foreground hover:bg-accent"
-                }`}
-                disabled={isLoading || !!(votingStatus && votingStatus.remainingDownvotes <= 0)}
-              >
-                No {votingStatus && `(${votingStatus.remainingDownvotes} left)`}
-              </Button>
-            </div>
-            {voteValue === -1 && votingStatus && votingStatus.remainingDownvotes <= 0 && (
-              <p className="text-xs text-red-600 mt-1">
-                You have used all 3 downvotes
-              </p>
-            )}
           </div>
 
-          {/* Voting Countdown Timer */}
-          {(() => {
-            // Show pitch cycle timer if active
-            if (pitchCycleActive && currentPhase === 'voting') {
-              return (
-                <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-md">
-                  <div className="flex items-center gap-2">
-                    <Timer className="h-4 w-4 text-red-600" />
-                    <span className="text-sm font-medium text-red-800">
-                      Voting closes in: <span className="font-bold text-lg">{phaseTimeLeft}s</span>
-                    </span>
-                  </div>
-                  <div className="mt-2 w-full bg-red-200 rounded-full h-2">
-                    <div 
-                      className="bg-red-600 h-2 rounded-full transition-all duration-1000"
-                      style={{ width: `${(phaseTimeLeft / 30) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-              );
-            }
-            
-            // Show legacy timer if voting active and not in pitch cycle
-            if (votingActive && votingTimeLeft !== null && !pitchCycleActive) {
-              return (
-                <div className="mb-4 p-3 bg-orange-50 border border-orange-200 rounded-md">
-                  <div className="flex items-center gap-2">
-                    <Timer className="h-4 w-4 text-orange-600" />
-                    <span className="text-sm font-medium text-orange-800">
-                      Voting closes in: <span className="font-bold text-lg">{votingTimeLeft}s</span>
-                    </span>
-                  </div>
-                  <div className="mt-2 w-full bg-orange-200 rounded-full h-2">
-                    <div 
-                      className="bg-orange-600 h-2 rounded-full transition-all duration-1000"
-                      style={{ width: `${(votingTimeLeft / 30) * 100}%` }}
-                    ></div>
-                  </div>
-                </div>
-              );
-            }
-            
-            return null;
-          })()}
-
-          <Button
-            onClick={castVote}
-            disabled={!canVoteForCurrentTeam || isLoading || (voteValue === -1 && !canDownvote)}
-            className="w-full rounded-md bg-primary px-4 py-2 text-base font-bold text-white hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
-          >
-            {isLoading ? (
-              <span className="flex items-center justify-center gap-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Submitting...
+          {/* SSE Connection Status */}
+          <div className={`mb-6 p-4 rounded-2xl backdrop-blur-sm border transition-all duration-300 ${
+            sseConnected 
+              ? 'bg-green-500/10 border-green-500/20' 
+              : 'bg-yellow-500/10 border-yellow-500/20'
+          }`}>
+            <div className="flex items-center gap-3">
+              {sseConnected ? (
+                <Wifi className="w-5 h-5 text-green-500" />
+              ) : (
+                <WifiOff className="w-5 h-5 text-yellow-500" />
+              )}
+              <span className={`font-medium ${sseConnected ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'}`}>
+                {sseConnected ? 'Real-time updates connected' : 'Connecting to real-time updates...'}
               </span>
-            ) : (
-              "Submit Vote"
-            )}
-          </Button>
-
-          {!votingActive && !pitchCycleActive && (
-            <div className="mt-2 text-xs text-muted-foreground animate-pulse">
-              Voting will be enabled by admin during each pitch.
-            </div>
-          )}
-          
-          {!votingActive && pitchCycleActive && currentPhase !== 'voting' && (
-            <div className="mt-2 text-xs text-blue-600 font-medium">
-              {currentPhase === 'pitching' && '🎤 Listen to the pitch presentation...'}
-              {currentPhase === 'preparing' && '⏳ Get ready to vote...'}
-              {currentPhase === 'idle' && 'Waiting for next pitch cycle...'}
-            </div>
-          )}
-          
-          {votingActive && votingTimeLeft === 0 && !pitchCycleActive && (
-            <div className="mt-2 text-xs text-red-600 font-medium">
-              ⏰ Voting time has expired for this pitch.
-            </div>
-          )}
-        </div>
-
-        {/* Convert Tokens Card */}
-        <div className="flex-1 rounded-xl border bg-card p-6 shadow transition-all duration-300 hover:shadow-lg">
-          <h2 className="text-xl font-bold mb-4">Convert Tokens</h2>
-          <p className="mb-4 text-sm text-muted-foreground">
-            Convert tokens from each category (Marketing, Capital, Team, Strategy) to get votes. Each conversion uses 1 token from each category to get 1 vote.
-          </p>
-          
-          {tokenStatus && (
-            <div className="mb-4 p-3 bg-muted rounded-md text-sm transition-all duration-200">
-              <h4 className="font-medium mb-2 text-foreground">Available Tokens:</h4>
-              <div className="grid grid-cols-2 gap-2 text-foreground mb-3">
-                <div>Marketing: {tokenStatus.availableTokens.marketing}</div>
-                <div>Capital: {tokenStatus.availableTokens.capital}</div>
-                <div>Team: {tokenStatus.availableTokens.team}</div>
-                <div>Strategy: {tokenStatus.availableTokens.strategy}</div>
-              </div>
-              <div className="text-blue-600 font-medium">
-                Maximum possible conversions: {Math.max(0, tokenStatus.maxPossibleConversions)}
-              </div>
-              {tokenStatus.totalVotesGained > 0 && (
-                <p className="mt-2 text-green-600 font-medium">
-                  ✓ Total votes gained so far: {tokenStatus.totalVotesGained}
-                </p>
-              )}
-            </div>
-          )}
-
-          {/* Quantity Selector */}
-          {tokenStatus?.canConvert && (
-            <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">
-                How many tokens do you want to convert?
-              </label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  min="1"
-                  max={tokenStatus.maxPossibleConversions}
-                  value={conversionQuantity}
-                  onChange={(e) => {
-                    const value = parseInt(e.target.value) || 1;
-                    setConversionQuantity(Math.min(Math.max(1, value), tokenStatus.maxPossibleConversions));
-                  }}
-                  className="w-20 px-3 py-2 border border-border rounded-md focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent bg-background text-foreground"
-                />
-                <span className="text-sm text-muted-foreground">
-                  (max: {tokenStatus.maxPossibleConversions})
-                </span>
-              </div>
-              
-              {/* Conversion Preview */}
-              <div className="mt-3 p-3 bg-purple-50 border border-purple-200 rounded-md">
-                <h5 className="font-medium text-purple-800 mb-1">Conversion Preview:</h5>
-                <div className="text-sm text-purple-700">
-                  <div>• Will use: {conversionQuantity} token from each category</div>
-                  <div>• Total tokens used: {conversionQuantity * 4}</div>
-                  <div>• Votes you'll gain: {conversionQuantity}</div>
-                </div>
-                <div className="mt-2 text-xs text-purple-600">
-                  <strong>Remaining after conversion:</strong>
-                  <div className="grid grid-cols-2 gap-1 mt-1">
-                    <div>Marketing: {tokenStatus.availableTokens.marketing - conversionQuantity}</div>
-                    <div>Capital: {tokenStatus.availableTokens.capital - conversionQuantity}</div>
-                    <div>Team: {tokenStatus.availableTokens.team - conversionQuantity}</div>
-                    <div>Strategy: {tokenStatus.availableTokens.strategy - conversionQuantity}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
-          
-          <Button
-            onClick={convertToken}
-            disabled={!tokenStatus?.canConvert || isConvertingTokens}
-            className="w-full rounded-md bg-purple-600 px-4 py-2 text-base font-bold text-white hover:bg-purple-700 disabled:opacity-50 disabled:cursor-not-allowed transition-all duration-200 transform hover:scale-[1.02] active:scale-[0.98]"
-          >
-            {isConvertingTokens ? (
-              <span className="flex items-center justify-center gap-2">
-                <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                Converting...
-              </span>
-            ) : (
-              `Convert ${conversionQuantity} Token${conversionQuantity > 1 ? 's' : ''} → ${conversionQuantity} Vote${conversionQuantity > 1 ? 's' : ''}`
-            )}
-          </Button>
-
-          {tokenStatus && !tokenStatus.canConvert && (
-            <div className="mt-2 text-xs text-muted-foreground">
-              {!tokenStatus.hasQuizSubmission 
-                ? "Complete the quiz first to earn tokens"
-                : "Need at least 1 token in each category to convert"
-              }
-            </div>
-          )}
-        </div>
-      </div>
-
-      {/* Voting Statistics */}
-      {votingStatus && (
-        <div className="mt-8 rounded-xl border bg-card p-6 shadow">
-          <h3 className="text-lg font-bold mb-4">Your Voting History</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
-            <div className="text-center p-3 bg-blue-50 rounded-md">
-              <div className="text-2xl font-bold text-blue-600">{votingStatus?.votescast?.length || 0}</div>
-              <div className="text-sm text-blue-700">Total Votes Cast</div>
-            </div>
-            <div className="text-center p-3 bg-green-50 rounded-md">
-              <div className="text-2xl font-bold text-green-600">
-                {votingStatus?.votescast?.filter(v => v.value === 1).length || 0}
-              </div>
-              <div className="text-sm text-green-700">Yes Votes</div>
-            </div>
-            <div className="text-center p-3 bg-red-50 rounded-md">
-              <div className="text-2xl font-bold text-red-600">{votingStatus?.downvoteCount || 0}</div>
-              <div className="text-sm text-red-700">No Votes ({votingStatus?.remainingDownvotes || 0} remaining)</div>
             </div>
           </div>
-          
-          {votingStatus?.votescast && votingStatus.votescast.length > 0 && (
-            <div className="mt-4">
-              <h4 className="font-medium mb-2">Teams You've Voted For:</h4>
-              <div className="flex flex-wrap gap-2">
-                {votingStatus.votescast.map((vote, index) => {
-                  const team = teams.find(t => t.id === vote.toTeamId);
-                  return (
-                    <span 
-                      key={index}
-                      className={`px-2 py-1 rounded-full text-xs font-medium ${
-                        vote.value === 1 
-                          ? 'bg-green-100 text-green-800' 
-                          : 'bg-red-100 text-red-800'
+
+          {/* Team Info Banner */}
+          {userTeam && (
+            <div className="mb-8 p-6 bg-gradient-to-br from-primary/10 via-accent/5 to-primary/5 backdrop-blur-sm border border-primary/20 rounded-2xl">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-accent/20 rounded-xl flex items-center justify-center">
+                  <Users className="w-6 h-6 text-primary" />
+                </div>
+                <div>
+                  <h3 className="font-bold text-lg text-primary">Your Team: {userTeam.name}</h3>
+                  <p className="text-muted-foreground">Team ID #{userTeam.id} • Ready to vote and convert tokens</p>
+                  {votingStatus && (
+                    <div className="flex items-center gap-4 mt-2 text-sm">
+                      <span className="text-green-600 dark:text-green-400">
+                        Votes cast: {votingStatus.votescast?.length || 0}
+                      </span>
+                      <span className="text-red-600 dark:text-red-400">
+                        Downvotes remaining: {votingStatus.remainingDownvotes || 0}
+                      </span>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Pitch Cycle Timer Display */}
+          {pitchCycleActive && (
+            <div className="mb-8 group">
+              <div className="relative p-6 bg-gradient-to-br from-card/80 to-card/40 backdrop-blur-sm border border-border/50 rounded-2xl shadow-xl hover:shadow-2xl transition-all duration-300">
+                <div className="absolute top-4 right-4 w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
+                
+                <div className="flex items-center justify-between mb-4">
+                  <div className="flex items-center gap-3">
+                    {currentPhase === 'pitching' && <Play className="w-6 h-6 text-green-500" />}
+                    {currentPhase === 'preparing' && <Clock className="w-6 h-6 text-yellow-500" />}
+                    {currentPhase === 'voting' && <Vote className="w-6 h-6 text-red-500" />}
+                    {currentPhase === 'idle' && <Pause className="w-6 h-6 text-gray-400" />}
+                    <div>
+                      <h3 className="text-xl font-bold">
+                        {currentPhase === 'pitching' && 'Team is Pitching'}
+                        {currentPhase === 'preparing' && 'Get Ready to Vote'}
+                        {currentPhase === 'voting' && 'Voting is Active'}
+                        {currentPhase === 'idle' && 'Pitch Cycle Idle'}
+                      </h3>
+                      <p className="text-muted-foreground text-sm">
+                        {currentPhase === 'pitching' && 'Listen to the team presentation'}
+                        {currentPhase === 'preparing' && 'Prepare to make your voting decision'}
+                        {currentPhase === 'voting' && 'Vote now! Time is running out'}
+                        {currentPhase === 'idle' && 'Waiting for admin to start the next pitch cycle'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <div className="text-4xl font-bold text-primary">{phaseTimeLeft}s</div>
+                  </div>
+                </div>
+                
+                <div className="w-full bg-muted rounded-full h-3 mb-2 overflow-hidden">
+                  <div 
+                    className={`h-3 rounded-full transition-all duration-1000 ${
+                      currentPhase === 'pitching' ? 'bg-gradient-to-r from-green-400 to-green-600' :
+                      currentPhase === 'preparing' ? 'bg-gradient-to-r from-yellow-400 to-yellow-600' :
+                      currentPhase === 'voting' ? 'bg-gradient-to-r from-red-400 to-red-600' :
+                      'bg-gradient-to-r from-gray-400 to-gray-600'
+                    }`}
+                    style={{ 
+                      width: `${
+                        currentPhase === 'pitching' ? (phaseTimeLeft / 90) * 100 :
+                        currentPhase === 'preparing' ? (phaseTimeLeft / 5) * 100 :
+                        currentPhase === 'voting' ? (phaseTimeLeft / 30) * 100 :
+                        0
+                      }%` 
+                    }}
+                  ></div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Main Content Grid */}
+          <div className="grid gap-8 grid-cols-1 lg:grid-cols-2 mb-8">
+            {/* Cast Vote Card */}
+            <div className="group">
+              <div className="relative p-8 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
+                <div className="absolute top-4 right-4">
+                  <div className="w-3 h-3 bg-green-500 rounded-full animate-pulse"></div>
+                </div>
+                
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-primary/20 to-accent/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Vote className="w-6 h-6 text-primary" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-primary">Cast Your Vote</h2>
+                </div>
+
+                {/* Team Info Display */}
+                {!userTeam && !user?.isAdmin && (
+                  <div className="mb-6 p-4 bg-orange-500/10 backdrop-blur-sm border border-orange-500/20 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <AlertCircle className="w-5 h-5 text-orange-500" />
+                      <div>
+                        <p className="font-semibold text-orange-600 dark:text-orange-400">Team Assignment Required</p>
+                        <p className="text-sm text-orange-600/80 dark:text-orange-400/80">You need to be assigned to a team to participate in voting. Please contact an administrator.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {user?.isAdmin && !userTeam && (
+                  <div className="mb-6 p-4 bg-blue-500/10 backdrop-blur-sm border border-blue-500/20 rounded-xl">
+                    <div className="flex items-center gap-3">
+                      <Zap className="w-5 h-5 text-blue-500" />
+                      <div>
+                        <p className="font-semibold text-blue-600 dark:text-blue-400">Admin Account</p>
+                        <p className="text-sm text-blue-600/80 dark:text-blue-400/80">Contact organizers to get a team assignment for voting participation.</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Current Pitching Team */}
+                {currentPitchTeam ? (
+                  <div className="mb-6 p-4 bg-gradient-to-r from-primary/10 to-accent/5 rounded-xl border border-primary/20">
+                    <label className="block text-sm font-semibold mb-2 text-primary">
+                      Currently Pitching Team
+                    </label>
+                    <div className="p-3 bg-gradient-to-r from-primary to-accent rounded-xl text-white font-bold text-lg">
+                      {currentPitchTeam.name} (#{currentPitchTeam.id})
+                    </div>
+                    {userTeamId === currentPitchTeam.id && (
+                      <div className="flex items-center gap-2 mt-3 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
+                        <AlertCircle className="h-4 w-4 text-amber-500" />
+                        <p className="text-sm text-amber-600 dark:text-amber-400">
+                          This is your team - you cannot vote for yourself
+                        </p>
+                      </div>
+                    )}
+                    {votingStatus?.votedTeams?.includes(currentPitchTeam.id) && (
+                      <div className="flex items-center gap-2 mt-3 p-2 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <CheckCircle2 className="h-4 w-4 text-green-500" />
+                        <p className="text-sm text-green-600 dark:text-green-400">
+                          You have already voted for this team
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mb-6 p-4 bg-muted/50 rounded-xl border border-border/30">
+                    <p className="text-muted-foreground">No team is currently pitching.</p>
+                  </div>
+                )}
+
+                {/* Vote Options */}
+                <div className="mb-6">
+                  <label className="block text-sm font-semibold mb-4 text-foreground">
+                    Are you the customer for this product?
+                  </label>
+                  <div className="grid gap-3 grid-cols-1 sm:grid-cols-2">
+                    <button
+                      onClick={() => setVoteValue(1)}
+                      className={`group relative p-4 rounded-xl border transition-all duration-300 hover:-translate-y-1 ${
+                        voteValue === 1
+                          ? "bg-gradient-to-r from-green-500 to-green-600 border-green-400 text-white shadow-lg shadow-green-500/25"
+                          : "border-border hover:border-green-400 hover:bg-green-500/10"
                       }`}
+                      disabled={isLoading}
                     >
-                      {team?.name || `Team #${vote.toTeamId}`} ({vote.value === 1 ? 'Yes' : 'No'})
-                    </span>
-                  );
-                })}
+                      <div className="flex items-center justify-center gap-2 font-semibold">
+                        <CheckCircle2 className="w-5 h-5" />
+                        Yes, I'm a Customer
+                      </div>
+                    </button>
+                    <button
+                      onClick={() => setVoteValue(-1)}
+                      className={`group relative p-4 rounded-xl border transition-all duration-300 hover:-translate-y-1 ${
+                        voteValue === -1
+                          ? "bg-gradient-to-r from-red-500 to-red-600 border-red-400 text-white shadow-lg shadow-red-500/25"
+                          : "border-border hover:border-red-400 hover:bg-red-500/10"
+                      } ${votingStatus && votingStatus.remainingDownvotes <= 0 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      disabled={isLoading || !!(votingStatus && votingStatus.remainingDownvotes <= 0)}
+                    >
+                      <div className="flex items-center justify-center gap-2 font-semibold">
+                        <AlertCircle className="w-5 h-5" />
+                        No, Not for Me
+                        {votingStatus && <span className="text-xs">({votingStatus.remainingDownvotes} left)</span>}
+                      </div>
+                    </button>
+                  </div>
+                  {voteValue === -1 && votingStatus && votingStatus.remainingDownvotes <= 0 && (
+                    <p className="text-xs text-red-600 dark:text-red-400 mt-2 p-2 bg-red-500/10 rounded-lg">
+                      You have used all 3 downvotes
+                    </p>
+                  )}
+                </div>
+
+                {/* Voting Timer */}
+                {(() => {
+                  if (pitchCycleActive && currentPhase === 'voting') {
+                    return (
+                      <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+                        <div className="flex items-center gap-3 mb-3">
+                          <Timer className="h-5 w-5 text-red-500" />
+                          <span className="font-semibold text-red-600 dark:text-red-400">
+                            Voting closes in: <span className="text-xl font-bold">{phaseTimeLeft}s</span>
+                          </span>
+                        </div>
+                        <div className="w-full bg-red-200 rounded-full h-2">
+                          <div 
+                            className="bg-gradient-to-r from-red-500 to-red-600 h-2 rounded-full transition-all duration-1000"
+                            style={{ width: `${(phaseTimeLeft / 30) * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  if (votingActive && votingTimeLeft !== null && !pitchCycleActive) {
+                    return (
+                      <div className="mb-6 p-4 bg-orange-500/10 border border-orange-500/20 rounded-xl">
+                        <div className="flex items-center gap-3 mb-3">
+                          <Timer className="h-5 w-5 text-orange-500" />
+                          <span className="font-semibold text-orange-600 dark:text-orange-400">
+                            Voting closes in: <span className="text-xl font-bold">{votingTimeLeft}s</span>
+                          </span>
+                        </div>
+                        <div className="w-full bg-orange-200 rounded-full h-2">
+                          <div 
+                            className="bg-gradient-to-r from-orange-500 to-orange-600 h-2 rounded-full transition-all duration-1000"
+                            style={{ width: `${(votingTimeLeft / 30) * 100}%` }}
+                          ></div>
+                        </div>
+                      </div>
+                    );
+                  }
+                  
+                  return null;
+                })()}
+
+                {/* Submit Button */}
+                <button
+                  onClick={castVote}
+                  disabled={!canVoteForCurrentTeam || isLoading || (voteValue === -1 && !canDownvote)}
+                  className="group relative w-full px-6 py-4 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative flex items-center justify-center gap-2">
+                    {isLoading ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Submitting Vote...
+                      </>
+                    ) : (
+                      <>
+                        <Vote className="w-5 h-5" />
+                        Submit Vote
+                      </>
+                    )}
+                  </div>
+                </button>
+
+                {/* Status Messages */}
+                {!votingActive && !pitchCycleActive && (
+                  <div className="mt-3 p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg">
+                    <p className="text-xs text-blue-600 dark:text-blue-400 text-center">
+                      Voting will be enabled by admin during each pitch.
+                    </p>
+                  </div>
+                )}
+                
+                {!votingActive && pitchCycleActive && currentPhase !== 'voting' && (
+                  <div className="mt-3 p-2 bg-primary/10 border border-primary/20 rounded-lg">
+                    <p className="text-xs text-primary text-center font-medium">
+                      {currentPhase === 'pitching' && 'Listen to the pitch presentation...'}
+                      {currentPhase === 'preparing' && 'Get ready to vote...'}
+                      {currentPhase === 'idle' && 'Waiting for next pitch cycle...'}
+                    </p>
+                  </div>
+                )}
+                
+                {votingActive && votingTimeLeft === 0 && !pitchCycleActive && (
+                  <div className="mt-3 p-2 bg-red-500/10 border border-red-500/20 rounded-lg">
+                    <p className="text-xs text-red-600 dark:text-red-400 text-center font-medium">
+                      Voting time has expired for this pitch.
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Convert Tokens Card */}
+            <div className="group">
+              <div className="relative p-8 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-2 transition-all duration-300">
+                <div className="absolute top-4 right-4">
+                  <div className="w-3 h-3 bg-purple-500 rounded-full animate-pulse"></div>
+                </div>
+                
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="w-12 h-12 bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-xl flex items-center justify-center group-hover:scale-110 transition-transform">
+                    <Coins className="w-6 h-6 text-purple-500" />
+                  </div>
+                  <h2 className="text-2xl font-bold text-purple-500">Convert Tokens</h2>
+                </div>
+                
+                <p className="mb-6 text-muted-foreground leading-relaxed">
+                  Convert tokens from each category (Marketing, Capital, Team, Strategy) to get votes. Each conversion uses 1 token from each category to get 1 vote.
+                </p>
+                
+                {/* Token Status Display */}
+                {tokenStatus && (
+                  <div className="mb-6 p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/5 rounded-xl border border-purple-500/20">
+                    <h4 className="font-semibold mb-3 text-purple-600 dark:text-purple-400">Available Tokens:</h4>
+                    <div className="grid grid-cols-2 gap-3 mb-4">
+                      <div className="flex items-center gap-2 p-2 bg-blue-500/10 rounded-lg">
+                        <Target className="w-4 h-4 text-blue-500" />
+                        <span className="text-sm">Marketing: <span className="font-bold">{tokenStatus.availableTokens.marketing}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2 p-2 bg-green-500/10 rounded-lg">
+                        <TrendingUp className="w-4 h-4 text-green-500" />
+                        <span className="text-sm">Capital: <span className="font-bold">{tokenStatus.availableTokens.capital}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2 p-2 bg-purple-500/10 rounded-lg">
+                        <Users className="w-4 h-4 text-purple-500" />
+                        <span className="text-sm">Team: <span className="font-bold">{tokenStatus.availableTokens.team}</span></span>
+                      </div>
+                      <div className="flex items-center gap-2 p-2 bg-orange-500/10 rounded-lg">
+                        <BarChart3 className="w-4 h-4 text-orange-500" />
+                        <span className="text-sm">Strategy: <span className="font-bold">{tokenStatus.availableTokens.strategy}</span></span>
+                      </div>
+                    </div>
+                    <div className="p-3 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+                      <p className="text-purple-600 dark:text-purple-400 font-semibold text-center">
+                        Maximum possible conversions: {Math.max(0, tokenStatus.maxPossibleConversions)}
+                      </p>
+                    </div>
+                    {tokenStatus.totalVotesGained > 0 && (
+                      <div className="mt-3 p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <p className="text-green-600 dark:text-green-400 font-semibold text-center">
+                          Total votes gained so far: {tokenStatus.totalVotesGained}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Quantity Selector */}
+                {tokenStatus?.canConvert && (
+                  <div className="mb-6">
+                    <label className="block text-sm font-semibold mb-3 text-foreground">
+                      How many tokens do you want to convert?
+                    </label>
+                    <div className="flex items-center gap-3 mb-4">
+                      <input
+                        type="number"
+                        min="1"
+                        max={tokenStatus.maxPossibleConversions}
+                        value={conversionQuantity}
+                        onChange={(e) => {
+                          const value = parseInt(e.target.value) || 1;
+                          setConversionQuantity(Math.min(Math.max(1, value), tokenStatus.maxPossibleConversions));
+                        }}
+                        className="w-20 px-3 py-2 bg-background/50 backdrop-blur-sm border border-border/50 rounded-xl focus:outline-none focus:ring-2 focus:ring-purple-500/50 focus:border-purple-500/50 transition-all duration-200"
+                      />
+                      <span className="text-sm text-muted-foreground">
+                        (max: {tokenStatus.maxPossibleConversions})
+                      </span>
+                    </div>
+                    
+                    {/* Conversion Preview */}
+                    <div className="p-4 bg-gradient-to-br from-purple-500/10 to-pink-500/5 border border-purple-500/20 rounded-xl">
+                      <h5 className="font-semibold text-purple-600 dark:text-purple-400 mb-2">Conversion Preview:</h5>
+                      <div className="space-y-2 text-sm">
+                        <div className="flex justify-between">
+                          <span>Tokens used per category:</span>
+                          <span className="font-bold">{conversionQuantity}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>Total tokens used:</span>
+                          <span className="font-bold">{conversionQuantity * 4}</span>
+                        </div>
+                        <div className="flex justify-between text-purple-600 dark:text-purple-400">
+                          <span>Votes you'll gain:</span>
+                          <span className="font-bold">{conversionQuantity}</span>
+                        </div>
+                      </div>
+                      <div className="mt-3 pt-3 border-t border-purple-500/20">
+                        <p className="text-xs text-purple-600 dark:text-purple-400 font-semibold mb-2">
+                          Remaining after conversion:
+                        </p>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div>Marketing: {tokenStatus.availableTokens.marketing - conversionQuantity}</div>
+                          <div>Capital: {tokenStatus.availableTokens.capital - conversionQuantity}</div>
+                          <div>Team: {tokenStatus.availableTokens.team - conversionQuantity}</div>
+                          <div>Strategy: {tokenStatus.availableTokens.strategy - conversionQuantity}</div>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
+                {/* Convert Button */}
+                <button
+                  onClick={convertToken}
+                  disabled={!tokenStatus?.canConvert || isConvertingTokens}
+                  className="group relative w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold rounded-xl hover:shadow-lg hover:shadow-purple-500/25 transition-all duration-300 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-pink-500 to-purple-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="relative flex items-center justify-center gap-2">
+                    {isConvertingTokens ? (
+                      <>
+                        <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Converting Tokens...
+                      </>
+                    ) : (
+                      <>
+                        <Coins className="w-5 h-5" />
+                        Convert {conversionQuantity} Token{conversionQuantity > 1 ? 's' : ''} → {conversionQuantity} Vote{conversionQuantity > 1 ? 's' : ''}
+                      </>
+                    )}
+                  </div>
+                </button>
+
+                {tokenStatus && !tokenStatus.canConvert && (
+                  <div className="mt-3 p-2 bg-orange-500/10 border border-orange-500/20 rounded-lg">
+                    <p className="text-xs text-orange-600 dark:text-orange-400 text-center">
+                      {!tokenStatus.hasQuizSubmission 
+                        ? "Complete the quiz first to earn tokens"
+                        : "Need at least 1 token in each category to convert"
+                      }
+                    </p>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+
+          {/* Voting Statistics */}
+          {votingStatus && (
+            <div className="mb-8">
+              <div className="p-8 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl shadow-xl">
+                <h3 className="text-2xl font-bold mb-6 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                  Your Voting History
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
+                  <div className="text-center p-6 bg-gradient-to-br from-blue-500/10 to-blue-600/5 rounded-2xl border border-blue-500/20">
+                    <div className="text-4xl font-bold text-blue-500 mb-2">{votingStatus?.votescast?.length || 0}</div>
+                    <div className="text-sm font-medium text-blue-600 dark:text-blue-400">Total Votes Cast</div>
+                  </div>
+                  <div className="text-center p-6 bg-gradient-to-br from-green-500/10 to-green-600/5 rounded-2xl border border-green-500/20">
+                    <div className="text-4xl font-bold text-green-500 mb-2">
+                      {votingStatus?.votescast?.filter(v => v.value === 1).length || 0}
+                    </div>
+                    <div className="text-sm font-medium text-green-600 dark:text-green-400">Yes Votes</div>
+                  </div>
+                  <div className="text-center p-6 bg-gradient-to-br from-red-500/10 to-red-600/5 rounded-2xl border border-red-500/20">
+                    <div className="text-4xl font-bold text-red-500 mb-2">{votingStatus?.downvoteCount || 0}</div>
+                    <div className="text-sm font-medium text-red-600 dark:text-red-400">
+                      No Votes ({votingStatus?.remainingDownvotes || 0} remaining)
+                    </div>
+                  </div>
+                </div>
+                
+                {votingStatus?.votescast && votingStatus.votescast.length > 0 && (
+                  <div>
+                    <h4 className="font-semibold mb-4 text-foreground">Teams You've Voted For:</h4>
+                    <div className="flex flex-wrap gap-3">
+                      {votingStatus.votescast.map((vote, index) => {
+                        const team = teams.find(t => t.id === vote.toTeamId);
+                        return (
+                          <span 
+                            key={index}
+                            className={`px-4 py-2 rounded-full text-sm font-medium border backdrop-blur-sm ${
+                              vote.value === 1 
+                                ? 'bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400' 
+                                : 'bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400'
+                            }`}
+                          >
+                            {team?.name || `Team #${vote.toTeamId}`} ({vote.value === 1 ? 'Yes' : 'No'})
+                          </span>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           )}
-        </div>
-      )}
 
-      {/* Message Display */}
-      {message && (
-        <div className={`mt-6 rounded-md border px-4 py-3 text-center font-medium flex items-center justify-center gap-2 ${
-          messageType === 'success'
-            ? "bg-green-50 border-green-200 text-green-800"
-            : messageType === 'error'
-            ? "bg-red-50 border-red-200 text-red-800"
-            : "bg-blue-50 border-blue-200 text-blue-800"
-        }`}>
-          {messageType === 'success' && <CheckCircle2 className="h-5 w-5" />}
-          {messageType === 'error' && <AlertCircle className="h-5 w-5" />}
-          {message}
+          {/* Message Display */}
+          {message && (
+            <div className={`mb-8 p-6 rounded-2xl border backdrop-blur-sm font-medium flex items-center gap-3 ${
+              messageType === 'success'
+                ? "bg-green-500/10 border-green-500/20 text-green-600 dark:text-green-400"
+                : messageType === 'error'
+                ? "bg-red-500/10 border-red-500/20 text-red-600 dark:text-red-400"
+                : "bg-blue-500/10 border-blue-500/20 text-blue-600 dark:text-blue-400"
+            }`}>
+              {messageType === 'success' && <CheckCircle2 className="h-6 w-6" />}
+              {messageType === 'error' && <AlertCircle className="h-6 w-6" />}
+              <span>{message}</span>
+            </div>
+          )}
+
+          {/* Footer */}
+          <div className="text-center pb-8">
+            <div className="p-6 bg-card/30 backdrop-blur-sm border border-border/30 rounded-2xl">
+              <p className="text-muted-foreground mb-2">
+                Vote strategically and convert tokens wisely to maximize your team's success in the competition.
+              </p>
+              <p className="text-xs text-muted-foreground">
+                Need help? Contact our organizing team through the main event page.
+              </p>
+            </div>
+          </div>
         </div>
-      )}
-      </VotingLayout>
-    </div>
+      </div>
     </PageLock>
   );
 }

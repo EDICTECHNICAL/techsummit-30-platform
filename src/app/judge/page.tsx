@@ -363,9 +363,19 @@ export default function JudgePage() {
   const myTeamIds = new Set(myScores.map(s => s.teamId));
   const availableTeams = teams.filter(team => !myTeamIds.has(team.id));
 
-  // Show loading while checking authentication
-  if (loading || !authChecked) {
-    return <div className="p-6">Loading...</div>;
+  // SSR/CSR flash protection: show loading spinner until authentication is checked
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="p-8 rounded-xl bg-card shadow-lg text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Loading Judge Console
+          </h2>
+          <p className="text-muted-foreground">Checking authentication status...</p>
+        </div>
+      </div>
+    );
   }
 
   // Redirect to login if not authenticated

@@ -17,9 +17,9 @@ interface AuthUser {
   name: string;
   isAdmin: boolean;
   team: {
-    id: number;
-    name: string;
-    college: string;
+    id: number | null;
+    name: string | null;
+    college: string | null;
   } | null;
 }
 
@@ -27,7 +27,7 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthUser | 
   try {
     // Try to get token from cookie first, then from Authorization header
     let token = req.cookies.get('auth-token')?.value;
-    
+
     if (!token) {
       const authHeader = req.headers.get('Authorization');
       if (authHeader && authHeader.startsWith('Bearer ')) {
@@ -41,12 +41,12 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthUser | 
 
     // Verify JWT token
     const decoded = jwt.verify(token, JWT_SECRET) as any;
-    
+
     if (!decoded.userId) {
       return null;
     }
 
-    // Get current user info from database
+    // Try user table first
     const foundUsers = await db
       .select({
         id: user.id,
@@ -59,42 +59,63 @@ export async function authenticateRequest(req: NextRequest): Promise<AuthUser | 
       .where(eq(user.id, decoded.userId))
       .limit(1);
 
-    if (foundUsers.length === 0) {
-      return null;
-    }
-
-    const foundUser = foundUsers[0];
-
-    // Get user's team information using teamId
-    let userTeam = null;
-    if (foundUser.teamId) {
-      const teamResult = await db
-        .select({
-          teamId: teams.id,
-          teamName: teams.name,
-          college: teams.college,
-        })
-        .from(teams)
-        .where(eq(teams.id, foundUser.teamId))
-        .limit(1);
-
-      if (teamResult.length > 0) {
-        userTeam = teamResult[0];
+    if (foundUsers.length > 0) {
+      const foundUser = foundUsers[0];
+      // Get user's team information using teamId
+      let userTeam = null;
+      if (foundUser.teamId) {
+        const teamResult = await db
+          .select({
+            teamId: teams.id,
+            teamName: teams.name,
+            college: teams.college,
+          })
+          .from(teams)
+          .where(eq(teams.id, foundUser.teamId))
+          .limit(1);
+        if (teamResult.length > 0) {
+          userTeam = teamResult[0];
+        }
       }
+      return {
+        id: String(foundUser.id),
+        username: String(foundUser.username),
+        name: String(foundUser.name),
+        isAdmin: Boolean(foundUser.isAdmin),
+        team: userTeam ? {
+          id: userTeam.teamId ?? null,
+          name: userTeam.teamName ?? null,
+          college: userTeam.college ?? null,
+        } : null
+      };
     }
 
-    return {
-      id: foundUser.id,
-      username: foundUser.username,
-      name: foundUser.name,
-      isAdmin: foundUser.isAdmin,
-      team: userTeam ? {
-        id: userTeam.teamId,
-        name: userTeam.teamName,
-        college: userTeam.college,
-      } : null
-    };
+    // If not found in user table, try admins table
+    const { admins } = await import('@/db/schema');
+    const foundAdmins = await db
+      .select({
+        id: admins.id,
+        username: admins.username,
+        name: admins.username, // fallback, no name field
+        isAdmin: admins.id, // will be overridden to true below
+        teamId: admins.id, // will be overridden to null below
+      })
+      .from(admins)
+      .where(eq(admins.id, decoded.userId))
+      .limit(1);
 
+    if (foundAdmins.length > 0) {
+      const foundAdmin = foundAdmins[0];
+      return {
+        id: String(foundAdmin.id),
+        username: String(foundAdmin.username),
+        name: String(foundAdmin.username), // Use username as name for admins
+        isAdmin: true,
+        team: null
+      };
+    }
+
+    return null;
   } catch (error) {
     console.error('Authentication error:', error);
     return null;

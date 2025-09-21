@@ -1,3 +1,4 @@
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import type { Metadata } from "next";
 import "./globals.css";
 import VisualEditsMessenger from "../visual-edits/VisualEditsMessenger";
@@ -38,6 +39,7 @@ export default function RootLayout({
             data-custom-data='{"appName": "YourApp", "version": "1.0.0", "greeting": "hi"}'
           />
           {children}
+          <SpeedInsights />
           <VisualEditsMessenger />
           <Analytics />
         </ThemeProvider>

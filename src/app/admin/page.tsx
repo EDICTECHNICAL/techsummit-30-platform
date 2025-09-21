@@ -50,31 +50,7 @@ export default function AdminPage() {
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Check for admin session cookie
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const isAdmin = document.cookie.includes("admin-auth=true");
-      if (!isAdmin) {
-        window.location.href = "/admin/login";
-        return;
-      }
-
-      // Security: Block navigation to unauthorized pages for admin users
-      const handlePopState = () => {
-        const currentPath = window.location.pathname;
-        const allowedPaths = ['/scoreboard', '/admin', '/dashboard'];
-        if (!allowedPaths.some(path => currentPath.startsWith(path))) {
-          window.location.href = '/scoreboard';
-        }
-      };
-
-      window.addEventListener('popstate', handlePopState);
-      
-      return () => {
-        window.removeEventListener('popstate', handlePopState);
-      };
-    }
-  }, []);
+  // Authentication and redirection are now handled by Next.js middleware.
 
   // Clear messages after 3 seconds
   useEffect(() => {
