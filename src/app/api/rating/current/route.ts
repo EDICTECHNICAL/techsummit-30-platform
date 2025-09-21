@@ -1,5 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ratingEmitter } from '@/lib/rating-emitter';
+import {
+  getRatingState,
+  setTeam as setRatingTeam,
+  startRatingCycle,
+  startQnaPause,
+  startRatingWarning,
+  startRatingPhase,
+  stopRatingCycle,
+  setRatingActiveManually,
+  setAllPitchesCompleted,
+  ratingState as sharedRatingState,
+} from '@/lib/rating-state';
 
 // Helper function to check admin authentication (both JWT and cookie-based)
 function checkAdminAuth(req: NextRequest): boolean {
@@ -11,122 +23,14 @@ function checkAdminAuth(req: NextRequest): boolean {
   return false;
 }
 
-// In-memory state for rating cycle
-type RatingTeam = { id: string | number; name: string } | null;
-let ratingState: {
-  team: RatingTeam;
-  ratingActive: boolean;
-  allPitchesCompleted: boolean;
-  // Rating cycle state
-  ratingCycleActive: boolean;
-  currentPhase: 'idle' | 'pitching' | 'qna-pause' | 'rating-warning' | 'rating-active';
-  phaseTimeLeft: number;
-  cycleStartTime: number | null;
-  // Additional timing tracking
-  phaseStartTime: number | null;
-} = {
-  team: null,
-  ratingActive: false,
-  allPitchesCompleted: false,
-  ratingCycleActive: false,
-  currentPhase: 'idle',
-  phaseTimeLeft: 0,
-  cycleStartTime: null,
-  phaseStartTime: null,
-};
+// Use centralized rating-state module (sharedRatingState for direct reference when needed)
 
 // GET handler - Get current rating state (public endpoint)
 export async function GET(request: NextRequest) {
   try {
-    // Calculate real-time phase time left if in rating cycle
-    let currentState = { ...ratingState };
-    
-    if (currentState.ratingCycleActive && currentState.phaseStartTime) {
-      if (currentState.currentPhase === 'pitching') {
-        // Phase 1: Pitching (5 minutes = 300 seconds) - use phase-specific timing
-        const pitchingElapsed = Math.floor((Date.now() - currentState.phaseStartTime) / 1000);
-        console.log('Pitching phase - elapsed:', pitchingElapsed, 'seconds, started at:', new Date(currentState.phaseStartTime).toISOString());
-        
-        if (pitchingElapsed < 300) {
-          currentState.phaseTimeLeft = Math.max(0, 300 - pitchingElapsed);
-          currentState.ratingActive = false;
-        } else {
-          // Auto-transition to Q&A pause only if still in pitching phase
-          console.log('Pitching phase complete (', pitchingElapsed, 'seconds elapsed), transitioning to Q&A pause');
-          currentState.currentPhase = 'qna-pause';
-          currentState.phaseTimeLeft = 0;
-          currentState.ratingActive = false;
-          currentState.phaseStartTime = Date.now();
-          
-          // Update the actual state
-          ratingState.currentPhase = 'qna-pause';
-          ratingState.phaseTimeLeft = 0;
-          ratingState.phaseStartTime = Date.now();
-          
-          console.log('Auto-transitioned to Q&A pause after', pitchingElapsed, 'seconds of pitching');
-        }
-      } else if (currentState.currentPhase === 'qna-pause') {
-        // Phase 2: Q&A Pause (admin controlled, no time limit)
-        currentState.phaseTimeLeft = 0;
-        currentState.ratingActive = false;
-        console.log('Q&A pause phase - waiting for admin to start rating');
-      } else if (currentState.currentPhase === 'rating-warning') {
-        // Phase 3: Rating Warning (5 seconds)
-        const warningElapsed = Math.floor((Date.now() - currentState.phaseStartTime) / 1000);
-        console.log('Rating warning phase - elapsed:', warningElapsed, 'seconds, started at:', new Date(currentState.phaseStartTime).toISOString());
-        
-        if (warningElapsed < 5) {
-          currentState.phaseTimeLeft = Math.max(0, 5 - warningElapsed);
-          currentState.ratingActive = false;
-          console.log('Still in warning phase, time left:', currentState.phaseTimeLeft);
-        } else {
-          // Auto-transition to rating after 5 seconds
-          console.log('Warning phase complete (', warningElapsed, 'seconds elapsed), transitioning to rating-active');
-          currentState.currentPhase = 'rating-active';
-          currentState.phaseTimeLeft = 120; // 2 minutes
-          currentState.ratingActive = true;
-          currentState.phaseStartTime = Date.now();
-          
-          // Update actual state
-          ratingState.currentPhase = 'rating-active';
-          ratingState.phaseTimeLeft = 120;
-          ratingState.ratingActive = true;
-          ratingState.phaseStartTime = Date.now();
-          
-          console.log('Auto-transitioned to rating-active after', warningElapsed, 'second warning');
-        }
-      } else if (currentState.currentPhase === 'rating-active') {
-        // Phase 4: Rating Active (2 minutes = 120 seconds) - use phase-specific timing
-        const ratingElapsed = Math.floor((Date.now() - currentState.phaseStartTime) / 1000);
-        console.log('Rating active phase - elapsed:', ratingElapsed, 'seconds, started at:', new Date(currentState.phaseStartTime).toISOString());
-        
-        if (ratingElapsed < 120) {
-          currentState.phaseTimeLeft = Math.max(0, 120 - ratingElapsed);
-          currentState.ratingActive = true;
-        } else {
-          // Auto-complete after 2 minutes
-          console.log('Rating phase complete (', ratingElapsed, 'seconds elapsed), ending cycle');
-          currentState.ratingCycleActive = false;
-          currentState.currentPhase = 'idle';
-          currentState.phaseTimeLeft = 0;
-          currentState.ratingActive = false;
-          currentState.cycleStartTime = null;
-          currentState.phaseStartTime = null;
-          
-          // Update the actual state
-          ratingState.ratingCycleActive = false;
-          ratingState.currentPhase = 'idle';
-          ratingState.phaseTimeLeft = 0;
-          ratingState.ratingActive = false;
-          ratingState.cycleStartTime = null;
-          ratingState.phaseStartTime = null;
-          
-          console.log('Auto-completed rating cycle after', ratingElapsed, 'seconds of rating');
-        }
-      }
-    }
-    
-    console.log('GET /api/rating/current - returning state:', currentState);
+    // Return centralized rating state (read-only)
+    const currentState = getRatingState();
+    console.log('GET /api/rating/current - returning centralized state:', currentState);
     return NextResponse.json(currentState);
   } catch (error) {
     console.error('GET rating current error:', error);
@@ -157,113 +61,24 @@ export async function POST(request: NextRequest) {
 
     const requestBody = await request.json();
     
-    // Handle rating cycle actions
+    // Handle rating cycle actions via centralized module
     if (requestBody.action) {
       switch (requestBody.action) {
         case 'start':
-          // Start rating cycle
-          ratingState.ratingCycleActive = true;
-          ratingState.currentPhase = 'pitching';
-          ratingState.cycleStartTime = Date.now();
-          ratingState.phaseStartTime = Date.now(); // Track current phase start
-          ratingState.phaseTimeLeft = 300; // 5 minutes
-          ratingState.ratingActive = false; // Will be enabled during rating phase
-          
-          console.log('Started rating cycle:', ratingState);
-          
-          // Broadcast the change via SSE
-          ratingEmitter.broadcast({
-            type: 'ratingStateChanged',
-            data: ratingState
-          });
-          
-          return NextResponse.json({
-            success: true,
-            ratingState,
-            message: 'Rating cycle started successfully'
-          });
-
+          startRatingCycle();
+          return NextResponse.json({ success: true, ratingState: getRatingState(), message: 'Rating cycle started successfully' });
         case 'start-qna':
-          // Transition from pitching to Q&A pause (manual override)
-          if (ratingState.ratingCycleActive) {
-            ratingState.currentPhase = 'qna-pause';
-            ratingState.phaseStartTime = Date.now();
-            ratingState.phaseTimeLeft = 0;
-            ratingState.ratingActive = false;
-            
-            console.log('Manually started Q&A pause (overriding any previous phase):', ratingState);
-            
-            // Broadcast the change via SSE
-            ratingEmitter.broadcast({
-              type: 'ratingStateChanged',
-              data: ratingState
-            });
-            
-            return NextResponse.json({
-              success: true,
-              ratingState,
-              message: 'Q&A session started successfully'
-            });
-          } else {
-            return NextResponse.json({
-              error: 'No active rating cycle to start Q&A'
-            }, { status: 400 });
-          }
-
+          startQnaPause();
+          return NextResponse.json({ success: true, ratingState: getRatingState(), message: 'Q&A session started successfully' });
         case 'start-rating':
-          // Transition from Q&A pause to rating (with 5 sec warning first)
-          if (ratingState.ratingCycleActive && ratingState.currentPhase === 'qna-pause') {
-            ratingState.currentPhase = 'rating-warning';
-            ratingState.phaseStartTime = Date.now();
-            ratingState.phaseTimeLeft = 5;
-            ratingState.ratingActive = false;
-            
-            console.log('Starting rating warning at:', new Date(ratingState.phaseStartTime).toISOString(), ratingState);
-            
-            // Broadcast the change via SSE
-            ratingEmitter.broadcast({
-              type: 'ratingStateChanged',
-              data: ratingState
-            });
-            
-            return NextResponse.json({
-              success: true,
-              ratingState,
-              message: 'Rating warning started - 5 seconds until rating begins'
-            });
-          } else {
-            return NextResponse.json({
-              error: 'Can only start rating from Q&A pause phase'
-            }, { status: 400 });
-          }
-          
+          // start with warning phase
+          startRatingWarning();
+          return NextResponse.json({ success: true, ratingState: getRatingState(), message: 'Rating warning started - 5 seconds until rating begins' });
         case 'stop':
-          // Stop rating cycle
-          ratingState.ratingCycleActive = false;
-          ratingState.currentPhase = 'idle';
-          ratingState.cycleStartTime = null;
-          ratingState.phaseStartTime = null;
-          ratingState.phaseTimeLeft = 0;
-          ratingState.ratingActive = false;
-          
-          console.log('Stopped rating cycle:', ratingState);
-          
-          // Broadcast the change via SSE
-          ratingEmitter.broadcast({
-            type: 'ratingStateChanged',
-            data: ratingState
-          });
-          
-          return NextResponse.json({
-            success: true,
-            ratingState,
-            message: 'Rating cycle stopped successfully'
-          });
-          
+          stopRatingCycle();
+          return NextResponse.json({ success: true, ratingState: getRatingState(), message: 'Rating cycle stopped successfully' });
         default:
-          return NextResponse.json({
-            error: 'Invalid action. Supported actions: start, start-qna, start-rating, stop'
-          }, { status: 400 });
+          return NextResponse.json({ error: 'Invalid action. Supported actions: start, start-qna, start-rating, stop' }, { status: 400 });
       }
     }
     
@@ -287,21 +102,11 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Set the team and reset rating state
-    ratingState.team = teamId && name ? { id: teamId, name } : null;
-    ratingState.ratingActive = false; // Reset rating when team changes
-    
-    // Broadcast the change via SSE
-    ratingEmitter.broadcast({
-      type: 'teamChanged',
-      data: ratingState
-    });
-    
-    return NextResponse.json({
-      success: true,
-      ratingState,
-      message: ratingState.team ? `Set current team to ${name}` : 'Cleared current team'
-    });
+    // Set the team using centralized state
+    setRatingTeam(teamId && name ? { id: teamId, name } : null);
+    // Emit explicit teamChanged event for compatibility
+    ratingEmitter.broadcast({ type: 'teamChanged', data: getRatingState() });
+    return NextResponse.json({ success: true, ratingState: getRatingState(), message: getRatingState().team ? `Set current team to ${name}` : 'Cleared current team' });
 
   } catch (error: any) {
     console.error('POST rating current error:', error);
@@ -348,45 +153,45 @@ export async function PATCH(request: NextRequest) {
 
     const { ratingActive, allPitchesCompleted, ratingCycleActive, currentPhase, phaseTimeLeft, cycleStartTime, phaseStartTime } = await request.json();
     
-    // Update rating state
+    // Update rating state (mutate centralized sharedRatingState)
     if (typeof ratingActive === 'boolean') {
-      ratingState.ratingActive = ratingActive;
+      sharedRatingState.ratingActive = ratingActive;
     }
-    
+
     if (typeof allPitchesCompleted === 'boolean') {
-      ratingState.allPitchesCompleted = allPitchesCompleted;
+      sharedRatingState.allPitchesCompleted = allPitchesCompleted;
     }
 
     // Update rating cycle state
     if (typeof ratingCycleActive === 'boolean') {
-      ratingState.ratingCycleActive = ratingCycleActive;
+      sharedRatingState.ratingCycleActive = ratingCycleActive;
     }
-    
+
     if (currentPhase && ['idle', 'pitching', 'qna-pause', 'rating-warning', 'rating-active'].includes(currentPhase)) {
-      ratingState.currentPhase = currentPhase;
+      sharedRatingState.currentPhase = currentPhase as any;
     }
-    
+
     if (typeof phaseTimeLeft === 'number') {
-      ratingState.phaseTimeLeft = phaseTimeLeft;
+      sharedRatingState.phaseTimeLeft = phaseTimeLeft;
     }
-    
+
     if (typeof cycleStartTime === 'number' || cycleStartTime === null) {
-      ratingState.cycleStartTime = cycleStartTime;
+      sharedRatingState.cycleStartTime = cycleStartTime as any;
     }
-    
+
     if (typeof phaseStartTime === 'number' || phaseStartTime === null) {
-      ratingState.phaseStartTime = phaseStartTime;
+      sharedRatingState.phaseStartTime = phaseStartTime as any;
     }
-    
+
     // Broadcast the rating state change via SSE
     ratingEmitter.broadcast({
       type: 'ratingStateChanged',
-      data: ratingState
+      data: sharedRatingState
     });
-    
+
     return NextResponse.json({
       success: true,
-      ratingState,
+      ratingState: sharedRatingState,
       message: 'Rating state updated successfully'
     });
 

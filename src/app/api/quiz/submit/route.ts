@@ -236,10 +236,11 @@ export async function GET(req: NextRequest) {
 
     // If no teamId specified, return user's team submission
     if (authUser.team) {
+      const teamIdNum = Number(authUser.team.id);
       const submission = await db
         .select()
         .from(quizSubmissions)
-        .where(eq(quizSubmissions.teamId, authUser.team.id))
+        .where(eq(quizSubmissions.teamId, teamIdNum))
         .limit(1);
 
       return NextResponse.json(submission[0] || null);

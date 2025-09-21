@@ -1,5 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { votingEmitter } from '@/lib/voting-emitter';
+import {
+  getVotingState,
+  setTeam,
+  startPitchCycle,
+  startPrep,
+  startVotingPhase,
+  stopPitchCycle,
+  setVotingActiveManually,
+  setAllPitchesCompleted,
+} from '@/lib/voting-state';
 
 // Helper function to check admin authentication (both JWT and cookie-based)
 function checkAdminAuth(req: NextRequest): boolean {
@@ -11,91 +21,20 @@ function checkAdminAuth(req: NextRequest): boolean {
   return false;
 }
 
-// In-memory state for demo (replace with DB in production)
-type VotingTeam = { id: string | number; name: string } | null;
-let votingState: {
-  team: VotingTeam;
-  votingActive: boolean;
-  allPitchesCompleted: boolean;
-  // Pitch cycle state
-  pitchCycleActive: boolean;
-  currentPhase: 'idle' | 'pitching' | 'preparing' | 'voting';
-  phaseTimeLeft: number;
-  cycleStartTime: number | null;
-} = {
-  team: null,
-  votingActive: false,
-  allPitchesCompleted: false,
-  pitchCycleActive: false,
-  currentPhase: 'idle',
-  phaseTimeLeft: 0,
-  cycleStartTime: null,
-};
-
-// Auto-timeout functionality
-let votingTimeout: NodeJS.Timeout | null = null;
-
-const autoDisableVoting = () => {
-  if (votingTimeout) {
-    clearTimeout(votingTimeout);
-  }
-  
-  votingTimeout = setTimeout(() => {
-    if (votingState.votingActive) {
-      votingState.votingActive = false;
-      console.log('Auto-disabled voting after 30 seconds timeout');
-    }
-    votingTimeout = null;
-  }, 30000); // 30 seconds
-};
+// Centralized voting state and ticker live in `src/lib/voting-state.ts`.
+// Use `getVotingState()` to read authoritative state and the exported helpers
+// (`setTeam`, `startPitchCycle`, `startPrep`, `startVotingPhase`, `stopPitchCycle`,
+// `setVotingActiveManually`) to mutate state so all changes are consistently
+// timestamped and broadcast via SSE.
 
 // GET handler - Get current voting state (public endpoint)
 export async function GET(request: NextRequest) {
   try {
-    // Calculate real-time phase time left if in pitch cycle
-    let currentState = { ...votingState };
-    
-    if (currentState.pitchCycleActive && currentState.cycleStartTime) {
-      const elapsed = Math.floor((Date.now() - currentState.cycleStartTime) / 1000);
-      
-      if (elapsed < 90) {
-        // Pitching phase (90 seconds)
-        currentState.currentPhase = 'pitching';
-        currentState.phaseTimeLeft = Math.max(0, 90 - elapsed);
-      } else if (elapsed < 95) {
-        // Preparation phase (5 seconds)
-        currentState.currentPhase = 'preparing';
-        currentState.phaseTimeLeft = Math.max(0, 95 - elapsed);
-      } else if (elapsed < 125) {
-        // Voting phase (30 seconds)
-        currentState.currentPhase = 'voting';
-        currentState.phaseTimeLeft = Math.max(0, 125 - elapsed);
-        // Auto-enable voting during voting phase
-        if (!currentState.votingActive) {
-          currentState.votingActive = true;
-          votingState.votingActive = true;
-        }
-      } else {
-        // Cycle should be completed
-        currentState.pitchCycleActive = false;
-        currentState.currentPhase = 'idle';
-        currentState.phaseTimeLeft = 0;
-        currentState.votingActive = false;
-        currentState.cycleStartTime = null;
-        
-        // Update the actual state
-        votingState.pitchCycleActive = false;
-        votingState.currentPhase = 'idle';
-        votingState.phaseTimeLeft = 0;
-        votingState.votingActive = false;
-        votingState.cycleStartTime = null;
-        
-        console.log('Auto-completed pitch cycle after timeout');
-      }
-    }
-    
-    console.log('GET /api/voting/current - returning state:', currentState);
-    return NextResponse.json(currentState);
+    // Return authoritative state from the centralized ticker (shallow copy)
+    const current = getVotingState();
+    const derived = { ...current };
+    console.log('GET /api/voting/current - returning authoritative state');
+    return NextResponse.json(derived);
   } catch (error) {
     console.error('GET voting current error:', error);
     return NextResponse.json({ 
@@ -123,8 +62,44 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const { teamId, teamName } = await request.json();
+    const requestBody = await request.json();
+    const { teamId, teamName } = requestBody;
+    const action = requestBody.action as string | undefined;
     let name = teamName;
+
+    // If admin wants to control the pitch cycle via actions, use the centralized helpers
+    if (action) {
+      switch (action) {
+        case 'start-cycle':
+          startPitchCycle();
+          return NextResponse.json({ success: true, votingState: getVotingState(), message: 'Pitch cycle started' });
+
+        case 'start-prep': {
+          const s = getVotingState();
+          if (!s.pitchCycleActive) {
+            return NextResponse.json({ error: 'No active pitch cycle', status: 400 }, { status: 400 });
+          }
+          startPrep();
+          return NextResponse.json({ success: true, votingState: getVotingState(), message: 'Preparation started' });
+        }
+
+        case 'start-voting': {
+          const s = getVotingState();
+          if (!s.pitchCycleActive) {
+            return NextResponse.json({ error: 'No active pitch cycle', status: 400 }, { status: 400 });
+          }
+          startVotingPhase();
+          return NextResponse.json({ success: true, votingState: getVotingState(), message: 'Voting started' });
+        }
+
+        case 'stop-cycle':
+          stopPitchCycle();
+          return NextResponse.json({ success: true, votingState: getVotingState(), message: 'Pitch cycle stopped' });
+
+        default:
+          return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
+      }
+    }
     
     // Try to get real team name from DB if not provided
     if (!name && teamId) {
@@ -142,21 +117,14 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Set the team and reset voting state
-    votingState.team = teamId && name ? { id: teamId, name } : null;
-    votingState.votingActive = false; // Reset voting when team changes
-    
-    // Broadcast the change via SSE
-    votingEmitter.broadcast({
-      type: 'teamChanged',
-      data: votingState
-    });
-    
-    return NextResponse.json({
-      success: true,
-      votingState,
-      message: votingState.team ? `Set current team to ${name}` : 'Cleared current team'
-    });
+  // Set the team and reset voting state via central helper
+  setTeam(teamId && name ? { id: teamId, name } : null);
+
+  return NextResponse.json({
+    success: true,
+    votingState: getVotingState(),
+    message: getVotingState().team ? `Set current team to ${name}` : 'Cleared current team'
+  });
 
   } catch (error: any) {
     console.error('POST voting current error:', error);
@@ -202,55 +170,46 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { votingActive, allPitchesCompleted, pitchCycleActive, currentPhase, phaseTimeLeft, cycleStartTime } = await request.json();
-    
-    // Update voting state
+
+    // Update votingActive via central helper so auto-timeouts are handled there
     if (typeof votingActive === 'boolean') {
-      votingState.votingActive = votingActive;
-      
-      // Start auto-timeout when voting is activated (only if not part of pitch cycle)
-      if (votingActive && !votingState.pitchCycleActive) {
-        autoDisableVoting();
-        console.log('Voting activated - auto-timeout set for 30 seconds');
-      } else {
-        // Clear timeout if voting is manually disabled
-        if (votingTimeout) {
-          clearTimeout(votingTimeout);
-          votingTimeout = null;
-          console.log('Voting manually disabled - auto-timeout cleared');
-        }
-      }
-    }
-    
-    if (typeof allPitchesCompleted === 'boolean') {
-      votingState.allPitchesCompleted = allPitchesCompleted;
+      setVotingActiveManually(votingActive);
     }
 
-    // Update pitch cycle state
+    // allPitchesCompleted setter
+    if (typeof allPitchesCompleted === 'boolean') {
+      setAllPitchesCompleted(allPitchesCompleted);
+    }
+
+    // Update pitch cycle state via helpers
     if (typeof pitchCycleActive === 'boolean') {
-      votingState.pitchCycleActive = pitchCycleActive;
+      if (pitchCycleActive) startPitchCycle(); else stopPitchCycle();
     }
-    
+
+    // Allow admin to set currentPhase manually via helpers (startPrep/startVotingPhase)
     if (currentPhase && ['idle', 'pitching', 'preparing', 'voting'].includes(currentPhase)) {
-      votingState.currentPhase = currentPhase;
+      switch (currentPhase) {
+        case 'pitching':
+          startPitchCycle();
+          break;
+        case 'preparing':
+          startPrep();
+          break;
+        case 'voting':
+          startVotingPhase();
+          break;
+        case 'idle':
+          stopPitchCycle();
+          break;
+      }
     }
-    
-    if (typeof phaseTimeLeft === 'number') {
-      votingState.phaseTimeLeft = phaseTimeLeft;
-    }
-    
-    if (typeof cycleStartTime === 'number' || cycleStartTime === null) {
-      votingState.cycleStartTime = cycleStartTime;
-    }
-    
-    // Broadcast the voting state change via SSE
-    votingEmitter.broadcast({
-      type: 'votingStateChanged',
-      data: votingState
-    });
-    
+
+    // phaseTimeLeft and cycleStartTime are derived values from the centralized ticker - ignore direct overrides.
+
+    // Return authoritative state
     return NextResponse.json({
       success: true,
-      votingState,
+      votingState: getVotingState(),
       message: 'Voting state updated successfully'
     });
 

@@ -346,7 +346,7 @@ export default function HomePage() {
 
           {/* Admin Links */}
           <div className="grid gap-8 grid-cols-1 md:grid-cols-2 max-w-4xl mx-auto">
-            <Link href="/admin" className="group relative overflow-hidden">
+            <Link href="/admin/login" className="group relative overflow-hidden">
               <div className="p-8 bg-gradient-to-br from-card/60 to-card/30 backdrop-blur-sm border border-border/30 rounded-3xl hover:border-accent/20 transition-all duration-500 hover:-translate-y-3 hover:shadow-xl hover:shadow-accent/5">
                 <div className="flex items-center gap-4 mb-6">
                   <div className="w-14 h-14 bg-gradient-to-br from-accent/15 to-primary/15 rounded-2xl flex items-center justify-center group-hover:scale-110 transition-transform">

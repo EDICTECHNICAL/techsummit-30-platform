@@ -7,6 +7,8 @@ import { ThemeToggle } from "@/components/ThemeToggle";
 import { BackButton } from "@/components/BackButton";
 
 export default function AdminPage() {
+  const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
   const [rounds, setRounds] = useState<any[]>([]);
   const [teams, setTeams] = useState<any[]>([]);
   const [users, setUsers] = useState<any[]>([]);
@@ -69,17 +71,23 @@ export default function AdminPage() {
       setLoading(true);
       
       // Helper function to fetch with timeout
-      const fetchWithTimeout = async (url: string, timeout = 5000) => {
+      const fetchWithTimeout = async (url: string, timeout = 5000, includeCredentials = false) => {
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), timeout);
-        
+
         try {
-          const response = await fetch(url, { 
+          const opts: any = {
             signal: controller.signal,
             headers: {
               'Cache-Control': 'no-cache'
             }
-          });
+          };
+
+          if (includeCredentials) {
+            opts.credentials = 'include';
+          }
+
+          const response = await fetch(url, opts);
           clearTimeout(timeoutId);
           return response;
         } catch (error) {
@@ -127,13 +135,13 @@ export default function AdminPage() {
 
       // Non-critical data (longer timeout, can fail gracefully)
       const nonCriticalCalls = await Promise.allSettled([
-        fetchWithTimeout("/api/admin/users", 8000),
+        fetchWithTimeout("/api/admin/users", 8000, true),
         fetchWithTimeout("/api/questions", 8000),
-        fetchWithTimeout("/api/admin/stats", 8000),
-        fetchWithTimeout("/api/admin/quiz-settings", 5000),
-        fetchWithTimeout("/api/admin/system-status", 8000),
-        fetchWithTimeout("/api/admin/questions", 8000),
-        fetchWithTimeout("/api/admin/system-settings", 8000),
+        fetchWithTimeout("/api/admin/stats", 8000, true),
+        fetchWithTimeout("/api/admin/quiz-settings", 5000, true),
+        fetchWithTimeout("/api/admin/system-status", 8000, true),
+        fetchWithTimeout("/api/admin/questions", 8000, true),
+        fetchWithTimeout("/api/admin/system-settings", 8000, true),
         fetchWithTimeout("/api/final/qualified-teams", 8000)
       ]);
 
@@ -218,9 +226,37 @@ export default function AdminPage() {
     }
   };
 
+  // Check for admin authentication to prevent SSR/CSR flash (similar to judge page)
   useEffect(() => {
-    fetchAllData();
+    const checkAuth = async () => {
+      try {
+        // Call server endpoint that validates httpOnly cookie
+        const res = await fetch('/api/auth/me', { credentials: 'include' });
+        if (!res.ok) {
+          setIsAdminAuthenticated(false);
+          setAuthChecked(true);
+          return;
+        }
+        const data = await res.json();
+        setIsAdminAuthenticated(!!data?.authenticated);
+        setAuthChecked(true);
+      } catch (error) {
+        console.error('Failed to check admin auth:', error);
+        setIsAdminAuthenticated(false);
+        setAuthChecked(true);
+      }
+    };
+
+    // Run check immediately
+    checkAuth();
   }, []);
+
+  // Only fetch data after auth check and when authenticated
+  useEffect(() => {
+    if (!authChecked) return;
+    if (!isAdminAuthenticated) return;
+    fetchAllData();
+  }, [authChecked, isAdminAuthenticated]);
 
   // Rating cycle polling for real-time updates
   useEffect(() => {
@@ -292,7 +328,8 @@ export default function AdminPage() {
         const err = await res.json();
         throw new Error(err?.error || "Failed to update round");
       }
-      await fetchAllData();
+  // Refresh data in background so UI remains responsive
+  fetchAllData().catch(console.error);
       
       // Get round name for success message
       const roundName = rounds.find(r => r.id === roundId)?.name || `Round ${roundId}`;
@@ -469,11 +506,13 @@ export default function AdminPage() {
     try {
       const res = await fetch("/api/admin/teams", {
         method: "PATCH",
+        credentials: 'include',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamId, status })
       });
       if (!res.ok) throw new Error("Failed to update team");
-      await fetchAllData();
+  // Refresh data in background so UI remains responsive
+  fetchAllData().catch(console.error);
       setSuccess(`Team status updated to ${status}`);
     } catch (err) {
       setError("Failed to update team status");
@@ -485,11 +524,13 @@ export default function AdminPage() {
     try {
       const res = await fetch("/api/admin/teams", {
         method: "DELETE",
+        credentials: 'include',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamId })
       });
       if (!res.ok) throw new Error("Failed to delete team");
-      await fetchAllData();
+  // Refresh data in background so UI remains responsive
+  fetchAllData().catch(console.error);
       setSuccess("Team deleted successfully");
     } catch (err) {
       setError("Failed to delete team");
@@ -501,11 +542,13 @@ export default function AdminPage() {
     try {
       const res = await fetch("/api/admin/users", {
         method: "PATCH",
+        credentials: 'include',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, isAdmin })
       });
       if (!res.ok) throw new Error("Failed to update user role");
-      await fetchAllData();
+  // Refresh data in background so UI remains responsive
+  fetchAllData().catch(console.error);
       setSuccess(`User role updated to ${isAdmin ? 'Admin' : 'User'}`);
     } catch (err) {
       setError("Failed to update user role");
@@ -517,11 +560,13 @@ export default function AdminPage() {
     try {
       const res = await fetch("/api/admin/quiz-settings", {
         method: "PATCH",
+        credentials: 'include',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(settings)
       });
       if (!res.ok) throw new Error("Failed to update quiz settings");
-      await fetchAllData();
+  // Refresh data in background so UI remains responsive
+  fetchAllData().catch(console.error);
       setSuccess("Quiz settings updated");
     } catch (err) {
       setError("Failed to update quiz settings");
@@ -532,10 +577,12 @@ export default function AdminPage() {
     if (!confirm("Are you sure you want to reset all quiz progress? This will clear all user answers and token data.")) return;
     try {
       const res = await fetch("/api/admin/reset-quizzes", {
-        method: "POST"
+        method: "POST",
+        credentials: 'include'
       });
       if (!res.ok) throw new Error("Failed to reset quizzes");
-      await fetchAllData();
+  // Refresh data in background so UI remains responsive
+  fetchAllData().catch(console.error);
       setSuccess("All quiz progress has been reset");
     } catch (err) {
       setError("Failed to reset quizzes");
@@ -625,6 +672,7 @@ export default function AdminPage() {
 
       const res = await fetch("/api/admin/questions", {
         method,
+        credentials: 'include',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(body)
       });
@@ -634,7 +682,8 @@ export default function AdminPage() {
         throw new Error(errorData.error || "Failed to save question");
       }
 
-      await fetchAllData();
+  // Refresh data in background so UI remains responsive
+  fetchAllData().catch(console.error);
       setSuccess(editingQuestion ? "Question updated successfully" : "Question created successfully");
       closeQuestionForm();
     } catch (err: any) {
@@ -647,11 +696,13 @@ export default function AdminPage() {
     try {
       const res = await fetch("/api/admin/questions", {
         method: "DELETE",
+        credentials: 'include',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ questionId })
       });
       if (!res.ok) throw new Error("Failed to delete question");
-      await fetchAllData();
+  // Refresh data in background so UI remains responsive
+  fetchAllData().catch(console.error);
       setSuccess("Question deleted successfully");
     } catch (err) {
       setError("Failed to delete question");
@@ -848,6 +899,7 @@ export default function AdminPage() {
       setLoading(true);
       const res = await fetch("/api/admin/system-settings", {
         method: "PATCH",
+        credentials: 'include',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ key, value })
       });
@@ -857,7 +909,8 @@ export default function AdminPage() {
         throw new Error(errorData.error || "Failed to update setting");
       }
       
-      await fetchAllData();
+  // Refresh data in background so UI remains responsive
+  fetchAllData().catch(console.error);
       setSuccess(`Setting '${key}' updated successfully`);
     } catch (err: any) {
       setError(err.message || "Failed to update setting");
@@ -869,7 +922,8 @@ export default function AdminPage() {
   const clearAllCache = async () => {
     try {
       const res = await fetch("/api/admin/clear-cache", {
-        method: "POST"
+        method: "POST",
+        credentials: 'include'
       });
       if (!res.ok) throw new Error("Failed to clear cache");
       setSuccess("System cache cleared");
@@ -880,7 +934,7 @@ export default function AdminPage() {
 
   const exportAllData = async () => {
     try {
-      const res = await fetch("/api/admin/export");
+  const res = await fetch("/api/admin/export", { credentials: 'include' });
       if (!res.ok) throw new Error("Failed to export data");
       const blob = await res.blob();
       const url = window.URL.createObjectURL(blob);
@@ -1767,6 +1821,29 @@ export default function AdminPage() {
         return <div>Select a tab to view content</div>;
     }
   };
+
+  // SSR/CSR flash protection: show spinner until auth check completes
+  if (!authChecked) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="p-8 rounded-xl bg-card shadow-lg text-center">
+          <div className="w-16 h-16 border-4 border-primary border-t-transparent rounded-full animate-spin mx-auto mb-6"></div>
+          <h2 className="text-2xl font-bold mb-2 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Loading Admin Console
+          </h2>
+          <p className="text-muted-foreground">Checking authentication status...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Redirect to login if not authenticated
+  if (!isAdminAuthenticated) {
+    if (typeof window !== 'undefined') {
+      window.location.href = '/admin/login';
+    }
+    return <div className="p-6">Redirecting to login...</div>;
+  }
 
   return (
     <div className="min-h-screen bg-background text-foreground p-6">

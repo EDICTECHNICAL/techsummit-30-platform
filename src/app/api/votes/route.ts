@@ -40,8 +40,13 @@ export async function POST(request: NextRequest) {
       }, { status: 401 });
     }
 
-    const { fromTeamId, toTeamId, value } = await request.json();
-    
+    const body = await request.json();
+    let { fromTeamId, toTeamId, value } = body;
+
+    // Coerce numeric IDs (client may send strings)
+    fromTeamId = typeof fromTeamId === 'string' ? parseInt(fromTeamId) : fromTeamId;
+    toTeamId = typeof toTeamId === 'string' ? parseInt(toTeamId) : toTeamId;
+
     if (!fromTeamId || !toTeamId || (value !== 1 && value !== -1)) {
       return NextResponse.json({ 
         error: 'From team ID, to team ID, and valid vote value (+1 or -1) are required', 
@@ -52,47 +57,49 @@ export async function POST(request: NextRequest) {
     // No teamMembers check; allow all authenticated users
 
     // Check if rating is currently active (using the rating API) for final round team voting
+    // Check whether voting/rating is active. Be defensive: if the rating API call fails, fall back
+    // to checking the rounds table so transient failures don't block voting.
+    let isRatingActive = false;
     try {
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 2000);
+
       const ratingResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/rating/current`, {
         method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal
       });
-      
-      if (!ratingResponse.ok) {
-        throw new Error('Failed to fetch rating status');
+      clearTimeout(timeout);
+
+      if (ratingResponse.ok) {
+        const ratingState = await ratingResponse.json();
+        isRatingActive = Boolean(ratingState.ratingActive && ratingState.currentPhase === 'rating-active');
+      } else {
+        console.warn('Rating API responded non-OK while checking voting status:', ratingResponse.status);
       }
-      
-      const ratingState = await ratingResponse.json();
-      
-      // Allow voting when rating is active (finals) OR when voting round is active (earlier rounds)
-      const isRatingActive = ratingState.ratingActive && ratingState.currentPhase === 'rating-active';
-      
-      // Check if voting round is active (fallback for non-finals voting)
-      const votingRound = await db
-        .select()
-        .from(rounds)
-        .where(and(
-          eq(rounds.name, 'VOTING'),
-          eq(rounds.status, 'ACTIVE')
-        ))
-        .limit(1);
-      
-      const isVotingRoundActive = votingRound.length > 0;
-      
-      if (!isRatingActive && !isVotingRoundActive) {
-        return NextResponse.json({ 
-          error: 'Neither final rating nor voting round is currently active', 
-          code: 'VOTING_NOT_ACTIVE' 
-        }, { status: 400 });
-      }
-    } catch (error) {
-      console.error('Error checking voting status:', error);
+    } catch (err) {
+      console.warn('Non-fatal: failed to fetch rating/current while checking voting status:', err);
+      // Continue - we'll rely on rounds table as the primary fallback
+      isRatingActive = false;
+    }
+
+    // Check if voting round is active (fallback for non-finals voting)
+    const votingRound = await db
+      .select()
+      .from(rounds)
+      .where(and(
+        eq(rounds.name, 'VOTING'),
+        eq(rounds.status, 'ACTIVE')
+      ))
+      .limit(1);
+
+    const isVotingRoundActive = votingRound.length > 0;
+
+    if (!isRatingActive && !isVotingRoundActive) {
       return NextResponse.json({ 
-        error: 'Failed to verify voting status', 
-        code: 'VOTING_CHECK_FAILED' 
-      }, { status: 500 });
+        error: 'Neither final rating nor voting round is currently active', 
+        code: 'VOTING_NOT_ACTIVE' 
+      }, { status: 400 });
     }
 
     // Cannot vote for own team
