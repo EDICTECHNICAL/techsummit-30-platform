@@ -39,7 +39,7 @@ export default function RootLayout({
             data-custom-data='{"appName": "YourApp", "version": "1.0.0", "greeting": "hi"}'
           />
           {children}
-          <SpeedInsights />
+          <SpeedInsights debug={process.env.NODE_ENV === 'development'} />
           <VisualEditsMessenger />
           <Analytics />
         </ThemeProvider>

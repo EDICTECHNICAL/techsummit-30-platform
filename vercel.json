@@ -14,6 +14,9 @@
   "regions": ["iad1"],
   "cleanUrls": true,
   "trailingSlash": false,
+  "analytics": {
+    "speedInsights": true
+  },
   "headers": [
     {
       "source": "/api/sse/(.*)",

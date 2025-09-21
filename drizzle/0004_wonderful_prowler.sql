@@ -1,0 +1,1 @@
+DROP INDEX "judge_scores_judge_team_round_unique";

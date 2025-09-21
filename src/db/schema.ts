@@ -1,4 +1,4 @@
-import { pgTable, integer, text, varchar, timestamp, boolean, json, serial } from 'drizzle-orm/pg-core';
+import { pgTable, integer, text, varchar, timestamp, boolean, json, serial, uniqueIndex } from 'drizzle-orm/pg-core';
 
 // Team members table
 

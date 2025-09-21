@@ -91,6 +91,7 @@ export async function POST(request: NextRequest) {
       judgeName: judgeName.trim(),
       teamId: teamId,
       score: score,
+      round: 'FINAL',
       createdAt: new Date(),
     }).returning();
 
@@ -148,6 +149,7 @@ export async function GET(request: NextRequest) {
           judgeName: judgeScores.judgeName,
           teamId: judgeScores.teamId,
           score: judgeScores.score,
+          round: judgeScores.round,
           createdAt: judgeScores.createdAt,
         })
         .from(judgeScores)
@@ -160,6 +162,7 @@ export async function GET(request: NextRequest) {
           judgeName: judgeScores.judgeName,
           teamId: judgeScores.teamId,
           score: judgeScores.score,
+          round: judgeScores.round,
           createdAt: judgeScores.createdAt,
         })
         .from(judgeScores)

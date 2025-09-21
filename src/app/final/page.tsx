@@ -387,7 +387,7 @@ export default function FinalPage() {
     }
   };
 
-  if (isPending || loading || roundsLoading) {
+  if (isPending || roundsLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
         <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">

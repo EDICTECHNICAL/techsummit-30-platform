@@ -1,0 +1,1 @@
+CREATE UNIQUE INDEX "judge_scores_judge_team_round_unique" ON "judge_scores" USING btree ("judge_name","team_id","round");

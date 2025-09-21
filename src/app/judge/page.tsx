@@ -17,6 +17,7 @@ interface JudgeScore {
   judgeName: string;
   teamId: number;
   score: number;
+  round: string;
   createdAt: string;
 }
 
@@ -313,16 +314,15 @@ export default function JudgePage() {
         // Reload scores after successful submission
         loadData();
       } else {
-        const errorData = await res.json();
-        console.error("API Error submitting rating:", errorData?.error || res.statusText);
+        console.error("API Error submitting rating:", data?.error || res.statusText);
         
         if (res.status === 409) {
           // Judge already scored this team
           setMsg(`⚠️ You have already scored ${currentPitchTeam.name}. Each judge can only score each team once.`);
-        } else if (res.status === 400 && errorData?.code === 'RATING_NOT_ACTIVE') {
+        } else if (res.status === 400 && data?.code === 'RATING_NOT_ACTIVE') {
           setMsg("❌ Rating is not currently active. Please wait for the rating phase to begin.");
         } else {
-          setMsg(errorData?.error || "Failed to submit rating");
+          setMsg(data?.error || "Failed to submit rating");
         }
       }
     } catch (error) {
@@ -338,7 +338,7 @@ export default function JudgePage() {
 
   // Check if judge can rate in real-time
   const canRateRealTime = isJudgeAuthenticated && 
-                         ratingCycleActive && 
+                         ratingActive && 
                          currentPhase === 'rating-active' && // Changed from 'judges-rating'
                          phaseTimeLeft > 0 && 
                          currentPitchTeam && 
@@ -497,9 +497,9 @@ export default function JudgePage() {
           {!canRateRealTime && (
             <div className="mt-4 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-md border border-yellow-200 dark:border-yellow-700">
               <p className="text-sm text-yellow-700 dark:text-yellow-300">
-                {!ratingCycleActive && '⏳ Waiting for rating cycle to start...'}
-                {ratingCycleActive && currentPhase !== 'rating-active' && '⏱️ Wait for judges rating phase...'}
-                {ratingCycleActive && currentPhase === 'rating-active' && phaseTimeLeft <= 0 && '⏰ Judges rating time has ended.'}
+                {!ratingActive && '⏳ Waiting for rating cycle to start...'}
+                {ratingActive && currentPhase !== 'rating-active' && '⏱️ Wait for judges rating phase...'}
+                {ratingActive && currentPhase === 'rating-active' && phaseTimeLeft <= 0 && '⏰ Judges rating time has ended.'}
                 {!currentPitchTeam && '👥 No team is currently presenting.'}
                 {!judgeName.trim() && currentPitchTeam && '📝 Please enter your judge name.'}
               </p>

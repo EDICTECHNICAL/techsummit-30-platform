@@ -80,11 +80,11 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy", 
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://slelguoygbfzlpylpxfs.supabase.co",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://vitals.vercel-analytics.com https://slelguoygbfzlpylpxfs.supabase.co",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://vercel.live wss://vercel.live https://slelguoygbfzlpylpxfs.supabase.co",
+              "connect-src 'self' https://vercel.live wss://vercel.live https://vitals.vercel-analytics.com https://slelguoygbfzlpylpxfs.supabase.co",
               "media-src 'self'",
               "object-src 'none'",
               "base-uri 'self'",
