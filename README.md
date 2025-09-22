@@ -78,6 +78,43 @@ npx drizzle-kit migrate
 node scripts/seed-admin-judge-accounts.js
 ```
 
+## Rating-state migration & smoke tests
+
+This project persists the final rating cycle timer into the database using a single-row canonical pattern. A small, idempotent SQL migration and helper scripts are included to create/ensure the `rating_state` table and to run quick smoke tests.
+
+- Migration file: `drizzle/0005_add_rating_state.sql` — creates the `rating_state` table (idempotent) and seeds a canonical row if the table is empty.
+- Apply script: `scripts/apply-rating-state.js` — runs the SQL against `DATABASE_URL` found in `.env.local`. The script will try a normal SSL connection first and automatically retry with permissive SSL (`rejectUnauthorized: false`) if there is a cert-chain issue.
+
+How to run the migration locally (PowerShell):
+
+```powershell
+# Uses .env.local in the project root to read DATABASE_URL
+node .\scripts\apply-rating-state.js
+
+# Or override DATABASE_URL for a one-off run (PowerShell):
+$env:DATABASE_URL='postgresql://user:pass@host:port/dbname'; node .\scripts\apply-rating-state.js
+```
+
+Quick verification queries (run in psql or your DB client):
+
+```sql
+-- Should print 1
+SELECT COUNT(*) FROM rating_state;
+
+-- Inspect canonical row
+SELECT * FROM rating_state ORDER BY id LIMIT 5;
+```
+
+Smoke tests
+- API smoke test: `node scripts/test-rating-api.js` — exercises `GET /api/rating/current` and admin POST actions.
+- SSE smoke test: `node scripts/test-rating-sse.js` — connects to the rating SSE stream and validates broadcasts.
+- Combined (npm script): `npm run test:smoke` (runs API + SSE smoke tests if present).
+
+Safety notes
+- The migration is idempotent but please snapshot/back up your production DB before running any migration.
+- The apply script retries with permissive SSL for convenience when connecting to DBs with custom/self-signed certs; prefer validating cert chains in production.
+
+
 ## Features
 
 - **🔐 Authentication**: Custom username/password system
