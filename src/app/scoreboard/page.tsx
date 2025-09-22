@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { Button } from "@/components/ui/button";
+import { useVotingTimer } from '@/hooks/useVotingTimer';
+import { useRatingTimer } from '@/hooks/useRatingTimer';
 import { useIsMobile } from "@/hooks/use-mobile";
 import { Trophy, Medal, Award, RefreshCw, Eye, EyeOff, ArrowLeft, Home, BarChart3, Users, Target, Zap, Crown, Star } from "lucide-react";
 
@@ -110,6 +112,22 @@ export default function ScoreboardPage() {
     load();
   }, []);
 
+  // Keep timer state fresh before manual scoreboard refreshes
+  const { poll: pollVotingStatus } = useVotingTimer();
+  const { poll: pollRatingStatus } = useRatingTimer();
+
+  const refreshScoreboard = async () => {
+    try {
+      setRefreshing(true);
+      await Promise.all([pollVotingStatus(), pollRatingStatus()]);
+      await fetchScoreboard();
+    } catch (e) {
+      console.error('Failed to refresh scoreboard:', e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
   // Auto-refresh functionality
   useEffect(() => {
     if (!autoRefresh) return;
@@ -186,7 +204,7 @@ export default function ScoreboardPage() {
             <p className="text-muted-foreground mb-6">{error}</p>
             <div className="flex gap-3 justify-center">
               <Button
-                onClick={() => window.location.reload()}
+                onClick={() => refreshScoreboard()}
                 className="px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1"
               >
                 Retry
@@ -297,7 +315,7 @@ export default function ScoreboardPage() {
             {/* Controls */}
             <div className="flex flex-wrap items-center justify-center gap-3 mb-8">
               <button
-                onClick={fetchScoreboard}
+                onClick={refreshScoreboard}
                 disabled={refreshing}
                 className="group relative px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-semibold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 disabled:opacity-50 disabled:cursor-not-allowed"
               >

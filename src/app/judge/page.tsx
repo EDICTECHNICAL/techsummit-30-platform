@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BackButton } from "@/components/BackButton";
-import { useCentralizedTimer } from "@/hooks/useCentralizedTimer";
+import { useRatingTimer } from '@/hooks/useRatingTimer';
 import { AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface Team {
@@ -38,7 +38,7 @@ export default function JudgePage() {
   const [isJudgeAuthenticated, setIsJudgeAuthenticated] = useState(false);
   const [authChecked, setAuthChecked] = useState(false);
 
-  // Centralized Timer Hook
+  // Use per-finals rating timer (replaces centralized timer usage)
   const {
     currentPitchTeam,
     ratingActive,
@@ -47,8 +47,9 @@ export default function JudgePage() {
     currentPhase,
     phaseTimeLeft,
     cycleStartTime,
-    pollRatingStatus
-  } = useCentralizedTimer();
+    sseConnected,
+    poll
+  } = useRatingTimer();
 
   // Form state for real-time rating
   const [realTimeRating, setRealTimeRating] = useState<string>('80');
@@ -90,88 +91,40 @@ export default function JudgePage() {
     return () => clearTimeout(timeoutId);
   }, []);
 
-  // SSE Connection for real-time rating cycle updates
+  // SSE and polling handled inside useRatingTimer; show connection status if needed
   useEffect(() => {
-    if (!isJudgeAuthenticated) return;
+    if (sseConnected) {
+      console.log('Judge console connected to rating SSE');
+    }
+  }, [sseConnected]);
 
-    let eventSource: EventSource | null = null;
-    
-    const connectSSE = () => {
-      try {
-        eventSource = new EventSource('/api/sse/rating');
-        
-        eventSource.onmessage = (event) => {
-          try {
-            const data: RatingCycleEvent = JSON.parse(event.data);
-            
-            if (data.type === 'pitch-started' && data.data.team) {
-              // setCurrentPitchTeam(data.data.team); // This is now managed by useCentralizedTimer
-              // setRatingCycleActive(true); // This is now managed by useCentralizedTimer
-            } else if (data.type === 'phase-changed') {
-              // setCurrentPhase(data.data.phase || 'idle'); // This is now managed by useCentralizedTimer
-              // setPhaseTimeLeft(data.data.timeLeft || 0); // This is now managed by useCentralizedTimer
-            } else if (data.type === 'pitch-ended') {
-              // setCurrentPitchTeam(null); // This is now managed by useCentralizedTimer
-              // setCurrentPhase('idle'); // This is now managed by useCentralizedTimer
-              // setRatingCycleActive(false); // This is now managed by useCentralizedTimer
-              // setPhaseTimeLeft(0); // This is now managed by useCentralizedTimer
-            }
-          } catch (error) {
-            console.error('Error parsing SSE data:', error);
-          }
-        };
-
-        eventSource.onerror = (error) => {
-          console.log('SSE connection error, reconnecting...', error);
-          eventSource?.close();
-          setTimeout(connectSSE, 3000);
-        };
-
-      } catch (error) {
-        console.error('Failed to connect to SSE:', error);
-        setTimeout(connectSSE, 5000);
-      }
-    };
-
-    connectSSE();
-
-    // Cleanup on unmount
-    return () => {
-      eventSource?.close();
-    };
-  }, [isJudgeAuthenticated]);
-
-  // Load current rating cycle state with polling (reduced frequency)
+  // Hook already polls server; use local loading to fetch initial data when authenticated
   useEffect(() => {
     if (isJudgeAuthenticated) {
+      // Use the rating hook's poll() to silently refresh timer state
+      try {
+        poll();
+      } catch (e) {
+        // ignore
+      }
       loadCurrentRatingState();
-      
-      // Poll every 3 seconds for updates (reduced from 1 second to prevent glitching)
-      const interval = setInterval(loadCurrentRatingState, 3000);
-      
-      return () => clearInterval(interval);
     }
   }, [isJudgeAuthenticated]);
 
   const loadCurrentRatingState = async () => {
     try {
+      // Prefer hook poll for up-to-date state; keep legacy fetch as fallback
+      try {
+        await poll();
+        return;
+      } catch (e) {
+        // fallback to direct fetch
+      }
+
       const res = await fetch('/api/rating/current');
       if (res.ok) {
-        const data = await res.json();
-        
-        // Only update state if values have actually changed to prevent unnecessary re-renders
-        // if (JSON.stringify(data?.team) !== JSON.stringify(currentPitchTeam)) {
-        //   setCurrentPitchTeam(data?.team ?? null);
-        // }
-        // if (data?.currentPhase !== currentPhase) {
-        //   setCurrentPhase(data?.currentPhase ?? 'idle');
-        // }
-        // if (data?.phaseTimeLeft !== phaseTimeLeft) {
-        //   setPhaseTimeLeft(data?.phaseTimeLeft ?? 0);
-        // }
-        // if (data?.ratingCycleActive !== ratingCycleActive) {
-        //   setRatingCycleActive(data?.ratingCycleActive ?? false);
-        // }
+        // no-op: hook will reflect this state shortly via its own polling/SSE
+        return;
       }
     } catch (error) {
       console.error('Error loading rating state:', error);
@@ -596,7 +549,17 @@ export default function JudgePage() {
         {/* Quick Actions */}
         <div className="mt-8 flex flex-wrap gap-4 justify-center">
           <button 
-            onClick={loadData}
+            onClick={async () => {
+              try {
+                setLoading(true);
+                await poll();
+                await loadData();
+              } catch (e) {
+                console.warn('Refresh failed', e);
+              } finally {
+                setLoading(false);
+              }
+            }}
             disabled={loading}
             className="bg-secondary hover:bg-secondary/80 text-secondary-foreground px-4 py-2 rounded-md text-sm font-medium disabled:opacity-50"
           >

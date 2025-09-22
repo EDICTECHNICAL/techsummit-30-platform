@@ -7,7 +7,7 @@ import VotingLayout from '@/components/ui/VotingLayout';
 import PageLock from "@/components/ui/PageLock";
 import { Button } from "@/components/ui/button";
 import { useRoundStatus } from "@/hooks/useRoundStatus";
-import { useVotingSSE } from "@/hooks/useVotingSSE";
+import { useVotingTimer } from '@/hooks/useVotingTimer';
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -71,14 +71,14 @@ export default function VotingPage() {
   // Page lock functionality
   const { isCompleted: isVotingCompleted, loading: roundLoading } = useRoundStatus('VOTING');
   
-  // Real-time updates via SSE
-  const { isConnected: sseConnected, lastEvent } = useVotingSSE();
+  // Timer + SSE handled by useVotingTimer
+  const { currentPitchTeam, votingActive: votingActiveFromHook, allPitchesCompleted: allPitchesFromHook, pitchCycleActive: pitchCycleActiveFromHook, currentPhase: phaseFromHook, phaseTimeLeft: phaseTimeLeftFromHook, cycleStartTime: cycleStartTimeFromHook, sseConnected } = useVotingTimer();
 
   const [user, setUser] = useState<User | null>(null);
   const [isPending, setIsPending] = useState(true);
   const [teams, setTeams] = useState<Team[]>([]);
   const [userTeam, setUserTeam] = useState<Team | null>(null);
-  const [currentPitchTeam, setCurrentPitchTeam] = useState<Team | null>(null);
+  const [currentPitchTeamLocal, setCurrentPitchTeam] = useState<Team | null>(null);
   const [votingActive, setVotingActive] = useState(false);
   const [allPitchesCompleted, setAllPitchesCompleted] = useState(false);
   const [votingRoundCompleted, setVotingRoundCompleted] = useState(false);
@@ -152,49 +152,26 @@ export default function VotingPage() {
 
   const userTeamId = userTeam?.id;
 
-  // Handle real-time SSE updates
+  // Sync local UI states with hook outputs (debounced to avoid jitter)
   useEffect(() => {
-    if (!lastEvent) return;
+    setCurrentPitchTeam(currentPitchTeam || null);
+  }, [currentPitchTeam]);
 
-    console.log('Processing SSE event:', lastEvent);
+  useEffect(() => {
+    setVotingActive(!!votingActiveFromHook);
+  }, [votingActiveFromHook]);
 
-    switch (lastEvent.type) {
-      case 'teamChanged':
-        if (lastEvent.data) {
-          setCurrentPitchTeam(lastEvent.data.team);
-          setVotingActive(lastEvent.data.votingActive);
-          setAllPitchesCompleted(lastEvent.data.allPitchesCompleted);
-          setPitchCycleActive(lastEvent.data.pitchCycleActive);
-          setCurrentPhase(lastEvent.data.currentPhase);
-          setPhaseTimeLeft(lastEvent.data.phaseTimeLeft);
-          setCycleStartTime(lastEvent.data.cycleStartTime);
-          showMessage(`New team is pitching: ${lastEvent.data.team?.name || 'None'}`, 'info');
-        }
-        break;
-      
-      case 'votingStateChanged':
-        if (lastEvent.data) {
-          setVotingActive(lastEvent.data.votingActive);
-          setAllPitchesCompleted(lastEvent.data.allPitchesCompleted);
-          setPitchCycleActive(lastEvent.data.pitchCycleActive);
-          setCurrentPhase(lastEvent.data.currentPhase);
-          setPhaseTimeLeft(lastEvent.data.phaseTimeLeft);
-          setCycleStartTime(lastEvent.data.cycleStartTime);
-          
-          // Handle voting state changes
-          if (lastEvent.data.votingActive && !votingActive) {
-            showMessage('Voting is now active!', 'success');
-          } else if (!lastEvent.data.votingActive && votingActive) {
-            showMessage('Voting has ended', 'info');
-          }
-        }
-        break;
-        
-      case 'connected':
-        showMessage('Connected to real-time updates', 'success');
-        break;
-    }
-  }, [lastEvent, votingActive, showMessage]);
+  useEffect(() => {
+    setAllPitchesCompleted(!!allPitchesFromHook);
+  }, [allPitchesFromHook]);
+
+  // keep pitchCycleActive/phaseTimeLeft/local currentPhase in sync with hook
+  useEffect(() => {
+    setPitchCycleActive(!!pitchCycleActiveFromHook);
+    setCurrentPhase(phaseFromHook as any);
+    setPhaseTimeLeft(phaseTimeLeftFromHook ?? 0);
+    setCycleStartTime(cycleStartTimeFromHook ?? null);
+  }, [pitchCycleActiveFromHook, phaseFromHook, phaseTimeLeftFromHook, cycleStartTimeFromHook]);
 
   // Load teams data
   useEffect(() => {
@@ -274,181 +251,27 @@ export default function VotingPage() {
   }, [userTeamId]);
 
   // Poll current pitch status
+  // polling handled inside useVotingTimer; just ensure voting round completion state
   useEffect(() => {
-    const pollPitchStatus = async () => {
+    const checkRounds = async () => {
       try {
-        // First try voting current API (for Round 2)
-        let res = await fetch("/api/voting/current");
-        let data: CurrentPitchData | null = null;
-        
-        if (res.ok) {
-          data = await res.json();
-        }
-        
-        // If no team in voting current, try rating current API (for Round 3)
-        if (!data?.team) {
-          try {
-            const ratingRes = await fetch("/api/rating/current");
-            if (ratingRes.ok) {
-              const ratingData = await ratingRes.json();
-              if (ratingData?.team) {
-                // Convert rating data to voting data format
-                data = {
-                  team: ratingData.team,
-                  votingActive: ratingData.ratingActive,
-                  allPitchesCompleted: ratingData.allPitchesCompleted,
-                  pitchCycleActive: ratingData.ratingCycleActive,
-                  currentPhase: ratingData.currentPhase === 'pitching' ? 'pitching' :
-                              ratingData.currentPhase === 'judges-rating' ? 'preparing' :
-                              ratingData.currentPhase === 'peers-rating' ? 'voting' : 'idle',
-                  phaseTimeLeft: ratingData.phaseTimeLeft,
-                  cycleStartTime: ratingData.cycleStartTime
-                };
-              }
-            }
-          } catch (ratingError) {
-            console.warn('Failed to fetch rating status:', ratingError);
+        const roundsRes = await fetch('/api/rounds');
+        if (roundsRes.ok) {
+          const rounds = await roundsRes.json();
+          if (Array.isArray(rounds)) {
+            const votingRound = rounds.find((r: any) => r.type === 'VOTING');
+            setVotingRoundCompleted(votingRound?.isCompleted || false);
           }
         }
-        
-        if (!data) {
-          console.warn('Failed to fetch any pitch status');
-          return;
-        }
-        
-        setCurrentPitchTeam(data?.team ?? null);
-        
-        // Handle pitch cycle state
-        const newPitchCycleActive = data?.pitchCycleActive ?? false;
-        const newCurrentPhase = data?.currentPhase ?? 'idle';
-        const newPhaseTimeLeft = data?.phaseTimeLeft ?? 0;
-        const newCycleStartTime = data?.cycleStartTime ?? null;
-        
-        setPitchCycleActive(newPitchCycleActive);
-        setCurrentPhase(newCurrentPhase);
-        setPhaseTimeLeft(newPhaseTimeLeft);
-        setCycleStartTime(newCycleStartTime);
-        
-        // Handle voting activation timing
-        const newVotingActive = data?.votingActive ?? false;
-        if (newVotingActive && !votingActive) {
-          // Voting just got activated
-          if (!newPitchCycleActive) {
-            // Only set legacy voting timer if not in pitch cycle
-            setVotingStartTime(Date.now());
-            setVotingTimeLeft(30);
-          }
-        } else if (!newVotingActive && votingActive) {
-          // Voting just got deactivated
-          setVotingStartTime(null);
-          setVotingTimeLeft(null);
-        }
-
-        // For pitch cycle, calculate time left based on cycle start time and current phase
-        if (newPitchCycleActive && newCycleStartTime) {
-          const elapsed = Math.floor((Date.now() - newCycleStartTime) / 1000);
-          let calculatedPhaseTimeLeft = 0;
-          
-          if (elapsed < 90) {
-            // Pitching phase
-            calculatedPhaseTimeLeft = 90 - elapsed;
-          } else if (elapsed < 95) {
-            // Preparation phase
-            calculatedPhaseTimeLeft = 95 - elapsed;
-          } else if (elapsed < 125) {
-            // Voting phase
-            calculatedPhaseTimeLeft = 125 - elapsed;
-          }
-          
-          // Use calculated time if it's more accurate than server-provided time
-          setPhaseTimeLeft(Math.max(0, calculatedPhaseTimeLeft));
-        }
-        
-        setVotingActive(newVotingActive);
-        setAllPitchesCompleted(data?.allPitchesCompleted ?? false);
-        
-        // Check voting round status
-        try {
-          const roundsRes = await fetch("/api/rounds");
-          if (roundsRes.ok) {
-            const rounds = await roundsRes.json();
-            if (Array.isArray(rounds)) {
-              const votingRound = rounds.find((r: any) => r.type === "VOTING");
-              setVotingRoundCompleted(votingRound?.isCompleted || false);
-            }
-          }
-        } catch (roundsError) {
-          console.warn("Failed to check voting round status:", roundsError);
-        }
-      } catch (error) {
-        console.warn("Error polling pitch status:", error);
+      } catch (e) {
+        console.warn('Failed to check rounds status', e);
       }
     };
 
-    const interval = setInterval(pollPitchStatus, 2000);
-    pollPitchStatus();
-    
-    return () => clearInterval(interval);
+    checkRounds();
   }, []);
 
-  // Countdown timer effect for legacy voting
-  useEffect(() => {
-    if (!votingActive || !votingStartTime || pitchCycleActive) {
-      return;
-    }
-
-    const timer = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - votingStartTime) / 1000);
-      const remaining = Math.max(0, 30 - elapsed);
-      setVotingTimeLeft(remaining);
-      
-      if (remaining === 0) {
-        // Time's up - voting should be disabled
-        setVotingTimeLeft(null);
-        setVotingStartTime(null);
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [votingActive, votingStartTime, pitchCycleActive]);
-
-  // Real-time timer update for pitch cycle
-  useEffect(() => {
-    if (!pitchCycleActive || !cycleStartTime) {
-      return;
-    }
-
-    const timer = setInterval(() => {
-      const elapsed = Math.floor((Date.now() - cycleStartTime) / 1000);
-      let newPhase: 'idle' | 'pitching' | 'preparing' | 'voting' = 'idle';
-      let timeLeft = 0;
-      
-      if (elapsed < 90) {
-        newPhase = 'pitching';
-        timeLeft = 90 - elapsed;
-      } else if (elapsed < 95) {
-        newPhase = 'preparing';
-        timeLeft = 95 - elapsed;
-      } else if (elapsed < 125) {
-        newPhase = 'voting';
-        timeLeft = 125 - elapsed;
-      }
-      
-      setCurrentPhase(newPhase);
-      setPhaseTimeLeft(Math.max(0, timeLeft));
-      
-      if (elapsed >= 125) {
-        // Cycle should end
-        setPitchCycleActive(false);
-        setCurrentPhase('idle');
-        setPhaseTimeLeft(0);
-        setVotingActive(false);
-        setCycleStartTime(null);
-      }
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [pitchCycleActive, cycleStartTime]);
+  // hook provides phaseTimeLeft and other data; no manual timers needed here
 
   // Cast vote function
   const castVote = async () => {

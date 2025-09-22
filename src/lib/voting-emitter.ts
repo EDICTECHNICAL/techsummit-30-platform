@@ -2,6 +2,11 @@
 class VotingEventEmitter {
   private static instance: VotingEventEmitter;
   private clients: Set<(data: any) => void> = new Set();
+  private coalesceTimer: NodeJS.Timeout | null = null;
+  private pending: any = null;
+  private readonly COALESCE_MS = 150;
+  private readonly HEARTBEAT_MS = 15000; // 15s heartbeat
+  private heartbeatTimer: NodeJS.Timeout | null = null;
 
   static getInstance(): VotingEventEmitter {
     if (!VotingEventEmitter.instance) {
@@ -13,20 +18,47 @@ class VotingEventEmitter {
   addClient(sendEvent: (data: any) => void) {
     this.clients.add(sendEvent);
     console.log(`SSE: Client connected. Active connections: ${this.clients.size}`);
+    // start heartbeat timer when first client connects
+    if (!this.heartbeatTimer) {
+      this.heartbeatTimer = setInterval(() => {
+        this.immediateBroadcast({ type: 'heartbeat', timestamp: Date.now() });
+      }, this.HEARTBEAT_MS);
+    }
   }
 
   removeClient(sendEvent: (data: any) => void) {
     this.clients.delete(sendEvent);
     console.log(`SSE: Client disconnected. Active connections: ${this.clients.size}`);
+    // stop heartbeat when no clients
+    if (this.clients.size === 0 && this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+  // Coalesced broadcast: batch rapid successive calls to reduce churn
+  broadcast(data: any) {
+    this.pending = data;
+    if (this.coalesceTimer) return;
+    this.coalesceTimer = setTimeout(() => {
+      const d = this.pending;
+      this.pending = null;
+      this.coalesceTimer = null;
+      this.immediateBroadcast(d);
+    }, this.COALESCE_MS);
   }
 
-  broadcast(data: any) {
+  // Immediately broadcast without coalescing (used for heartbeats or critical events)
+  immediateBroadcast(data: any) {
     const clientCount = this.clients.size;
-    console.log(`SSE: Broadcasting to ${clientCount} clients:`, data.type || 'unknown');
-    
+    try {
+      console.log(`SSE: Broadcasting to ${clientCount} clients:`, data.type || 'unknown');
+    } catch (e) {
+      // ignore logging errors
+    }
+
     let successCount = 0;
     let errorCount = 0;
-    
+
     this.clients.forEach(client => {
       try {
         client(data);
@@ -37,7 +69,7 @@ class VotingEventEmitter {
         errorCount++;
       }
     });
-    
+
     if (errorCount > 0) {
       console.log(`SSE: Broadcast completed. Success: ${successCount}, Errors: ${errorCount}, Remaining: ${this.clients.size}`);
     }

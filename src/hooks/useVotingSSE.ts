@@ -27,17 +27,21 @@ export function useVotingSSE() {
         console.log('SSE: Connected to voting updates');
         setIsConnected(true);
         setConnectionAttempts(0);
+        // On connect, dispatch a synthetic event so consumers can react
+        setLastEvent({ type: 'connected', timestamp: Date.now() });
       };
 
       eventSource.onmessage = (event) => {
         try {
           const data: SSEEvent = JSON.parse(event.data);
-          
           // Skip heartbeat events for state updates
-          if (data.type !== 'heartbeat') {
-            setLastEvent(data);
-            console.log('SSE: Received event:', data);
+          if (data.type && data.type === 'heartbeat') {
+            // ignore
+            return;
           }
+
+          setLastEvent(data);
+          console.log('SSE: Received event:', data);
         } catch (error) {
           console.error('SSE: Error parsing event data:', error);
         }
@@ -53,7 +57,7 @@ export function useVotingSSE() {
 
         // Attempt to reconnect with exponential backoff
         const backoffDelay = Math.min(1000 * Math.pow(2, connectionAttempts), 30000);
-        
+
         if (reconnectTimeoutRef.current) {
           clearTimeout(reconnectTimeoutRef.current);
         }

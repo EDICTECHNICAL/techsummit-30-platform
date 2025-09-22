@@ -2,6 +2,11 @@
 class RatingEventEmitter {
   private static instance: RatingEventEmitter;
   private clients: Set<(data: any) => void> = new Set();
+  private coalesceTimer: NodeJS.Timeout | null = null;
+  private pending: any = null;
+  private readonly COALESCE_MS = 150;
+  private readonly HEARTBEAT_MS = 15000;
+  private heartbeatTimer: NodeJS.Timeout | null = null;
 
   static getInstance(): RatingEventEmitter {
     if (!RatingEventEmitter.instance) {
@@ -13,20 +18,41 @@ class RatingEventEmitter {
   addClient(sendEvent: (data: any) => void) {
     this.clients.add(sendEvent);
     console.log(`SSE Rating: Client connected. Active connections: ${this.clients.size}`);
+    if (!this.heartbeatTimer) {
+      this.heartbeatTimer = setInterval(() => {
+        this.immediateBroadcast({ type: 'heartbeat', timestamp: Date.now() });
+      }, this.HEARTBEAT_MS);
+    }
   }
 
   removeClient(sendEvent: (data: any) => void) {
     this.clients.delete(sendEvent);
     console.log(`SSE Rating: Client disconnected. Active connections: ${this.clients.size}`);
+    if (this.clients.size === 0 && this.heartbeatTimer) {
+      clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+    }
+  }
+  broadcast(data: any) {
+    this.pending = data;
+    if (this.coalesceTimer) return;
+    this.coalesceTimer = setTimeout(() => {
+      const d = this.pending;
+      this.pending = null;
+      this.coalesceTimer = null;
+      this.immediateBroadcast(d);
+    }, this.COALESCE_MS);
   }
 
-  broadcast(data: any) {
+  immediateBroadcast(data: any) {
     const clientCount = this.clients.size;
-    console.log(`SSE Rating: Broadcasting to ${clientCount} clients:`, data.type || 'unknown');
-    
+    try {
+      console.log(`SSE Rating: Broadcasting to ${clientCount} clients:`, data.type || 'unknown');
+    } catch (e) {}
+
     let successCount = 0;
     let errorCount = 0;
-    
+
     this.clients.forEach(client => {
       try {
         client(data);
@@ -37,7 +63,7 @@ class RatingEventEmitter {
         errorCount++;
       }
     });
-    
+
     if (errorCount > 0) {
       console.log(`SSE Rating: Broadcast completed. Success: ${successCount}, Errors: ${errorCount}, Remaining: ${this.clients.size}`);
     }

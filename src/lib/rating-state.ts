@@ -4,7 +4,7 @@ type RatingTeam = { id: string | number; name: string } | null;
 
 export const PITCH_SEC = 300; // 5 minutes
 export const WARNING_SEC = 5;
-export const RATING_SEC = 300; // 5 minutes (increased from 2 minutes for testing)
+export const RATING_SEC = 120; // 2 minutes - teams + judges rating phase
 
 export let ratingState: {
   team: RatingTeam;

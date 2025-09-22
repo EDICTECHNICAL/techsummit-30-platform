@@ -12,7 +12,7 @@ import { useRatingSSE } from "@/hooks/useRatingSSE";
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BackButton } from "@/components/BackButton";
-import { useCentralizedTimer } from "@/hooks/useCentralizedTimer"; // Import the new hook
+import { useRatingTimer } from '@/hooks/useRatingTimer';
 
 interface Team {
   id: number;
@@ -49,9 +49,6 @@ export default function FinalPage() {
   // Page lock functionality
   const { isCompleted: isFinalCompleted, loading: roundLoading } = useRoundStatus('FINAL');
   
-  // Real-time updates via SSE
-  const { isConnected: sseConnected, lastEvent } = useRatingSSE();
-  
   const { data: session, isPending } = useSession();
   const [teams, setTeams] = useState<Team[]>([]);
   const [myRatings, setMyRatings] = useState<PeerRating[]>([]);
@@ -65,7 +62,7 @@ export default function FinalPage() {
   const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<'rate' | 'status'>('status');
 
-  // Centralized Timer Hook
+  // Per-finals rating timer hook
   const { 
     currentPitchTeam, 
     ratingActive, 
@@ -74,8 +71,9 @@ export default function FinalPage() {
     currentPhase, 
     phaseTimeLeft, 
     cycleStartTime, 
-    pollRatingStatus 
-  } = useCentralizedTimer();
+    sseConnected,
+    poll
+  } = useRatingTimer();
 
   // Round completion tracking
   const [quizCompleted, setQuizCompleted] = useState<boolean>(false);
@@ -104,35 +102,19 @@ export default function FinalPage() {
     setTimeout(() => setMsg(null), 5000);
   }, []);
 
-  // Handle real-time SSE updates
+  // React to connection and state changes via hook's sseConnected and provided state
   useEffect(() => {
-    if (!lastEvent) return;
-
-    console.log('Processing Rating SSE event:', lastEvent);
-
-    switch (lastEvent.type) {
-      case 'teamChanged':
-        if (lastEvent.data) {
-          showMessage(`New team is pitching: ${lastEvent.data.team?.name || 'None'}`, 'info');
-        }
-        break;
-      
-      case 'ratingStateChanged':
-        if (lastEvent.data) {
-          // Handle rating state changes
-          if (lastEvent.data.ratingActive && !ratingActive) {
-            showMessage('Rating is now active!', 'success');
-          } else if (!lastEvent.data.ratingActive && ratingActive) {
-            showMessage('Rating has ended', 'info');
-          }
-        }
-        break;
-        
-      case 'connected':
-        showMessage('Connected to real-time updates', 'success');
-        break;
+    if (sseConnected) {
+      showMessage('Connected to real-time updates', 'success');
     }
-  }, [lastEvent, ratingActive, showMessage]);
+  }, [sseConnected, showMessage]);
+
+  useEffect(() => {
+    // notify users on rating start/stop
+    if (ratingActive) {
+      showMessage('Rating is now active!', 'success');
+    }
+  }, [ratingActive, showMessage]);
 
   useEffect(() => {
     // Initial data load and round completion check
@@ -853,7 +835,23 @@ export default function FinalPage() {
 
         {/* Quick Actions */}
         <div className="mt-8 flex flex-wrap gap-4 justify-center">
-          <Button onClick={loadData} variant="secondary" size="default" disabled={loading}>
+          <Button
+            onClick={async () => {
+              try {
+                setLoading(true);
+                // Let the rating hook refresh timer state first, then reload page data silently
+                await poll();
+                await loadData();
+              } catch (e) {
+                console.warn('Silent refresh failed', e);
+              } finally {
+                setLoading(false);
+              }
+            }}
+            variant="secondary"
+            size="default"
+            disabled={loading}
+          >
             {loading ? 'Refreshing...' : 'Refresh Data'}
           </Button>
           <a href="/scoreboard">

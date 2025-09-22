@@ -15,20 +15,25 @@ export function useRatingSSE() {
   useEffect(() => {
     let eventSource: EventSource | null = null;
     let reconnectTimeout: NodeJS.Timeout | null = null;
+    let connectionAttempts = 0;
 
     const connect = () => {
       try {
         eventSource = new EventSource('/api/sse/rating');
-        
+
         eventSource.onopen = () => {
           console.log('Rating SSE connected');
           setIsConnected(true);
           setError(null);
+          connectionAttempts = 0;
+          setLastEvent({ type: 'connected' });
         };
 
         eventSource.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            // Ignore heartbeat events
+            if (data && data.type === 'heartbeat') return;
             console.log('Rating SSE event received:', data);
             setLastEvent(data);
           } catch (parseError) {
@@ -40,14 +45,11 @@ export function useRatingSSE() {
           console.error('Rating SSE error:', error);
           setIsConnected(false);
           setError('Connection error');
-          
-          // Attempt to reconnect after 3 seconds
-          if (eventSource?.readyState === EventSource.CLOSED) {
-            reconnectTimeout = setTimeout(() => {
-              console.log('Attempting to reconnect Rating SSE...');
-              connect();
-            }, 3000);
-          }
+
+          const backoff = Math.min(1000 * Math.pow(2, connectionAttempts), 30000);
+          connectionAttempts++;
+          if (reconnectTimeout) clearTimeout(reconnectTimeout);
+          reconnectTimeout = setTimeout(() => connect(), backoff);
         };
 
       } catch (error) {

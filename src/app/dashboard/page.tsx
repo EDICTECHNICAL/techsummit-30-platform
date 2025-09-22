@@ -7,6 +7,8 @@ import { DashboardNavbar } from "@/components/DashboardNavbar";
 import { CircleLoader } from "@/components/CircleLoader";
 import { useTheme } from "@/components/ThemeProvider";
 import { Button } from "@/components/ui/button";
+import { useVotingTimer } from '@/hooks/useVotingTimer';
+import { useRatingTimer } from '@/hooks/useRatingTimer';
 import { 
   Trophy, 
   Users, 
@@ -177,6 +179,25 @@ export default function DashboardPage() {
       return () => clearInterval(interval);
     }
   }, [user]);
+
+  // Poll hooks to keep timer state fresh when user triggers manual refresh
+  const { poll: pollVotingStatus } = useVotingTimer();
+  const { poll: pollRatingStatus } = useRatingTimer();
+
+  const refreshStatuses = async () => {
+    try {
+      setRefreshing(true);
+      await Promise.all([
+        pollVotingStatus(),
+        pollRatingStatus()
+      ]);
+      await checkRoundStatuses();
+    } catch (e) {
+      console.error("Failed to refresh statuses:", e);
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const getRoundStatusIcon = (status: string, isActive: boolean) => {
     if (status === 'COMPLETED') return <CheckCircle className="w-5 h-5 text-green-500" />;
@@ -511,7 +532,7 @@ export default function DashboardPage() {
                 Event Schedule
               </h2>
               <Button 
-                onClick={checkRoundStatuses}
+                onClick={refreshStatuses}
                 disabled={refreshing}
                 variant="outline"
                 className="group inline-flex items-center gap-2 px-4 py-2 bg-card/50 backdrop-blur-sm border border-border/50 rounded-xl hover:border-primary/30 transition-all duration-300 hover:-translate-y-1 disabled:opacity-50"

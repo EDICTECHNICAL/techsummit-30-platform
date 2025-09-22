@@ -5,7 +5,9 @@ import Link from "next/link";
 import { useSession } from "@/lib/auth-client";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BackButton } from "@/components/BackButton";
-import { useCentralizedTimer } from "@/hooks/useCentralizedTimer";
+// centralized timer removed - use per-round hooks
+import { useVotingTimer } from '@/hooks/useVotingTimer';
+import { useRatingTimer } from '@/hooks/useRatingTimer';
 
 export default function AdminPage() {
   const [isAdminAuthenticated, setIsAdminAuthenticated] = useState(false);
@@ -15,10 +17,7 @@ export default function AdminPage() {
   const [users, setUsers] = useState<any[]>([]);
   const [questions, setQuestions] = useState<any[]>([]);
   const [currentPitchTeamId, setCurrentPitchTeamId] = useState<number | null>(null);
-  const [votingActive, setVotingActive] = useState(false);
-  // Pitch cycle state - using centralized timer
-  const [pitchCycleActive, setPitchCycleActive] = useState(false);
-  const [votingPhase, setVotingPhase] = useState<'preparing' | 'voting'>('preparing');
+  // Per-round timer state comes from hooks (no local state to avoid collisions)
   
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -42,17 +41,29 @@ export default function AdminPage() {
   // Fullscreen state
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Centralized Timer Hook
+  // Per-round timers
   const {
-    currentPitchTeam,
+    currentPitchTeam: votingCurrentTeam,
+    votingActive,
+    pitchCycleActive,
+    currentPhase: votingPhase,
+    phaseTimeLeft: votingPhaseTimeLeft,
+    cycleStartTime: votingCycleStartTime,
+    sseConnected: votingSseConnected,
+    poll: pollVotingStatus
+  } = useVotingTimer();
+
+  const {
+    currentPitchTeam: ratingCurrentTeam,
     ratingActive,
     allPitchesCompleted,
     ratingCycleActive,
     currentPhase,
     phaseTimeLeft,
-    cycleStartTime: centralizedCycleStartTime,
-    pollRatingStatus
-  } = useCentralizedTimer();
+    cycleStartTime: ratingCycleStartTime,
+    sseConnected: ratingSseConnected,
+    poll: pollRatingStatus
+  } = useRatingTimer();
 
   // Authentication and redirection are now handled by Next.js middleware.
 
@@ -126,13 +137,14 @@ export default function AdminPage() {
 
       if (votingRes.status === 'fulfilled' && votingRes.value.ok) {
         const votingData = await votingRes.value.json();
-        setVotingActive(votingData.active || false);
+        // trigger the voting hook to refresh its state
+        try { await pollVotingStatus(); } catch (e) { /* ignore */ }
       }
 
       if (pitchRes.status === 'fulfilled' && pitchRes.value.ok) {
         const pitchData = await pitchRes.value.json();
         setCurrentPitchTeamId(pitchData.currentTeamId || null);
-        // allPitchesCompleted is now managed by centralized timer
+        // allPitchesCompleted is now managed by rating timer
       }
 
       // Non-critical data (longer timeout, can fail gracefully)
@@ -260,6 +272,23 @@ export default function AdminPage() {
     fetchAllData();
   }, [authChecked, isAdminAuthenticated]);
 
+  // Silent refresh that ensures per-round timers are polled before reloading admin data
+  const refreshAllData = async () => {
+    try {
+      setLoading(true);
+      // Poll timer hooks first so UI updates quickly without a blocking overlay
+      await Promise.allSettled([
+        pollVotingStatus().catch(() => {}),
+        pollRatingStatus().catch(() => {})
+      ]);
+      await fetchAllData();
+    } catch (err) {
+      console.error('Failed to silently refresh all data', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Round management functions
   const updateRound = async (roundId: number, status: "PENDING"|"ACTIVE"|"COMPLETED") => {
     setLoading(true);
@@ -291,14 +320,22 @@ export default function AdminPage() {
   // Voting control functions
   const setPitchTeam = async (teamId: number) => {
     try {
-      setCurrentPitchTeamId(teamId);
-      setVotingActive(false);
       const team = teams.find(t => t.id === teamId);
-      await fetch("/api/voting/current", {
+      const res = await fetch("/api/voting/current", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamId, teamName: team?.name })
       });
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err?.error || 'Failed to set pitching team');
+      }
+
+      // Update local view only after the server confirms
+      setCurrentPitchTeamId(teamId);
+      // Refresh voting hook state so all clients get authoritative snapshot
+      try { await pollVotingStatus(); } catch (e) { /* ignore */ }
       setSuccess(`Set ${team?.name} as pitching team`);
     } catch (err) {
       setError("Failed to set pitching team");
@@ -307,12 +344,15 @@ export default function AdminPage() {
 
   const startVoting = async () => {
     try {
-      setVotingActive(true);
-      await fetch("/api/voting/current", {
+      const res = await fetch("/api/voting/current", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ votingActive: true })
       });
+
+      if (!res.ok) throw new Error('Failed to start voting');
+      // Ensure clients refresh their voting state
+      try { await pollVotingStatus(); } catch (e) { /* ignore */ }
       setSuccess("Voting started for 30 seconds");
     } catch (err) {
       setError("Failed to start voting");
@@ -321,12 +361,14 @@ export default function AdminPage() {
 
   const endVoting = async () => {
     try {
-      setVotingActive(false);
-      await fetch("/api/voting/current", {
+      const res = await fetch("/api/voting/current", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ votingActive: false })
       });
+
+      if (!res.ok) throw new Error('Failed to end voting');
+      try { await pollVotingStatus(); } catch (e) { /* ignore */ }
       setSuccess("Voting ended");
     } catch (err) {
       setError("Failed to end voting");
@@ -363,7 +405,7 @@ export default function AdminPage() {
       // setCycleStartTime(Date.now());
       
       // Update backend to start pitch cycle
-      await fetch("/api/voting/current", {
+      const res = await fetch("/api/voting/current", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -373,7 +415,10 @@ export default function AdminPage() {
           cycleStartTime: Date.now()
         })
       });
-      
+
+      if (!res.ok) throw new Error('Failed to start pitch cycle');
+      // ensure authoritative state is re-polled
+      try { await pollVotingStatus(); } catch (e) { /* ignore */ }
       setSuccess("Pitch cycle started - 90 seconds for pitch presentation");
     } catch (err) {
       setError("Failed to start pitch cycle");
@@ -391,7 +436,7 @@ export default function AdminPage() {
       // setVotingActive(false);
       
       // Update backend to end pitch cycle
-      await fetch("/api/voting/current", {
+      const res = await fetch("/api/voting/current", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -401,7 +446,9 @@ export default function AdminPage() {
           votingActive: false 
         })
       });
-      
+
+      if (!res.ok) throw new Error('Failed to end pitch cycle');
+      try { await pollVotingStatus(); } catch (e) { /* ignore */ }
       setSuccess("Pitch cycle ended");
     } catch (err) {
       setError("Failed to end pitch cycle");
@@ -932,56 +979,54 @@ export default function AdminPage() {
                   })()}
                 </div>
                 <div className="flex flex-col gap-2">
-                  <div className="text-sm text-muted-foreground">
+                    <div className="text-sm text-muted-foreground">
                     Current: {currentPitchTeamId ? teams.find(t => t.id === currentPitchTeamId)?.name : 'None'}
                   </div>
                   <div className="text-sm text-muted-foreground">
-                    Cycle Status: {ratingCycleActive ? '🟢 Active' : '🔴 Inactive'}
+                    Cycle Status: {pitchCycleActive ? '🟢 Active' : '🔴 Inactive'}
                   </div>
-                  {ratingCycleActive && (
+                  {pitchCycleActive && (
                     <div className="text-sm font-medium">
-                      Phase: <span className="capitalize">{currentPhase}</span> ({phaseTimeLeft}s remaining)
+                      Phase: <span className="capitalize">{votingPhase}</span> ({Math.ceil(votingPhaseTimeLeft)}s remaining)
                     </div>
                   )}
                 </div>
               </div>
 
               {/* Pitch Cycle Timer Display */}
-              {ratingCycleActive && (
+              {pitchCycleActive && (
                 <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-950 rounded-lg border dark:border-blue-700">
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-medium text-blue-900 dark:text-blue-300">
-                      {currentPhase === 'pitching' && '🎤 Pitch Presentation'}
-                      {currentPhase === 'qna-pause' && '❓ Q&A Session'}
-                      {currentPhase === 'rating-warning' && '⚠️ Rating Warning'}
-                      {currentPhase === 'rating-active' && '⭐ Rating Active'}
+                      {votingPhase === 'pitching' && '🎤 Pitch Presentation'}
+                      {votingPhase === 'preparing' && '⚠️ Preparing / Warning'}
+                      {votingPhase === 'voting' && '⭐ Voting Active'}
                     </h4>
                     <div className="text-2xl font-bold text-blue-800 dark:text-blue-200">
-                      {phaseTimeLeft}s
+                      {votingPhaseTimeLeft}s
                     </div>
                   </div>
                   <div className="w-full bg-blue-200 dark:bg-blue-900 rounded-full h-3">
                     <div 
                       className={`h-3 rounded-full transition-all duration-1000 ${
-                        currentPhase === 'pitching' ? 'bg-green-500 dark:bg-green-600' :
-                        currentPhase === 'qna-pause' ? 'bg-yellow-500 dark:bg-yellow-600' :
-                        currentPhase === 'rating-warning' ? 'bg-red-500 dark:bg-red-600' :
+                        votingPhase === 'pitching' ? 'bg-green-500 dark:bg-green-600' :
+                        votingPhase === 'preparing' ? 'bg-yellow-500 dark:bg-yellow-600' :
+                        votingPhase === 'voting' ? 'bg-red-500 dark:bg-red-600' :
                         'bg-green-500 dark:bg-green-600'
                       }`}
                       style={{ 
                         width: `${Math.max(0, Math.min(100,
-                          currentPhase === 'pitching' ? (phaseTimeLeft / 300) * 100 : // 5 minutes
-                          currentPhase === 'rating-warning' ? (phaseTimeLeft / 5) * 100 : // 5 seconds
-                          (phaseTimeLeft / 120) * 100 // 2 minutes
+                          votingPhase === 'pitching' ? (votingPhaseTimeLeft / 90) * 100 : // 90 seconds
+                          votingPhase === 'preparing' ? (votingPhaseTimeLeft / 5) * 100 : // 5 seconds
+                          (votingPhaseTimeLeft / 30) * 100 // 30 seconds
                         ))}%` 
                       }}
                     ></div>
                   </div>
                   <div className="mt-2 text-xs text-blue-700 dark:text-blue-400">
-                    {currentPhase === 'pitching' && 'Team is presenting their pitch (5 minutes)'}
-                    {currentPhase === 'qna-pause' && 'Q&A session active - Timer paused (admin controlled)'}
-                    {currentPhase === 'rating-warning' && '5-second warning before rating starts'}
-                    {currentPhase === 'rating-active' && 'Rating phase active (2 minutes)'}
+                    {votingPhase === 'pitching' && 'Team is presenting their pitch (90 seconds)'}
+                    {votingPhase === 'preparing' && 'Preparing / 5-second warning before voting starts'}
+                    {votingPhase === 'voting' && 'Voting phase active (30 seconds)'}
                   </div>
                 </div>
               )}
@@ -1665,11 +1710,11 @@ export default function AdminPage() {
                   <div className="text-sm text-muted-foreground">Check application logs</div>
                 </button>
                 <button 
-                  onClick={fetchAllData}
+                  onClick={refreshAllData}
                   className="rounded-md border border-border dark:border-border/50 px-4 py-3 hover:bg-accent dark:hover:bg-accent/50 text-left"
                 >
                   <div className="font-medium">Refresh All Data</div>
-                  <div className="text-sm text-muted-foreground">Reload all dashboard data</div>
+                  <div className="text-sm text-muted-foreground">Reload all dashboard data (silent)</div>
                 </button>
               </div>
             </div>
