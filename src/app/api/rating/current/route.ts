@@ -1,17 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { ratingEmitter } from '@/lib/rating-emitter';
 import {
-  getRatingState,
-  setTeam as setRatingTeam,
-  startRatingCycle,
-  startQnaPause,
-  startRatingWarning,
-  startRatingPhase,
-  stopRatingCycle,
-  setRatingActiveManually,
-  setAllPitchesCompleted,
-  ratingState as sharedRatingState,
-} from '@/lib/rating-state';
+  getRatingStateFromDb,
+  setTeamInDb,
+  startRatingCycleInDb,
+  startQnaPauseInDb,
+  startRatingWarningInDb,
+  startRatingPhaseInDb,
+  stopRatingCycleInDb,
+  setAllPitchesCompletedInDb,
+  maybeAdvancePhaseOnRead,
+} from '@/lib/rating-state-db';
 
 // Helper function to check admin authentication (both JWT and cookie-based)
 function checkAdminAuth(req: NextRequest): boolean {
@@ -28,9 +27,14 @@ function checkAdminAuth(req: NextRequest): boolean {
 // GET handler - Get current rating state (public endpoint)
 export async function GET(request: NextRequest) {
   try {
-    // Return centralized rating state (read-only)
-    const currentState = getRatingState();
-    console.log('GET /api/rating/current - returning centralized state:', currentState);
+    // Return centralized rating state (read-only). Advance phases if needed.
+    try {
+      await maybeAdvancePhaseOnRead();
+    } catch (err) {
+      console.error('Error advancing rating phase on read:', err);
+    }
+    const currentState = await getRatingStateFromDb();
+    console.log('GET /api/rating/current - returning centralized state (db):', currentState);
     return NextResponse.json(currentState);
   } catch (error) {
     console.error('GET rating current error:', error);
@@ -65,18 +69,18 @@ export async function POST(request: NextRequest) {
     if (requestBody.action) {
       switch (requestBody.action) {
         case 'start':
-          startRatingCycle();
-          return NextResponse.json({ success: true, ratingState: getRatingState(), message: 'Rating cycle started successfully' });
+          await startRatingCycleInDb();
+          return NextResponse.json({ success: true, ratingState: await getRatingStateFromDb(), message: 'Rating cycle started successfully' });
         case 'start-qna':
-          startQnaPause();
-          return NextResponse.json({ success: true, ratingState: getRatingState(), message: 'Q&A session started successfully' });
+          await startQnaPauseInDb();
+          return NextResponse.json({ success: true, ratingState: await getRatingStateFromDb(), message: 'Q&A session started successfully' });
         case 'start-rating':
           // start with warning phase
-          startRatingWarning();
-          return NextResponse.json({ success: true, ratingState: getRatingState(), message: 'Rating warning started - 5 seconds until rating begins' });
+          await startRatingWarningInDb();
+          return NextResponse.json({ success: true, ratingState: await getRatingStateFromDb(), message: 'Rating warning started - 5 seconds until rating begins' });
         case 'stop':
-          stopRatingCycle();
-          return NextResponse.json({ success: true, ratingState: getRatingState(), message: 'Rating cycle stopped successfully' });
+          await stopRatingCycleInDb();
+          return NextResponse.json({ success: true, ratingState: await getRatingStateFromDb(), message: 'Rating cycle stopped successfully' });
         default:
           return NextResponse.json({ error: 'Invalid action. Supported actions: start, start-qna, start-rating, stop' }, { status: 400 });
       }
@@ -102,11 +106,10 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // Set the team using centralized state
-    setRatingTeam(teamId && name ? { id: teamId, name } : null);
-    // Emit explicit teamChanged event for compatibility
-    ratingEmitter.broadcast({ type: 'teamChanged', data: getRatingState() });
-    return NextResponse.json({ success: true, ratingState: getRatingState(), message: getRatingState().team ? `Set current team to ${name}` : 'Cleared current team' });
+  // Set the team using DB-backed state
+  await setTeamInDb(teamId && name ? { id: teamId, name } : null);
+  // Emit explicit teamChanged event for compatibility is handled by broadcast
+  return NextResponse.json({ success: true, ratingState: await getRatingStateFromDb(), message: (await getRatingStateFromDb()).team ? `Set current team to ${name}` : 'Cleared current team' });
 
   } catch (error: any) {
     console.error('POST rating current error:', error);
@@ -152,48 +155,44 @@ export async function PATCH(request: NextRequest) {
     }
 
     const { ratingActive, allPitchesCompleted, ratingCycleActive, currentPhase, phaseTimeLeft, cycleStartTime, phaseStartTime } = await request.json();
-    
-    // Update rating state (mutate centralized sharedRatingState)
-    if (typeof ratingActive === 'boolean') {
-      sharedRatingState.ratingActive = ratingActive;
+
+    // Apply updates to DB-backed rating state
+    try {
+      const { db } = await import('@/db');
+      const { ratingState } = await import('@/db/schema');
+      const { eq } = await import('drizzle-orm');
+
+      const updates: any = { updated_at: new Date() };
+      if (typeof ratingActive === 'boolean') updates.rating_active = ratingActive;
+      if (typeof allPitchesCompleted === 'boolean') updates.all_pitches_completed = allPitchesCompleted;
+      if (typeof ratingCycleActive === 'boolean') {
+        updates.rating_cycle_active = ratingCycleActive;
+        if (!ratingCycleActive) {
+          updates.current_phase = 'idle';
+          updates.phase_start_ts = null;
+          updates.cycle_start_ts = null;
+          updates.rating_active = false;
+        }
+      }
+      if (currentPhase && ['idle', 'pitching', 'qna-pause', 'rating-warning', 'rating-active'].includes(currentPhase)) {
+        updates.current_phase = currentPhase;
+      }
+      // Accept explicit timestamps (ms since epoch) or null
+      if (typeof cycleStartTime === 'number') updates.cycle_start_ts = new Date(cycleStartTime);
+      if (cycleStartTime === null) updates.cycle_start_ts = null;
+      if (typeof phaseStartTime === 'number') updates.phase_start_ts = new Date(phaseStartTime);
+      if (phaseStartTime === null) updates.phase_start_ts = null;
+
+      await db.update(ratingState).set(updates).where(eq(ratingState.id, 1));
+      // Broadcast updated state
+      const updated = await getRatingStateFromDb();
+      ratingEmitter.broadcast({ type: 'ratingStateChanged', data: updated });
+
+      return NextResponse.json({ success: true, ratingState: updated, message: 'Rating state updated successfully' });
+    } catch (err) {
+      console.error('Error updating rating state in DB:', err);
+      return NextResponse.json({ error: 'Failed to update rating state', details: err instanceof Error ? err.message : String(err) }, { status: 500 });
     }
-
-    if (typeof allPitchesCompleted === 'boolean') {
-      sharedRatingState.allPitchesCompleted = allPitchesCompleted;
-    }
-
-    // Update rating cycle state
-    if (typeof ratingCycleActive === 'boolean') {
-      sharedRatingState.ratingCycleActive = ratingCycleActive;
-    }
-
-    if (currentPhase && ['idle', 'pitching', 'qna-pause', 'rating-warning', 'rating-active'].includes(currentPhase)) {
-      sharedRatingState.currentPhase = currentPhase as any;
-    }
-
-    if (typeof phaseTimeLeft === 'number') {
-      sharedRatingState.phaseTimeLeft = phaseTimeLeft;
-    }
-
-    if (typeof cycleStartTime === 'number' || cycleStartTime === null) {
-      sharedRatingState.cycleStartTime = cycleStartTime as any;
-    }
-
-    if (typeof phaseStartTime === 'number' || phaseStartTime === null) {
-      sharedRatingState.phaseStartTime = phaseStartTime as any;
-    }
-
-    // Broadcast the rating state change via SSE
-    ratingEmitter.broadcast({
-      type: 'ratingStateChanged',
-      data: sharedRatingState
-    });
-
-    return NextResponse.json({
-      success: true,
-      ratingState: sharedRatingState,
-      message: 'Rating state updated successfully'
-    });
 
   } catch (error: any) {
     console.error('PATCH rating current error:', error);

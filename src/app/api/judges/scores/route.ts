@@ -38,10 +38,9 @@ export async function POST(request: NextRequest) {
 
     // Check if rating is currently active (using database query instead of API call)
     try {
-      // Import rating state functions
-      const { getRatingState } = await import('@/lib/rating-state');
-      const ratingState = getRatingState();
-      
+      // Use DB-backed rating state
+      const { getRatingStateFromDb } = await import('@/lib/rating-state-db');
+      const ratingState = await getRatingStateFromDb();
       if (!ratingState.ratingActive || ratingState.currentPhase !== 'rating-active') {
         return NextResponse.json({ 
           error: 'Rating is not currently active', 

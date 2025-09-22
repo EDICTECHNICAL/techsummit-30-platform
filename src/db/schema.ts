@@ -228,3 +228,19 @@ export const votingState = pgTable('voting_state', {
   phaseStartTs: timestamp('phase_start_ts', { withTimezone: false }),
   updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow()
 });
+
+// Rating state (single-row canonical state for final ratings)
+export const ratingState = pgTable('rating_state', {
+  id: serial('id').primaryKey(),
+  currentTeamId: integer('current_team_id'),
+  currentTeamName: text('current_team_name'),
+  ratingCycleActive: boolean('rating_cycle_active').notNull().default(false),
+  ratingActive: boolean('rating_active').notNull().default(false),
+  allPitchesCompleted: boolean('all_pitches_completed').notNull().default(false),
+  // Migration creates `current_phase` as nullable text; keep it nullable here to match DB.
+  currentPhase: text('current_phase'),
+  // Migration uses TIMESTAMPTZ; use withTimezone: true to match.
+  cycleStartTs: timestamp('cycle_start_ts', { withTimezone: true }),
+  phaseStartTs: timestamp('phase_start_ts', { withTimezone: true }),
+  updatedAt: timestamp('updated_at', { withTimezone: true }).notNull().defaultNow()
+});

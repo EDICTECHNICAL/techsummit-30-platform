@@ -9,12 +9,15 @@
     "lint": "next lint",
     "clean": "rm -rf .next && rm -rf node_modules/.cache",
     "build:clean": "npm run clean && npm run build",
+    "test:smoke": "node scripts/test-rating-api.js",
+  "test": "npm run test:smoke && npm run test:sse",
+  "test:sse": "node scripts/test-rating-sse.js",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-  "db:optimize": "echo 'db:optimize archived - see archive/scripts'",
-  "db:check": "echo 'db:check archived - see archive/scripts'",
-  "postbuild": "echo 'Build completed successfully'"
+    "db:optimize": "echo 'db:optimize archived - see archive/scripts'",
+    "db:check": "echo 'db:check archived - see archive/scripts'",
+    "postbuild": "echo 'Build completed successfully'"
   },
   "dependencies": {
     "@babel/parser": "^7.28.4",
@@ -63,6 +66,7 @@
     "@types/react-dom": "^18.2.23",
     "eslint": "^9.35.0",
     "eslint-config-next": "15.3.5",
+    "eventsource": "^4.0.0",
     "tailwindcss": "^4",
     "tw-animate-css": "^1.3.8",
     "typescript": "^5"
