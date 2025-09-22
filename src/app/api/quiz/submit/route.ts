@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
 
     // Validate that each option belongs to its corresponding question
     for (const answer of answers) {
-      const option = optionsData.find(o => o.id === answer.optionId);
+      const option = optionsData.find((o: any) => o.id === answer.optionId);
       if (!option || option.questionId !== answer.questionId) {
         return NextResponse.json({ 
           error: 'Option does not belong to the specified question', 
@@ -143,7 +143,7 @@ export async function POST(req: NextRequest) {
     let rawScore = 0;
 
     for (const answer of answers) {
-      const option = optionsData.find(o => o.id === answer.optionId);
+      const option = optionsData.find((o: any) => o.id === answer.optionId);
       if (option) {
         tokensMarketing += option.tokenDeltaMarketing;
         tokensCapital += option.tokenDeltaCapital;

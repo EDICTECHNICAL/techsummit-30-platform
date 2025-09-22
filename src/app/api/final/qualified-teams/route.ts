@@ -44,8 +44,8 @@ export async function GET(request: NextRequest) {
       .orderBy(teams.id);
 
     // Calculate combined scores and rank teams
-    const rankedTeams = teamsWithScores
-      .map(team => {
+    const rankedTeams = (teamsWithScores as any[])
+      .map((team: any) => {
         // Calculate cumulative token score from all 4 categories - ensure integers
         const cumulativeTokenScore = Math.round(Number(team.tokensMarketing || 0)) + 
                                     Math.round(Number(team.tokensCapital || 0)) + 
@@ -65,7 +65,7 @@ export async function GET(request: NextRequest) {
           totalJudgeScore: Math.round(Number(team.totalJudgeScore || 0))
         };
       })
-      .sort((a, b) => {
+  .sort((a: any, b: any) => {
         // Primary sort: combined score (descending)
         if (b.combinedScore !== a.combinedScore) {
           return b.combinedScore - a.combinedScore;
@@ -81,7 +81,7 @@ export async function GET(request: NextRequest) {
         // Tiebreaker 3: Team name (ascending for consistency)
         return a.teamName.localeCompare(b.teamName);
       })
-      .map((team, index) => ({
+      .map((team: any, index: number) => ({
         ...team,
         rank: index + 1
       }));
@@ -90,11 +90,11 @@ export async function GET(request: NextRequest) {
     let qualificationNote = null;
     if (rankedTeams.length >= 5) {
       const cutoffScore = rankedTeams[4].combinedScore;
-      const teamsWithCutoffScore = rankedTeams.filter(team => team.combinedScore === cutoffScore);
+  const teamsWithCutoffScore = rankedTeams.filter((team: any) => team.combinedScore === cutoffScore);
       
       if (teamsWithCutoffScore.length > 1) {
-        const qualifiedFromTie = teamsWithCutoffScore.filter(team => team.rank <= 5);
-        const nonQualifiedFromTie = teamsWithCutoffScore.filter(team => team.rank > 5);
+  const qualifiedFromTie = teamsWithCutoffScore.filter((team: any) => team.rank <= 5);
+  const nonQualifiedFromTie = teamsWithCutoffScore.filter((team: any) => team.rank > 5);
         
         if (qualifiedFromTie.length > 0 && nonQualifiedFromTie.length > 0) {
           // Generate tiebreaker explanation
@@ -112,9 +112,9 @@ export async function GET(request: NextRequest) {
           
           qualificationNote = {
             type: 'tiebreaker',
-            message: `Tiebreaker applied for 5th position: ${qualifiedTeam.teamName} qualified over ${nonQualifiedFromTie.map(t => t.teamName).join(', ')} due to ${reason}.`,
+            message: `Tiebreaker applied for 5th position: ${qualifiedTeam.teamName} qualified over ${nonQualifiedFromTie.map((t: any) => t.teamName).join(', ')} due to ${reason}.`,
             tiedScore: cutoffScore,
-            tiedTeams: teamsWithCutoffScore.map(t => ({ name: t.teamName, rank: t.rank }))
+            tiedTeams: teamsWithCutoffScore.map((t: any) => ({ name: t.teamName, rank: t.rank }))
           };
         }
       }

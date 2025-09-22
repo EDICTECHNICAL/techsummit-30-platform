@@ -321,8 +321,9 @@ export default function AdminPage() {
   const setPitchTeam = async (teamId: number) => {
     try {
       const team = teams.find(t => t.id === teamId);
-      const res = await fetch("/api/voting/current", {
+      const res = await fetch("/api/admin/voting/start-cycle", {
         method: "POST",
+        credentials: 'include',
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ teamId, teamName: team?.name })
       });
@@ -336,7 +337,7 @@ export default function AdminPage() {
       setCurrentPitchTeamId(teamId);
       // Refresh voting hook state so all clients get authoritative snapshot
       try { await pollVotingStatus(); } catch (e) { /* ignore */ }
-      setSuccess(`Set ${team?.name} as pitching team`);
+      setSuccess(`Set ${team?.name} as pitching team and started cycle`);
     } catch (err) {
       setError("Failed to set pitching team");
     }
@@ -399,21 +400,12 @@ export default function AdminPage() {
     }
 
     try {
-      // setPitchCycleActive(true);
-      // setCurrentPhase('pitching');
-      // setPhaseTimeLeft(90);
-      // setCycleStartTime(Date.now());
-      
-      // Update backend to start pitch cycle
-      const res = await fetch("/api/voting/current", {
-        method: "PATCH",
+      const team = teams.find(t => t.id === currentPitchTeamId);
+      const res = await fetch("/api/admin/voting/start-cycle", {
+        method: "POST",
+        credentials: 'include',
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          pitchCycleActive: true,
-          currentPhase: 'pitching',
-          phaseTimeLeft: 90,
-          cycleStartTime: Date.now()
-        })
+        body: JSON.stringify({ teamId: currentPitchTeamId, teamName: team?.name })
       });
 
       if (!res.ok) throw new Error('Failed to start pitch cycle');
@@ -422,29 +414,14 @@ export default function AdminPage() {
       setSuccess("Pitch cycle started - 90 seconds for pitch presentation");
     } catch (err) {
       setError("Failed to start pitch cycle");
-      // setPitchCycleActive(false);
-      // setCurrentPhase('idle');
     }
   };
 
   const endPitchCycle = async () => {
     try {
-      // setPitchCycleActive(false);
-      // setCurrentPhase('idle');
-      // setPhaseTimeLeft(0);
-      // setCycleStartTime(null);
-      // setVotingActive(false);
-      
-      // Update backend to end pitch cycle
-      const res = await fetch("/api/voting/current", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-          pitchCycleActive: false,
-          currentPhase: 'idle',
-          phaseTimeLeft: 0,
-          votingActive: false 
-        })
+      const res = await fetch("/api/admin/voting/stop-cycle", {
+        method: "POST",
+        credentials: 'include'
       });
 
       if (!res.ok) throw new Error('Failed to end pitch cycle');
@@ -945,38 +922,15 @@ export default function AdminPage() {
                     disabled={ratingCycleActive}
                   >
                     <option value={''}>-- Select Team --</option>
-                    {(() => {
-                      const qualifiedTeams = teams.filter(team => team.qualifiedForFinal);
-                      const availableTeams = qualifiedTeams.length > 0 ? qualifiedTeams : teams;
-                      return availableTeams.map(t => (
-                        <option key={t.id} value={t.id}>
-                          {t.name} (#{t.id}){t.qualifiedForFinal ? ' ✅' : ''}
-                        </option>
-                      ));
-                    })()}
+                    {teams.map(t => (
+                      <option key={t.id} value={t.id}>
+                        {t.name} (#{t.id})
+                      </option>
+                    ))}
                   </select>
-                  {(() => {
-                    const qualifiedTeams = teams.filter(team => team.qualifiedForFinal);
-                    if (teams.length === 0) {
-                      return (
-                        <div className="text-xs text-red-600 dark:text-red-400 mt-1">
-                          ❌ No teams loaded - check database connection
-                        </div>
-                      );
-                    }
-                    if (qualifiedTeams.length === 0) {
-                      return (
-                        <div className="text-xs text-yellow-600 dark:text-yellow-400 mt-1">
-                          ⚠️ No qualified teams yet - showing all {teams.length} teams
-                        </div>
-                      );
-                    }
-                    return (
-                      <div className="text-xs text-green-600 dark:text-green-400 mt-1">
-                        ✅ Showing {qualifiedTeams.length} qualified teams for finals (out of {teams.length} total)
-                      </div>
-                    );
-                  })()}
+                  <div className="text-xs text-muted-foreground mt-1">
+                    Showing {teams.length} team{teams.length !== 1 ? 's' : ''}
+                  </div>
                 </div>
                 <div className="flex flex-col gap-2">
                     <div className="text-sm text-muted-foreground">
@@ -1032,20 +986,25 @@ export default function AdminPage() {
               )}
 
               <div className="flex gap-2 mt-4">
-                <button 
-                  onClick={startRatingCycle} 
-                  disabled={!currentPitchTeamId || ratingCycleActive} 
-                  className="rounded-md bg-green-600 dark:bg-green-700 px-4 py-2 text-white font-bold disabled:opacity-50 hover:bg-green-700 dark:hover:bg-green-800"
+                {/* Voting controls: explicit pitch cycle and voting phase buttons */}
+                <button
+                  onClick={startPitchCycle}
+                  disabled={!currentPitchTeamId || pitchCycleActive}
+                  className="rounded-md bg-blue-600 dark:bg-blue-700 px-4 py-2 text-white font-bold disabled:opacity-50 hover:bg-blue-700 dark:hover:bg-blue-800"
                 >
-                  Start Rating Cycle (5min Pitch)
+                  Start Pitch Cycle (90s)
                 </button>
-                <button 
-                  onClick={stopRatingCycle} 
-                  disabled={!ratingCycleActive} 
-                  className="rounded-md bg-red-600 dark:bg-red-700 px-4 py-2 text-white font-bold disabled:opacity-50 hover:bg-red-700 dark:hover:bg-red-800"
+
+                <button
+                  onClick={endPitchCycle}
+                  disabled={!pitchCycleActive}
+                  className="rounded-md bg-gray-600 dark:bg-gray-700 px-4 py-2 text-white font-bold disabled:opacity-50 hover:bg-gray-700 dark:hover:bg-gray-800"
                 >
-                  End Cycle
+                  End Pitch Cycle
                 </button>
+
+                {/* Voting is automated via the pitch cycle - manual start/end voting removed */}
+
                 <button 
                   onClick={completeAllPitches} 
                   className="rounded-md bg-purple-600 dark:bg-purple-700 px-4 py-2 text-white font-bold hover:bg-purple-700 dark:hover:bg-purple-800"
@@ -1055,23 +1014,7 @@ export default function AdminPage() {
               </div>
             </div>
             
-            <div className="rounded-lg border border-border bg-card p-6">
-              <h3 className="font-semibold mb-4">Voting Statistics</h3>
-              <div className="grid gap-4 md:grid-cols-3">
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{stats.totalVotes || 0}</div>
-                  <div className="text-sm text-muted-foreground">Total Votes</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{stats.activeVoters || 0}</div>
-                  <div className="text-sm text-muted-foreground">Active Voters</div>
-                </div>
-                <div className="text-center">
-                  <div className="text-2xl font-bold">{stats.completedPitches || 0}</div>
-                  <div className="text-sm text-muted-foreground">Completed Pitches</div>
-                </div>
-              </div>
-            </div>
+            {/* Voting statistics removed - system is automated */}
           </div>
         );
 
@@ -1689,25 +1632,11 @@ export default function AdminPage() {
               <h3 className="font-semibold mb-4">System Operations</h3>
               <div className="grid gap-4 md:grid-cols-2">
                 <button 
-                  onClick={clearAllCache}
-                  className="rounded-md border border-border dark:border-border/50 px-4 py-3 hover:bg-accent dark:hover:bg-accent/50 text-left"
-                >
-                  <div className="font-medium">Clear System Cache</div>
-                  <div className="text-sm text-muted-foreground">Clear all cached data</div>
-                </button>
-                <button 
                   onClick={exportAllData}
                   className="rounded-md border border-border dark:border-border/50 px-4 py-3 hover:bg-accent dark:hover:bg-accent/50 text-left"
                 >
                   <div className="font-medium">Export All Data</div>
                   <div className="text-sm text-muted-foreground">Download complete data backup</div>
-                </button>
-                <button 
-                  onClick={() => window.open('/api/admin/logs', '_blank')}
-                  className="rounded-md border border-border dark:border-border/50 px-4 py-3 hover:bg-accent dark:hover:bg-accent/50 text-left"
-                >
-                  <div className="font-medium">View System Logs</div>
-                  <div className="text-sm text-muted-foreground">Check application logs</div>
                 </button>
                 <button 
                   onClick={refreshAllData}

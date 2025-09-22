@@ -196,9 +196,9 @@ export async function GET(request: NextRequest) {
 
     // If requesting specific team ratings, include summary stats
     if (teamId && !fromTeamId) {
-      const teamRatings = ratings;
+      const teamRatings: any[] = ratings;
       const averageRating = teamRatings.length > 0 
-        ? teamRatings.reduce((sum, r) => sum + r.rating, 0) / teamRatings.length 
+        ? teamRatings.reduce((sum: number, r: any) => sum + r.rating, 0) / teamRatings.length 
         : 0;
 
       return NextResponse.json({

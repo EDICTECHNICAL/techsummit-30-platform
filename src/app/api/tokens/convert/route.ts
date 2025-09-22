@@ -212,8 +212,9 @@ export async function GET(request: NextRequest) {
       strategy: 0,
     };
 
-    // Calculate total votes gained from conversions
-    const totalVotesGained = conversions.reduce((sum, conv) => sum + conv.votesGained, 0);
+  // Calculate total votes gained from conversions
+  const convs: any[] = conversions;
+  const totalVotesGained = convs.reduce((sum: number, conv: any) => sum + conv.votesGained, 0);
 
     // Calculate maximum possible conversions based on current available tokens
     const maxPossibleConversions = Math.min(

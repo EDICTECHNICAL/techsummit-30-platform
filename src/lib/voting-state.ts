@@ -33,7 +33,6 @@ export let votingState: {
 
 let votingTimeout: NodeJS.Timeout | null = null;
 let tickInterval: NodeJS.Timeout | null = null;
-let manualVotingStartAt: number | null = null; // for non-pitch-cycle voting
 
 function markStateChanged() {
   try {
@@ -54,7 +53,6 @@ export function setTeam(team: VotingTeam) {
   votingState.phaseStartTime = null;
   votingState.phaseTimeLeft = 0;
   votingState.cycleStartTime = null;
-  manualVotingStartAt = null;
   if (votingTimeout) {
     clearTimeout(votingTimeout);
     votingTimeout = null;
@@ -69,7 +67,6 @@ export function startPitchCycle() {
   votingState.phaseStartTime = Date.now();
   votingState.phaseTimeLeft = PITCH_SEC;
   votingState.votingActive = false;
-  manualVotingStartAt = null;
   if (votingTimeout) {
     clearTimeout(votingTimeout);
     votingTimeout = null;
@@ -117,7 +114,6 @@ export function stopPitchCycle() {
   votingState.phaseTimeLeft = 0;
   votingState.votingActive = false;
   votingState.cycleStartTime = null;
-  manualVotingStartAt = null;
   if (votingTimeout) {
     clearTimeout(votingTimeout);
     votingTimeout = null;
@@ -125,27 +121,7 @@ export function stopPitchCycle() {
   markStateChanged();
 }
 
-export function setVotingActiveManually(active: boolean) {
-  votingState.votingActive = active;
-  if (active) {
-    // start manual voting countdown
-    manualVotingStartAt = Date.now();
-    if (votingTimeout) clearTimeout(votingTimeout);
-    votingTimeout = setTimeout(() => {
-      votingState.votingActive = false;
-      manualVotingStartAt = null;
-      votingTimeout = null;
-      markStateChanged();
-    }, VOTE_SEC * 1000);
-  } else {
-    if (votingTimeout) {
-      clearTimeout(votingTimeout);
-      votingTimeout = null;
-    }
-    manualVotingStartAt = null;
-  }
-  markStateChanged();
-}
+// Manual voting control removed - votingActive is managed only via pitch cycle lifecycle
 
 export function setAllPitchesCompleted(flag: boolean) {
   votingState.allPitchesCompleted = !!flag;
@@ -209,21 +185,7 @@ function tick() {
     }
   }
 
-  // Update manual voting countdown if active and not part of pitch cycle
-  if (votingState.votingActive && !votingState.pitchCycleActive && manualVotingStartAt) {
-    const elapsed = Math.floor((now - manualVotingStartAt) / 1000);
-    const remaining = Math.max(0, VOTE_SEC - elapsed);
-    votingState.phaseTimeLeft = remaining;
-    if (remaining === 0) {
-      votingState.votingActive = false;
-      manualVotingStartAt = null;
-      if (votingTimeout) {
-        clearTimeout(votingTimeout);
-        votingTimeout = null;
-      }
-      markStateChanged();
-    }
-  }
+  // Manual voting control removed - no separate manual countdown outside of pitch cycle
 }
 
 function startTicker() {

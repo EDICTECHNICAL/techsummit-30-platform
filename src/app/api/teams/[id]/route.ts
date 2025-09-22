@@ -47,7 +47,7 @@ export async function PATCH(request: NextRequest, context: { params: Promise<{ i
           }
           // Check if name already exists (excluding current team)
           const existingTeam = await db.select().from(teams).where(eq(teams.name, stringValue)).limit(1);
-          const conflictingTeam = existingTeam.find(t => t.id !== teamId);
+          const conflictingTeam = existingTeam.find((t: any) => t.id !== teamId);
           if (conflictingTeam) {
             return NextResponse.json({ error: 'Team name already exists', code: 'DUPLICATE_TEAM_NAME' }, { status: 409 });
           }

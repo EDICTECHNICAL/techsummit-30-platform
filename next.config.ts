@@ -24,14 +24,16 @@ const nextConfig: NextConfig = {
     outputFileTracingRoot: path.resolve(__dirname, "../../"),
   }),
 
-  // Enable custom turbopack loader
-  turbopack: {
-    rules: {
-      "*.{jsx,tsx}": {
-        loaders: [LOADER],
+  // Enable custom turbopack loader only when explicitly requested (dev visual edits tooling)
+    ...(process.env.ENABLE_VISUAL_EDITS === 'true' ? {
+      turbopack: {
+        rules: {
+          "*.{jsx,tsx}": {
+            loaders: [LOADER],
+          },
+        },
       },
-    },
-  },
+    } : {}),
 
   // Strip console logs in production (except warn + error)
   compiler: {
@@ -80,11 +82,11 @@ const nextConfig: NextConfig = {
             key: "Content-Security-Policy", 
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://vitals.vercel-analytics.com https://slelguoygbfzlpylpxfs.supabase.co",
+              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://vercel.live https://vitals.vercel-analytics.com https://slelguoygbfzlpylpxfs.supabase.co https://va.vercel-scripts.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: https:",
               "font-src 'self' data:",
-              "connect-src 'self' https://vercel.live wss://vercel.live https://vitals.vercel-analytics.com https://slelguoygbfzlpylpxfs.supabase.co",
+              "connect-src 'self' https://vercel.live wss://vercel.live https://vitals.vercel-analytics.com https://slelguoygbfzlpylpxfs.supabase.co https://va.vercel-scripts.com",
               "media-src 'self'",
               "object-src 'none'",
               "base-uri 'self'",

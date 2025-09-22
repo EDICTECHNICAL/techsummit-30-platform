@@ -12,12 +12,9 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:studio": "drizzle-kit studio",
-    "db:optimize": "node scripts/optimize-performance.js",
-    "db:check": "node scripts/check-optimizations.js",
-    "seed:judges": "node scripts/seed-judges.js",
-    "seed:admins": "node scripts/seed-admins.js",
-    "test:build": "node scripts/test-production-build.js",
-    "postbuild": "echo 'Build completed successfully'"
+  "db:optimize": "echo 'db:optimize archived - see archive/scripts'",
+  "db:check": "echo 'db:check archived - see archive/scripts'",
+  "postbuild": "echo 'Build completed successfully'"
   },
   "dependencies": {
     "@babel/parser": "^7.28.4",

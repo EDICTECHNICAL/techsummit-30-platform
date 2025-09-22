@@ -22,7 +22,7 @@ export async function GET(req: NextRequest) {
       .orderBy(teams.id);
 
     const tokenStatus = await Promise.all(
-      teamsData.map(async (team) => {
+      teamsData.map(async (team: any) => {
         // Get quiz submission
         const submission = await db
           .select()
@@ -53,7 +53,7 @@ export async function GET(req: NextRequest) {
           strategy: submission[0].remainingStrategy ?? submission[0].tokensStrategy,
         } : null;
 
-        const votesGained = conversions.reduce((sum, conv) => sum + conv.votesGained, 0);
+  const votesGained = conversions.reduce((sum: number, conv: any) => sum + conv.votesGained, 0);
 
         return {
           team: {
@@ -65,7 +65,7 @@ export async function GET(req: NextRequest) {
           hasConvertedTokens: hasConverted,
           originalTokens,
           remainingTokens,
-          conversions: conversions.map(conv => ({
+          conversions: conversions.map((conv: any) => ({
             category: conv.category,
             tokensUsed: conv.tokensUsed,
             votesGained: conv.votesGained,

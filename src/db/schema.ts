@@ -214,3 +214,17 @@ export const systemSettings = pgTable('system_settings', {
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow()
 });
+
+// Voting state (single-row canonical state for serverless-friendly timer)
+export const votingState = pgTable('voting_state', {
+  id: serial('id').primaryKey(),
+  currentTeamId: integer('current_team_id'),
+  currentTeamName: text('current_team_name'),
+  pitchCycleActive: boolean('pitch_cycle_active').notNull().default(false),
+  votingActive: boolean('voting_active').notNull().default(false),
+  allPitchesCompleted: boolean('all_pitches_completed').notNull().default(false),
+  currentPhase: text('current_phase').notNull().default('idle'),
+  cycleStartTs: timestamp('cycle_start_ts', { withTimezone: false }),
+  phaseStartTs: timestamp('phase_start_ts', { withTimezone: false }),
+  updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow()
+});

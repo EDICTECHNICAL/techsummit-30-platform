@@ -21,9 +21,9 @@ export default function RootLayout({
     <html lang="en">
       <head>
         <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-        <meta name="theme-color" content="#466F89" />
-        <meta name="apple-mobile-web-app-capable" content="yes" />
-        <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="theme-color" content="#466F89" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
       </head>
       <body className="antialiased">
         <ThemeProvider>
@@ -40,7 +40,10 @@ export default function RootLayout({
           />
           {children}
           <SpeedInsights debug={process.env.NODE_ENV === 'development'} />
-          <VisualEditsMessenger />
+          {/* Visual edits messenger is opt-in: only render in development when ENABLE_VISUAL_EDITS is set */}
+          {process.env.NODE_ENV === 'development' && process.env.ENABLE_VISUAL_EDITS === 'true' ? (
+            <VisualEditsMessenger />
+          ) : null}
           <Analytics />
         </ThemeProvider>
       </body>

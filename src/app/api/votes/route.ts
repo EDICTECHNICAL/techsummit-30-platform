@@ -14,9 +14,16 @@ if (!JWT_SECRET) {
 // POST handler - Cast vote (Team leaders only during voting round)
 export async function POST(request: NextRequest) {
   try {
-    // Get authentication from cookie
-    const token = request.cookies.get('auth-token')?.value;
-    
+    // Get authentication from cookie or Authorization header
+    let token = request.cookies.get('auth-token')?.value;
+    if (!token) {
+      // fallback to Authorization: Bearer <token>
+      const authHeader = request.headers.get('authorization') || request.headers.get('Authorization');
+      if (authHeader && authHeader.startsWith('Bearer ')) {
+        token = authHeader.substring(7);
+      }
+    }
+
     if (!token) {
       return NextResponse.json({ 
         error: 'Authentication required - please log in', 
@@ -28,6 +35,7 @@ export async function POST(request: NextRequest) {
     try {
       decoded = jwt.verify(token, JWT_SECRET) as any;
     } catch (jwtError) {
+      console.warn('Invalid token provided to /api/votes:', jwtError);
       return NextResponse.json({ 
         error: 'Invalid authentication token - please log in again', 
         code: 'INVALID_TOKEN' 
@@ -63,8 +71,26 @@ export async function POST(request: NextRequest) {
       .limit(1);
 
     if (userRecord.length === 0) {
+      // If token corresponds to an admin account, return clearer message
+      try {
+        const { admins } = await import('@/db/schema');
+        const foundAdmin = await db
+          .select()
+          .from(admins)
+          .where(eq(admins.id, decoded.userId))
+          .limit(1);
+        if (foundAdmin.length > 0) {
+          return NextResponse.json({
+            error: 'Admin accounts cannot cast team votes. Sign in with a team account.',
+            code: 'ADMIN_CANNOT_VOTE'
+          }, { status: 403 });
+        }
+      } catch (adminCheckErr) {
+        console.warn('Admin lookup failed while handling missing user in /api/votes:', adminCheckErr);
+      }
+
       return NextResponse.json({ 
-        error: 'User not found', 
+        error: 'User not found (token valid but user record missing). Please sign in again with a team account.', 
         code: 'USER_NOT_FOUND' 
       }, { status: 404 });
     }
@@ -210,8 +236,8 @@ export async function GET(request: NextRequest) {
         .where(eq(votes.fromTeamId, parseInt(fromTeamId)))
         .orderBy(votes.createdAt);
 
-      const downvoteCount = teamVotes.filter(v => v.value === -1).length;
-      const votedTeams = teamVotes.map(v => v.toTeamId);
+  const downvoteCount = teamVotes.filter((v: any) => v.value === -1).length;
+  const votedTeams = teamVotes.map((v: any) => v.toTeamId);
 
       return NextResponse.json({
         fromTeamId: parseInt(fromTeamId),
@@ -228,8 +254,8 @@ export async function GET(request: NextRequest) {
         .where(eq(votes.toTeamId, parseInt(teamId)))
         .orderBy(votes.createdAt);
 
-      const upvotes = teamVotes.filter(v => v.value === 1).length;
-      const downvotes = teamVotes.filter(v => v.value === -1).length;
+  const upvotes = teamVotes.filter((v: any) => v.value === 1).length;
+  const downvotes = teamVotes.filter((v: any) => v.value === -1).length;
       const totalVotes = upvotes - downvotes;
 
       return NextResponse.json({

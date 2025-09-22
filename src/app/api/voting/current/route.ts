@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { votingEmitter } from '@/lib/voting-emitter';
 import {
-  getVotingState,
-  setTeam,
-  startPitchCycle,
-  startPrep,
-  startVotingPhase,
-  stopPitchCycle,
-  setVotingActiveManually,
-  setAllPitchesCompleted,
-} from '@/lib/voting-state';
+  getVotingStateFromDb,
+  setTeamInDb,
+  startPitchCycleInDb,
+  stopPitchCycleInDb,
+  setAllPitchesCompletedInDb,
+  maybeAdvancePhaseOnRead
+} from '@/lib/voting-state-db';
 
 // Helper function to check admin authentication (JWT-based only)
 function checkAdminAuth(req: NextRequest): boolean {
@@ -32,11 +30,11 @@ function checkAdminAuth(req: NextRequest): boolean {
 // GET handler - Get current voting state (public endpoint)
 export async function GET(request: NextRequest) {
   try {
-    // Return authoritative state from the centralized ticker (shallow copy)
-    const current = getVotingState();
-    const derived = { ...current };
-    console.log('GET /api/voting/current - returning authoritative state');
-    return NextResponse.json(derived);
+    // Ensure any elapsed transitions are applied then return DB-derived state
+    await maybeAdvancePhaseOnRead();
+    const current = await getVotingStateFromDb();
+    console.log('GET /api/voting/current - returning DB-backed voting state');
+    return NextResponse.json(current);
   } catch (error) {
     console.error('GET voting current error:', error);
     return NextResponse.json({ 
@@ -69,39 +67,9 @@ export async function POST(request: NextRequest) {
     const action = requestBody.action as string | undefined;
     let name = teamName;
 
-    // If admin wants to control the pitch cycle via actions, use the centralized helpers
-    if (action) {
-      switch (action) {
-        case 'start-cycle':
-          startPitchCycle();
-          return NextResponse.json({ success: true, votingState: getVotingState(), message: 'Pitch cycle started' });
-
-        case 'start-prep': {
-          const s = getVotingState();
-          if (!s.pitchCycleActive) {
-            return NextResponse.json({ error: 'No active pitch cycle', status: 400 }, { status: 400 });
-          }
-          startPrep();
-          return NextResponse.json({ success: true, votingState: getVotingState(), message: 'Preparation started' });
-        }
-
-        case 'start-voting': {
-          const s = getVotingState();
-          if (!s.pitchCycleActive) {
-            return NextResponse.json({ error: 'No active pitch cycle', status: 400 }, { status: 400 });
-          }
-          startVotingPhase();
-          return NextResponse.json({ success: true, votingState: getVotingState(), message: 'Voting started' });
-        }
-
-        case 'stop-cycle':
-          stopPitchCycle();
-          return NextResponse.json({ success: true, votingState: getVotingState(), message: 'Pitch cycle stopped' });
-
-        default:
-          return NextResponse.json({ error: 'Invalid action' }, { status: 400 });
-      }
-    }
+    // Manual control actions have been removed. The pitch cycle and voting
+    // phases are fully automated by the centralized ticker. Ignore any
+    // 'action' parameter sent from clients and proceed to handle team updates.
     
     // Try to get real team name from DB if not provided
     if (!name && teamId) {
@@ -119,14 +87,10 @@ export async function POST(request: NextRequest) {
       }
     }
     
-  // Set the team and reset voting state via central helper
-  setTeam(teamId && name ? { id: teamId, name } : null);
-
-  return NextResponse.json({
-    success: true,
-    votingState: getVotingState(),
-    message: getVotingState().team ? `Set current team to ${name}` : 'Cleared current team'
-  });
+    // Persist the team selection to the DB and return updated state
+    await setTeamInDb(teamId && name ? { id: teamId, name } : null);
+    const updated = await getVotingStateFromDb();
+    return NextResponse.json({ success: true, votingState: updated, message: updated.team ? `Set current team to ${name}` : 'Cleared current team' });
 
   } catch (error: any) {
     console.error('POST voting current error:', error);
@@ -171,49 +135,22 @@ export async function PATCH(request: NextRequest) {
       }
     }
 
-    const { votingActive, allPitchesCompleted, pitchCycleActive, currentPhase, phaseTimeLeft, cycleStartTime } = await request.json();
+    const body = await request.json();
+    const { allPitchesCompleted, pitchCycleActive, action } = body;
 
-    // Update votingActive via central helper so auto-timeouts are handled there
-    if (typeof votingActive === 'boolean') {
-      setVotingActiveManually(votingActive);
-    }
-
-    // allPitchesCompleted setter
+    // Only allow toggling 'allPitchesCompleted' and provide a guarded server-side
+    // 'stop' action for ending the cycle. Starting cycles should use admin start endpoint.
     if (typeof allPitchesCompleted === 'boolean') {
-      setAllPitchesCompleted(allPitchesCompleted);
+      await setAllPitchesCompletedInDb(allPitchesCompleted);
     }
 
-    // Update pitch cycle state via helpers
-    if (typeof pitchCycleActive === 'boolean') {
-      if (pitchCycleActive) startPitchCycle(); else stopPitchCycle();
+    if (typeof pitchCycleActive === 'boolean' && pitchCycleActive === false) {
+      // Allowed: admin can request to stop the cycle
+      await stopPitchCycleInDb();
     }
 
-    // Allow admin to set currentPhase manually via helpers (startPrep/startVotingPhase)
-    if (currentPhase && ['idle', 'pitching', 'preparing', 'voting'].includes(currentPhase)) {
-      switch (currentPhase) {
-        case 'pitching':
-          startPitchCycle();
-          break;
-        case 'preparing':
-          startPrep();
-          break;
-        case 'voting':
-          startVotingPhase();
-          break;
-        case 'idle':
-          stopPitchCycle();
-          break;
-      }
-    }
-
-    // phaseTimeLeft and cycleStartTime are derived values from the centralized ticker - ignore direct overrides.
-
-    // Return authoritative state
-    return NextResponse.json({
-      success: true,
-      votingState: getVotingState(),
-      message: 'Voting state updated successfully'
-    });
+    const updated = await getVotingStateFromDb();
+    return NextResponse.json({ success: true, votingState: updated, message: 'Voting state updated successfully' });
 
   } catch (error: any) {
     console.error('PATCH voting current error:', error);

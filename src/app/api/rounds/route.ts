@@ -22,8 +22,8 @@ export async function GET(request: NextRequest) {
       .from(rounds)
       .orderBy(rounds.day, rounds.id);
 
-    // Add computed fields
-    const enrichedRounds = allRounds.map(round => {
+  // Add computed fields
+  const enrichedRounds = allRounds.map((round: any) => {
       const now = new Date();
       const isActive = round.status === 'ACTIVE';
       const isPending = round.status === 'PENDING';

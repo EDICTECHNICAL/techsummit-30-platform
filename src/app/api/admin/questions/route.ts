@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
     // Fetch options for each question
     const questionsWithOptions = await Promise.all(
-      allQuestions.map(async (question) => {
+      allQuestions.map(async (question: any) => {
         const questionOptions = await db
           .select()
           .from(options)

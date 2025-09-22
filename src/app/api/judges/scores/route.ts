@@ -171,8 +171,8 @@ export async function GET(request: NextRequest) {
 
     // If requesting specific team scores, include summary stats
     if (teamId && !judgeName) {
-      const teamScores = scores;
-      const totalScore = teamScores.reduce((sum, s) => sum + s.score, 0);
+      const teamScores: any[] = scores;
+      const totalScore = teamScores.reduce((sum: number, s: any) => sum + s.score, 0);
       const averageScore = teamScores.length > 0 ? totalScore / teamScores.length : 0;
 
       return NextResponse.json({

@@ -31,7 +31,7 @@ export async function GET(request: NextRequest) {
       .orderBy(systemSettings.key);
 
     // Convert to key-value object for easier consumption
-    const settingsMap = settings.reduce((acc, setting) => {
+    const settingsMap = settings.reduce((acc: Record<string, any>, setting: any) => {
       acc[setting.key] = {
         value: setting.value,
         description: setting.description,
