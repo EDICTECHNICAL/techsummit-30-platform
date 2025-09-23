@@ -27,28 +27,6 @@ The platform is currently in an intensive **inhouse testing phase** for 2-3 days
 
 **Post-Testing**: Any bugs or issues discovered during this testing phase will be promptly fixed before the final Techpreneur Summit 3.0 event.
 
-## 🔑 **Pre-created Accounts**
-
-### Admin Accounts
-
-| Username | Password              | Name         |
-| -------- | --------------------- | ------------ |
-| admin1   | TechSummit2025!Admin1 | Admin User 1 |
-| admin2   | TechSummit2025!Admin2 | Admin User 2 |
-| admin3   | TechSummit2025!Admin3 | Admin User 3 |
-| admin4   | TechSummit2025!Admin4 | Admin User 4 |
-| admin5   | TechSummit2025!Admin5 | Admin User 5 |
-
-### Judge Accounts
-
-| Username | Password              | Name         |
-| -------- | --------------------- | ------------ |
-| judge1   | TechSummit2025!Judge1 | Judge User 1 |
-| judge2   | TechSummit2025!Judge2 | Judge User 2 |
-| judge3   | TechSummit2025!Judge3 | Judge User 3 |
-| judge4   | TechSummit2025!Judge4 | Judge User 4 |
-| judge5   | TechSummit2025!Judge5 | Judge User 5 |
-
 ## 🚀 **Production Deployment**
 
 ### Environment Variables
