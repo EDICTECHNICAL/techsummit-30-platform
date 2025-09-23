@@ -369,35 +369,27 @@ export default function FinalPage() {
     }
   };
 
-  if (isPending || roundsLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 dark:border-blue-400 mx-auto mb-4"></div>
-          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Loading...</h2>
-          <p className="text-muted-foreground">Checking round status and loading data</p>
-        </div>
-      </div>
-    );
-  }
+  // Don't block the entire UI while session/round checks are in progress.
+  // We'll show a small non-blocking banner inside the page instead.
   
-  if (!session?.user) {
+  // Only show sign-in prompt after session has finished loading.
+  if (!isPending && !session?.user) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900">
-        <div className="max-w-md w-full mx-4 rounded-lg border bg-white dark:bg-gray-800 p-8 text-center">
-          <Trophy className="h-12 w-12 text-orange-500 dark:text-orange-400 mx-auto mb-4" />
-          <h2 className="text-xl font-bold mb-2 text-gray-900 dark:text-white">Authentication Required</h2>
-          <p className="mb-4 text-muted-foreground">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 dark:from-gray-900 dark:via-gray-800 dark:to-gray-900 p-4">
+        <div className="max-w-md w-full rounded-lg border bg-white dark:bg-gray-800 p-6 sm:p-8 text-center shadow-lg">
+          <Trophy className="h-10 w-10 sm:h-12 sm:w-12 text-orange-500 dark:text-orange-400 mx-auto mb-4" />
+          <h2 className="text-lg sm:text-xl font-bold mb-2 text-gray-900 dark:text-white">Authentication Required</h2>
+          <p className="mb-4 text-sm sm:text-base text-muted-foreground">
             You need to be signed in with a team account or judge account to participate in the finals.
           </p>
           <div className="space-y-3">
             <a 
               href="/sign-in" 
-              className="block w-full px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors"
+              className="block w-full px-4 py-2 bg-blue-600 dark:bg-blue-700 text-white rounded-lg hover:bg-blue-700 dark:hover:bg-blue-800 transition-colors text-sm sm:text-base"
             >
               Sign In to Team
             </a>
-            <div className="text-sm text-muted-foreground">
+            <div className="text-xs sm:text-sm text-muted-foreground">
               <span>Are you a judge? </span>
               <a href="/judge/login" className="text-blue-600 dark:text-blue-400 hover:underline">
                 Judge Login
@@ -412,13 +404,13 @@ export default function FinalPage() {
   // Check if previous rounds are completed (only for non-admin users)
   if (!isAdmin && (!quizCompleted || !votingCompleted)) {
     return (
-      <div className="min-h-screen bg-background text-foreground p-6">
+      <div className="min-h-screen bg-background text-foreground p-4 sm:p-6">
         <div className="max-w-4xl mx-auto">
           {/* Header with Back Button */}
           <div className="flex items-center justify-between mb-6">
             <div>
-              <h1 className="text-3xl font-bold mb-2">Round 3: Finals</h1>
-              <p className="text-muted-foreground">
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2">Round 3: Finals</h1>
+              <p className="text-sm sm:text-base text-muted-foreground">
                 Finals round is currently locked
               </p>
             </div>
@@ -426,25 +418,25 @@ export default function FinalPage() {
           </div>
 
           {/* Lock Message */}
-          <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-700 rounded-lg p-6">
-            <div className="flex items-center gap-3">
-              <div className="text-2xl">🔒</div>
-              <div>
+          <div className="bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-700 rounded-lg p-4 sm:p-6">
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
+              <div className="text-2xl shrink-0">🔒</div>
+              <div className="flex-1 min-w-0">
                 <h2 className="text-lg font-semibold text-yellow-800 dark:text-yellow-200 mb-2">Finals Round Locked</h2>
-                <p className="text-yellow-700 dark:text-yellow-300 mb-4">
+                <p className="text-sm sm:text-base text-yellow-700 dark:text-yellow-300 mb-4">
                   The finals round will be unlocked once all teams have completed both the Quiz and Voting rounds.
                 </p>
                 
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${quizCompleted ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span className={quizCompleted ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>
+                    <div className={`w-3 h-3 rounded-full shrink-0 ${quizCompleted ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={`text-sm ${quizCompleted ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
                       Quiz Round: {quizCompleted ? 'All teams completed ✓' : 'Waiting for all teams to complete ✗'}
                     </span>
                   </div>
                   <div className="flex items-center gap-2">
-                    <div className={`w-3 h-3 rounded-full ${votingCompleted ? 'bg-green-500' : 'bg-red-500'}`}></div>
-                    <span className={votingCompleted ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}>
+                    <div className={`w-3 h-3 rounded-full shrink-0 ${votingCompleted ? 'bg-green-500' : 'bg-red-500'}`}></div>
+                    <span className={`text-sm ${votingCompleted ? 'text-green-700 dark:text-green-300' : 'text-red-700 dark:text-red-300'}`}>
                       Voting Round: {votingCompleted ? 'All teams completed ✓' : 'Waiting for all teams to complete ✗'}
                     </span>
                   </div>
@@ -482,22 +474,28 @@ export default function FinalPage() {
 
   return (
     <PageLock roundType="FINAL" isCompleted={isFinalCompleted}>
-      <div className="max-w-6xl mx-auto mobile-padding pt-6 pb-20 transition-all duration-300 ease-in-out">
-        <div className="flex items-center justify-between mb-4">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 pt-4 sm:pt-6 pb-20 transition-all duration-300 ease-in-out">
+        {/* Small non-blocking loading banner */}
+        {(isPending || roundsLoading) && (
+          <div className="mb-4 p-2 sm:p-3 rounded-md text-xs sm:text-sm font-medium text-center bg-yellow-50 dark:bg-yellow-950 border border-yellow-200 dark:border-yellow-700 text-yellow-800 dark:text-yellow-300">
+            Checking round status and loading data...
+          </div>
+        )}
+        <div className="flex items-center justify-between mb-4 sm:mb-6">
           <BackButton />
           <ThemeToggle />
         </div>
         
         {/* Round Header */}
-        <div className="mb-6 text-center">
-          <h1 className={`font-bold mb-2 ${isMobile ? 'text-2xl mobile-title' : 'text-4xl'}`}>Round 3: Finals</h1>
-          <p className={`text-muted-foreground ${isMobile ? 'text-base' : 'text-lg'}`}>
+        <div className="mb-4 sm:mb-6 text-center">
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">Round 3: Finals</h1>
+          <p className="text-sm sm:text-base lg:text-lg text-muted-foreground px-2">
             Top 5 qualified teams compete in the final round. {teams.length > 5 ? `${teams.length - 5} teams in spectator mode.` : ''}
           </p>
         </div>
         
         {/* SSE Connection Status */}
-        <div className={`mb-4 p-2 rounded-md text-xs font-medium ${
+        <div className={`mb-3 sm:mb-4 p-2 sm:p-3 rounded-md text-xs font-medium ${
           sseConnected 
             ? 'bg-green-50 dark:bg-green-950 text-green-700 dark:text-green-300 border border-green-200 dark:border-green-700' 
             : 'bg-yellow-50 dark:bg-yellow-950 text-yellow-700 dark:text-yellow-300 border border-yellow-200 dark:border-yellow-700'
@@ -507,24 +505,24 @@ export default function FinalPage() {
 
         {/* Rating Cycle Timer Display */}
         {ratingCycleActive && (
-          <Card className="mb-6 border-purple-200 dark:border-purple-700">
-            <CardContent className="p-4 bg-purple-50 dark:bg-purple-950/20">
-              <div className="flex items-center justify-between mb-3">
-                <h3 className="text-lg font-bold text-purple-900 dark:text-purple-100">
+          <Card className="mb-4 sm:mb-6 border-purple-200 dark:border-purple-700">
+            <CardContent className="p-3 sm:p-4 bg-purple-50 dark:bg-purple-950/20">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-3 gap-2">
+                <h3 className="text-base sm:text-lg font-bold text-purple-900 dark:text-purple-100 leading-tight">
                   {currentPhase === 'pitching' && '🎤 Team is Pitching (5 min)'}
                   {currentPhase === 'qna-pause' && '❓ Q&A Session (Admin Controlled)'}
                   {currentPhase === 'rating-warning' && '⚠️ Rating Starts Soon! (5 sec)'}
                   {currentPhase === 'rating-active' && '⭐ Rating Active - Judges & Teams (2 min)'}
                   {currentPhase === 'idle' && '⏸️ Rating Cycle Idle'}
                 </h3>
-                <div className="text-3xl font-bold text-purple-800 dark:text-purple-200">
+                <div className="text-2xl sm:text-3xl font-bold text-purple-800 dark:text-purple-200 shrink-0">
                   {currentPhase === 'qna-pause' ? '∞' : 
                    `${Math.floor(phaseTimeLeft / 60)}:${(phaseTimeLeft % 60).toString().padStart(2, '0')}`}
                 </div>
               </div>
-              <div className="w-full bg-purple-200 dark:bg-purple-900 rounded-full h-4 mb-2 overflow-hidden">
+              <div className="w-full bg-purple-200 dark:bg-purple-900 rounded-full h-3 sm:h-4 mb-2 overflow-hidden">
                 <div 
-                  className={`h-4 rounded-full transition-all duration-1000 ease-linear ${
+                  className={`h-3 sm:h-4 rounded-full transition-all duration-1000 ease-linear ${
                     currentPhase === 'pitching' ? 'bg-blue-500 dark:bg-blue-600' :
                     currentPhase === 'qna-pause' ? 'bg-yellow-500 dark:bg-yellow-600' :
                     currentPhase === 'rating-warning' ? 'bg-red-500 dark:bg-red-600' :
@@ -543,7 +541,7 @@ export default function FinalPage() {
                   }}
                 ></div>
               </div>
-              <div className="text-sm text-purple-700 dark:text-purple-300">
+              <div className="text-xs sm:text-sm text-purple-700 dark:text-purple-300">
                 {currentPhase === 'pitching' && 'Listen to the team presentation (5 minutes total)'}
                 {currentPhase === 'qna-pause' && 'Q&A session in progress - Admin will start rating when ready'}
                 {currentPhase === 'rating-warning' && '⚠️ Get ready! Rating will begin in 5 seconds!'}
@@ -556,31 +554,27 @@ export default function FinalPage() {
 
         {/* Current Team Display */}
         {currentPitchTeam ? (
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <h3 className="font-semibold mb-2">Currently Presenting</h3>
-              <div className="text-lg font-bold text-blue-800 dark:text-blue-300">
+          <Card className="mb-4 sm:mb-6">
+            <CardContent className="p-3 sm:p-4">
+              <h3 className="font-semibold mb-2 text-sm sm:text-base">Currently Presenting</h3>
+              <div className="text-base sm:text-lg font-bold text-blue-800 dark:text-blue-300">
                 {currentPitchTeam.name} (#{currentPitchTeam.id})
               </div>
             </CardContent>
           </Card>
         ) : (
-          <Card className="mb-6">
-            <CardContent className="p-4">
-              <p className="text-muted-foreground">No team is currently presenting.</p>
+          <Card className="mb-4 sm:mb-6">
+            <CardContent className="p-3 sm:p-4">
+              <p className="text-sm sm:text-base text-muted-foreground">No team is currently presenting.</p>
             </CardContent>
           </Card>
         )}
 
-        {/* Header removed - moved to top */}
-
-        {/* Qualification Status Banner removed - replaced with popup */}
-
         {/* Tab Navigation */}
-        <div className="flex space-x-1 mb-6 bg-muted p-1 rounded-lg w-fit">
+        <div className="flex space-x-1 mb-4 sm:mb-6 bg-muted p-1 rounded-lg w-fit mx-auto sm:mx-0">
           <button 
             onClick={() => setActiveTab('status')}
-            className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+            className={`px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors min-w-0 ${
               activeTab === 'status' ? 'bg-background shadow-sm' : 'hover:bg-background/50'
             }`}
           >
@@ -589,7 +583,7 @@ export default function FinalPage() {
           {(userTeamId && isQualified) && (
             <button 
               onClick={() => setActiveTab('rate')}
-              className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+              className={`px-3 sm:px-4 py-2 rounded-md text-sm font-medium transition-colors min-w-0 ${
                 activeTab === 'rate' ? 'bg-background shadow-sm' : 'hover:bg-background/50'
               }`}
             >
@@ -600,18 +594,18 @@ export default function FinalPage() {
 
         {/* Status Overview Tab */}
         {activeTab === 'status' && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Qualified Teams */}
             {qualifiedTeams.length > 0 && (
               <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-semibold mb-4">🏆 Top 5 Qualified Teams</h2>
+                <CardContent className="p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl font-semibold mb-4">🏆 Top 5 Qualified Teams</h2>
 
                   {/* Qualification Tiebreaker Note */}
                   {qualificationNote && (
                     <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950 border border-blue-200 dark:border-blue-700 rounded-lg">
                       <div className="flex items-start gap-2">
-                        <div className="text-blue-600 dark:text-blue-400 text-sm">⚖️</div>
+                        <div className="text-blue-600 dark:text-blue-400 text-sm shrink-0">⚖️</div>
                         <div>
                           <p className="text-sm font-medium text-blue-800 dark:text-blue-200 mb-1">Automatic Tiebreaker Applied</p>
                           <p className="text-sm text-blue-700 dark:text-blue-300">{qualificationNote.message}</p>
@@ -622,9 +616,9 @@ export default function FinalPage() {
 
                   <div className="grid gap-3">
                     {getQualifiedTeamsWithFinalScores().map((team, index) => (
-                      <div key={team.teamId} className="flex items-center justify-between p-3 rounded-lg bg-muted dark:bg-muted/50">
-                        <div className="flex items-center gap-3">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold ${
+                      <div key={team.teamId} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-lg bg-muted dark:bg-muted/50 gap-2 sm:gap-0">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
                             index === 0 ? 'bg-yellow-500 text-white' :
                             index === 1 ? 'bg-gray-400 text-white' :
                             index === 2 ? 'bg-amber-600 text-white' :
@@ -632,13 +626,13 @@ export default function FinalPage() {
                           }`}>
                             #{team.rank}
                           </div>
-                          <div>
-                            <p className="font-medium">{team.teamName}</p>
-                            <p className="text-sm text-muted-foreground">{team.college}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-medium text-sm sm:text-base truncate">{team.teamName}</p>
+                            <p className="text-xs sm:text-sm text-muted-foreground truncate">{team.college}</p>
                           </div>
                         </div>
-                        <div className="text-right">
-                          <p className="font-medium">{(team.finalScore || 0).toFixed(1)} pts</p>
+                        <div className="text-right shrink-0 w-full sm:w-auto">
+                          <p className="font-medium text-sm sm:text-base">{(team.finalScore || 0).toFixed(1)} pts</p>
                           <p className="text-xs text-muted-foreground">Final Score</p>
                           {team.judgeScores.count > 0 && (
                             <p className="text-xs text-muted-foreground">
@@ -656,24 +650,24 @@ export default function FinalPage() {
             {/* Non-Qualified Teams (Spectators) */}
             {nonQualifiedTeams.length > 0 && (
               <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-semibold mb-4">📺 Spectator Teams</h2>
-                  <p className="text-sm text-muted-foreground mb-4">
+                <CardContent className="p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl font-semibold mb-4">📺 Spectator Teams</h2>
+                  <p className="text-xs sm:text-sm text-muted-foreground mb-4">
                     These teams didn't qualify for the final round but can watch the presentations.
                   </p>
                   <div className="grid gap-2">
                     {nonQualifiedTeams.map((team) => (
-                      <div key={team.teamId} className="flex items-center justify-between p-2 rounded-lg bg-muted/50 dark:bg-muted/30">
-                        <div className="flex items-center gap-3">
-                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300">
+                      <div key={team.teamId} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-2 sm:p-3 rounded-lg bg-muted/50 dark:bg-muted/30 gap-2 sm:gap-0">
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-medium bg-gray-300 dark:bg-gray-700 text-gray-700 dark:text-gray-300 shrink-0">
                             #{team.rank}
                           </div>
-                          <div>
-                            <p className="text-sm font-medium">{team.teamName}</p>
-                            <p className="text-xs text-muted-foreground">{team.college}</p>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium truncate">{team.teamName}</p>
+                            <p className="text-xs text-muted-foreground truncate">{team.college}</p>
                           </div>
                         </div>
-                        <div className="text-right">
+                        <div className="text-right shrink-0 w-full sm:w-auto">
                           <p className="text-sm font-medium">{team.combinedScore} pts</p>
                           <p className="text-xs text-muted-foreground">Qualification Score</p>
                         </div>
@@ -687,8 +681,8 @@ export default function FinalPage() {
             {/* My Team Status */}
             {userTeamId && isQualified && (
               <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-semibold mb-4">Your Team Status</h2>
+                <CardContent className="p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl font-semibold mb-4">Your Team Status</h2>
                   <div className="space-y-2">
                     <p className="text-sm font-medium">Peer Ratings Submitted:</p>
                     <p className="text-sm text-blue-600 dark:text-blue-400">
@@ -705,19 +699,19 @@ export default function FinalPage() {
             {/* My Ratings */}
             {userTeamId && myRatings.length > 0 && (
               <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-semibold mb-4">Your Submitted Ratings</h2>
-                  <div className="grid gap-3 md:grid-cols-2">
+                <CardContent className="p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl font-semibold mb-4">Your Submitted Ratings</h2>
+                  <div className="grid gap-3 sm:grid-cols-2">
                     {myRatings.map((rating) => {
                       const ratedTeam = teams.find(t => t.id === rating.toTeamId);
                       return (
                         <div key={rating.id} className="rounded-lg border bg-muted dark:bg-muted/50 p-3">
-                          <div className="flex justify-between items-start">
-                            <div>
-                              <h3 className="font-medium">{ratedTeam?.name || `Team #${rating.toTeamId}`}</h3>
-                              <p className="text-sm text-muted-foreground">{ratedTeam?.college}</p>
+                          <div className="flex flex-col sm:flex-row justify-between items-start gap-2">
+                            <div className="min-w-0 flex-1">
+                              <h3 className="font-medium text-sm sm:text-base truncate">{ratedTeam?.name || `Team #${rating.toTeamId}`}</h3>
+                              <p className="text-xs sm:text-sm text-muted-foreground truncate">{ratedTeam?.college}</p>
                             </div>
-                            <div className="text-right">
+                            <div className="text-right shrink-0 w-full sm:w-auto">
                               <p className="text-lg font-bold text-blue-600 dark:text-blue-400">{rating.rating}/10</p>
                               <p className="text-xs text-muted-foreground">
                                 {new Date(rating.createdAt).toLocaleDateString()}
@@ -736,19 +730,19 @@ export default function FinalPage() {
 
         {/* Rate Teams Tab */}
         {activeTab === 'rate' && userTeamId && (
-          <div className="space-y-6">
+          <div className="space-y-4 sm:space-y-6">
             {/* Rating Form */}
             <Card>
-              <CardContent className="p-6">
-                <h2 className="text-xl font-semibold mb-4">Submit Peer Rating (3-10)</h2>
-                <p className="text-sm text-muted-foreground mb-4">
+              <CardContent className="p-4 sm:p-6">
+                <h2 className="text-lg sm:text-xl font-semibold mb-4">Submit Peer Rating (3-10)</h2>
+                <p className="text-xs sm:text-sm text-muted-foreground mb-4">
                   Rate the currently presenting team on a scale of 3-10. You can only rate during the peers rating phase.
                 </p>
 
                 {/* Current presenting team info */}
                 {currentPitchTeam && (
                   <div className="mb-4 p-3 bg-blue-50 dark:bg-blue-950 rounded-md border">
-                    <p className="text-sm text-blue-700 dark:text-blue-300">
+                    <p className="text-xs sm:text-sm text-blue-700 dark:text-blue-300">
                       <strong>Currently Presenting:</strong> {currentPitchTeam.name} (#{currentPitchTeam.id})
                     </p>
                   </div>
@@ -757,7 +751,7 @@ export default function FinalPage() {
                 {/* Rating restrictions info */}
                 {!canRateAsPeer && (
                   <div className="mb-4 p-3 bg-yellow-50 dark:bg-yellow-950 rounded-md border border-yellow-200 dark:border-yellow-700">
-                    <p className="text-sm text-yellow-700 dark:text-yellow-300">
+                    <p className="text-xs sm:text-sm text-yellow-700 dark:text-yellow-300">
                       {!ratingCycleActive && 'Waiting for rating cycle to start...'}
                       {ratingCycleActive && currentPhase === 'pitching' && 'Wait for rating phase to begin...'}
                       {ratingCycleActive && currentPhase === 'qna-pause' && 'Q&A in progress - Rating will start soon...'}
@@ -789,7 +783,13 @@ export default function FinalPage() {
                   </div>
                 </div>
 
-                <Button onClick={submitRating} variant="secondary" size="default" disabled={!canRateAsPeer || loading}>
+                <Button 
+                  onClick={submitRating} 
+                  variant="secondary" 
+                  size={isMobile ? "sm" : "default"} 
+                  disabled={!canRateAsPeer || loading}
+                  className="w-full sm:w-auto"
+                >
                   {loading ? "Submitting..." : `Submit Peer Rating (${rating}/10)`}
                 </Button>
               </CardContent>
@@ -798,16 +798,16 @@ export default function FinalPage() {
             {/* Rating Progress */}
             {availableTeams.length > 0 && (
               <Card>
-                <CardContent className="p-6">
-                  <h2 className="text-xl font-semibold mb-4">Rating Progress</h2>
+                <CardContent className="p-4 sm:p-6">
+                  <h2 className="text-lg sm:text-xl font-semibold mb-4">Rating Progress</h2>
                   <div className="space-y-2">
                     <div className="flex justify-between text-sm">
                       <span>Teams Rated:</span>
                       <span>{myRatings.length} / {availableTeams.length}</span>
                     </div>
-                    <div className="w-full bg-muted dark:bg-muted/50 rounded-full h-2">
+                    <div className="w-full bg-muted dark:bg-muted/50 rounded-full h-2 sm:h-3">
                       <div 
-                        className="bg-blue-600 dark:bg-blue-500 h-2 rounded-full transition-all duration-300"
+                        className="bg-blue-600 dark:bg-blue-500 h-2 sm:h-3 rounded-full transition-all duration-300"
                         style={{ width: `${(myRatings.length / availableTeams.length) * 100}%` }}
                       ></div>
                     </div>
@@ -820,21 +820,21 @@ export default function FinalPage() {
 
         {/* Message Display */}
         {msg && (
-          <div className={`mb-6 rounded-md border px-4 py-3 text-center font-medium flex items-center justify-center gap-2 ${
+          <div className={`mb-4 sm:mb-6 rounded-md border px-3 sm:px-4 py-3 text-center font-medium flex items-center justify-center gap-2 text-sm ${
             msgType === 'success'
               ? "bg-green-50 dark:bg-green-950 border-green-200 dark:border-green-700 text-green-800 dark:text-green-300"
               : msgType === 'error'
               ? "bg-red-50 dark:bg-red-950 border-red-200 dark:border-red-700 text-red-800 dark:text-red-300"
               : "bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-700 text-blue-800 dark:text-blue-300"
           }`}>
-            {msgType === 'success' && <CheckCircle2 className="h-5 w-5" />}
-            {msgType === 'error' && <AlertCircle className="h-5 w-5" />}
-            {msg}
+            {msgType === 'success' && <CheckCircle2 className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />}
+            {msgType === 'error' && <AlertCircle className="h-4 w-4 sm:h-5 sm:w-5 shrink-0" />}
+            <span className="break-words">{msg}</span>
           </div>
         )}
 
         {/* Quick Actions */}
-        <div className="mt-8 flex flex-wrap gap-4 justify-center">
+        <div className="mt-6 sm:mt-8 flex flex-col sm:flex-row gap-3 sm:gap-4 justify-center">
           <Button
             onClick={async () => {
               try {
@@ -849,25 +849,28 @@ export default function FinalPage() {
               }
             }}
             variant="secondary"
-            size="default"
+            size={isMobile ? "sm" : "default"}
             disabled={loading}
+            className="w-full sm:w-auto"
           >
             {loading ? 'Refreshing...' : 'Refresh Data'}
           </Button>
-          <a href="/scoreboard">
-            <Button variant="default" size="default">View Scoreboard</Button>
+          <a href="/scoreboard" className="w-full sm:w-auto">
+            <Button variant="default" size={isMobile ? "sm" : "default"} className="w-full">
+              View Scoreboard
+            </Button>
           </a>
         </div>
 
         {/* Qualification Status Popup */}
         {showQualificationPopup && userTeamId && qualifiedTeams.length > 0 && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-6 shadow-xl">
+            <div className="bg-white dark:bg-gray-800 rounded-lg max-w-md w-full p-4 sm:p-6 shadow-xl mx-4">
               <div className="text-center">
-                <div className="text-6xl mb-4">
+                <div className="text-4xl sm:text-6xl mb-4">
                   {isQualified ? '🎉' : '👀'}
                 </div>
-                <h2 className={`text-2xl font-bold mb-3 ${
+                <h2 className={`text-xl sm:text-2xl font-bold mb-3 ${
                   isQualified ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'
                 }`}>
                   {isQualified 
@@ -875,7 +878,7 @@ export default function FinalPage() {
                     : '📺 Spectator Mode'
                   }
                 </h2>
-                <p className={`text-lg mb-4 ${
+                <p className={`text-base sm:text-lg mb-4 ${
                   isQualified ? 'text-green-700 dark:text-green-300' : 'text-yellow-700 dark:text-yellow-300'
                 }`}>
                   {isQualified 
@@ -883,7 +886,7 @@ export default function FinalPage() {
                     : 'Your team can watch the final pitches'
                   }
                 </p>
-                <p className="text-sm text-muted-foreground mb-6">
+                <p className="text-xs sm:text-sm text-muted-foreground mb-6 px-2">
                   {isQualified 
                     ? 'You can register your pitch and rate other teams.'
                     : 'Only the top 5 teams can participate and rate in the finals.'
@@ -891,7 +894,7 @@ export default function FinalPage() {
                 </p>
                 <button
                   onClick={() => setShowQualificationPopup(false)}
-                  className={`w-full px-4 py-2 rounded-md font-medium text-white transition-colors ${
+                  className={`w-full px-4 py-2 sm:py-3 rounded-md font-medium text-white transition-colors text-sm sm:text-base ${
                     isQualified 
                       ? 'bg-green-600 hover:bg-green-700 dark:bg-green-700 dark:hover:bg-green-800' 
                       : 'bg-yellow-600 hover:bg-yellow-700 dark:bg-yellow-700 dark:hover:bg-yellow-800'

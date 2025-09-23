@@ -2,23 +2,15 @@ import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { systemSettings } from '@/db/schema';
 import { eq } from 'drizzle-orm';
-
-// Helper function to check admin authentication (both JWT and cookie-based)
-function checkAdminAuth(req: NextRequest): boolean {
-  // Check cookie-based admin auth first
-  const cookieHeader = req.headers.get("cookie") || "";
-  if (cookieHeader.includes("admin-auth=true")) {
-    return true;
-  }
-  return false;
-}
+import { requireAdmin } from '@/lib/auth-middleware';
 
 // GET handler - Get system settings (Admin only)
 export async function GET(request: NextRequest) {
   try {
-    // Check admin authentication
-    const hasAdminAuth = checkAdminAuth(request);
-    if (!hasAdminAuth) {
+    // Require admin JWT (auth-token) or throw 403
+    try {
+      await requireAdmin(request as any);
+    } catch (err) {
       return NextResponse.json({ 
         error: 'Admin access required', 
         code: 'ADMIN_REQUIRED' 
@@ -54,9 +46,10 @@ export async function GET(request: NextRequest) {
 // PATCH handler - Update system setting (Admin only)
 export async function PATCH(request: NextRequest) {
   try {
-    // Check admin authentication
-    const hasAdminAuth = checkAdminAuth(request);
-    if (!hasAdminAuth) {
+    // Require admin JWT (auth-token) or throw 403
+    try {
+      await requireAdmin(request as any);
+    } catch (err) {
       return NextResponse.json({ 
         error: 'Admin access required', 
         code: 'ADMIN_REQUIRED' 

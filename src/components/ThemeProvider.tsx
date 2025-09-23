@@ -5,6 +5,7 @@ const ThemeContext = createContext({
   theme: "dark",
   setTheme: (_: string) => {},
 });
+let _lsDebounce: number | undefined;
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setTheme] = useState("dark");
@@ -19,10 +20,25 @@ export function ThemeProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!mounted) return;
-    
-    document.documentElement.classList.remove("dark", "light");
-    document.documentElement.classList.add(theme);
-    localStorage.setItem("theme", theme);
+    // Apply theme with minimal DOM writes
+    try {
+      document.documentElement.classList.remove("dark", "light");
+      document.documentElement.classList.add(theme);
+    } catch (e) {
+      // ignore in non-browser environments
+    }
+
+    // Debounce localStorage writes to avoid jank on mobile
+    try {
+      if (typeof window !== 'undefined') {
+        window.clearTimeout(_lsDebounce as any);
+      }
+    } catch {}
+    if (typeof window !== 'undefined') {
+      _lsDebounce = window.setTimeout(() => {
+        try { localStorage.setItem("theme", theme); } catch {}
+      }, 100) as any;
+    }
   }, [theme, mounted]);
 
   // Prevent hydration mismatch by not rendering until mounted

@@ -51,8 +51,25 @@ export const AnimatedThemeToggler = ({ className, size = 'md' }: AnimatedThemeTo
       setTheme(newTheme);
     };
 
-    // Check if view transitions are supported
-    if (!('startViewTransition' in document)) {
+    // Respect reduced-motion preference and avoid heavy animations on mobile/touch devices
+    if (typeof window === 'undefined') {
+      fallbackChange();
+      return;
+    }
+
+    const prefersReduced = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isTouchDevice = (navigator.maxTouchPoints && navigator.maxTouchPoints > 0) || (window.matchMedia && window.matchMedia('(pointer: coarse)').matches) || window.innerWidth < 768;
+
+    // If user prefers reduced motion or on touch/mobile, do a minimal change without view transitions
+    if (prefersReduced || isTouchDevice || !('startViewTransition' in document)) {
+      // Quick UI feedback: use a tiny transform to hint change (GPU-accelerated)
+      try {
+        buttonRef.current.style.willChange = 'transform, opacity';
+        buttonRef.current.style.transform = 'scale(0.98)';
+        setTimeout(() => {
+          buttonRef.current && (buttonRef.current.style.transform = '');
+        }, 120);
+      } catch {}
       fallbackChange();
       return;
     }
@@ -66,8 +83,8 @@ export const AnimatedThemeToggler = ({ className, size = 'md' }: AnimatedThemeTo
 
       await transition.ready;
 
-      const { top, left, width, height } =
-        buttonRef.current.getBoundingClientRect();
+      // compute a lightweight circular reveal centered on the button
+      const { top, left, width, height } = buttonRef.current.getBoundingClientRect();
       const y = top + height / 2;
       const x = left + width / 2;
 
@@ -75,22 +92,22 @@ export const AnimatedThemeToggler = ({ className, size = 'md' }: AnimatedThemeTo
       const bottom = window.innerHeight - top;
       const maxRad = Math.hypot(Math.max(left, right), Math.max(top, bottom));
 
+      // Use a shorter duration and simpler easing for snappier feel
       document.documentElement.animate(
         {
           clipPath: [
             `circle(0px at ${x}px ${y}px)`,
-            `circle(${maxRad}px at ${x}px ${y}px)`,
+            `circle(${Math.ceil(maxRad)}px at ${x}px ${y}px)`,
           ],
         },
         {
-          duration: 700,
-          easing: "ease-in-out",
-          pseudoElement: "::view-transition-new(root)",
-        },
+          duration: 450,
+          easing: 'cubic-bezier(0.2, 0.8, 0.2, 1)',
+          pseudoElement: '::view-transition-new(root)'
+        }
       );
     } catch (error) {
       // Fallback if view transition fails
-      console.warn('View transition failed, using fallback:', error);
       fallbackChange();
     }
   };
@@ -109,30 +126,33 @@ export const AnimatedThemeToggler = ({ className, size = 'md' }: AnimatedThemeTo
   }
 
   return (
-    <button 
-      ref={buttonRef} 
-      onClick={changeTheme} 
+    <button
+      ref={buttonRef}
+      onClick={changeTheme}
       className={cn(
-        "inline-flex items-center justify-center rounded-md border border-input bg-background hover:bg-accent hover:text-accent-foreground transition-all duration-300",
-        "hover:shadow-lg hover:scale-105 active:scale-95",
-        "focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+        "inline-flex items-center justify-center rounded-md border border-input bg-background focus:outline-none",
+  // limit transitions to color changes by default; allow transform only when motion is allowed
+  "transition-colors duration-150 motion-safe:transition-transform motion-safe:duration-150",
+  "motion-safe:active:scale-95",
+        "focus:ring-2 focus:ring-primary focus:ring-offset-2",
         sizeClasses[size],
         className
       )}
+      aria-pressed={isDarkMode}
       aria-label={`Switch to ${isDarkMode ? 'light' : 'dark'} mode`}
       title={`Currently ${theme} mode. Click to switch to ${isDarkMode ? 'light' : 'dark'} mode`}
     >
       {isDarkMode ? (
-        <Sun 
-          width={iconSizes[size]} 
+        <Sun
+          width={iconSizes[size]}
           height={iconSizes[size]}
-          className="text-orange-500 dark:text-orange-400 transition-colors duration-300" 
+          className="text-orange-500 dark:text-orange-400 transition-colors duration-150"
         />
       ) : (
-        <Moon02 
-          width={iconSizes[size]} 
+        <Moon02
+          width={iconSizes[size]}
           height={iconSizes[size]}
-          className="text-slate-600 dark:text-slate-300 transition-colors duration-300" 
+          className="text-slate-600 dark:text-slate-300 transition-colors duration-150"
         />
       )}
     </button>

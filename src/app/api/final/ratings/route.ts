@@ -36,29 +36,18 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Check if rating is currently active (using the rating API)
+    // Check if rating is currently active using the DB-backed rating state
     try {
-      const ratingResponse = await fetch(`${process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'}/api/rating/current`, {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      });
-      
-      if (!ratingResponse.ok) {
-        throw new Error('Failed to fetch rating status');
-      }
-      
-      const ratingState = await ratingResponse.json();
-      
-      if (!ratingState.ratingActive || ratingState.currentPhase !== 'rating-active') {
+      const { getRatingStateFromDb } = await import('@/lib/rating-state-db');
+      const ratingState = await getRatingStateFromDb();
+      if (!ratingState || !ratingState.ratingActive || ratingState.currentPhase !== 'rating-active') {
         return NextResponse.json({ 
           error: 'Rating is not currently active', 
           code: 'RATING_NOT_ACTIVE' 
         }, { status: 403 });
       }
     } catch (error) {
-      console.error('Error checking rating status:', error);
+      console.error('Error checking rating status via DB:', error);
       return NextResponse.json({ 
         error: 'Failed to verify rating status', 
         code: 'RATING_CHECK_FAILED' 

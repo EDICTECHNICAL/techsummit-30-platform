@@ -18,32 +18,34 @@ export const SimpleThemeToggle = ({ className, size = 'md' }: SimpleThemeToggleP
   useEffect(() => {
     setMounted(true);
     const savedTheme = localStorage.getItem("theme") || 'dark';
-    console.log('Initial theme from localStorage:', savedTheme);
     setTheme(savedTheme);
-    
-    // Apply the theme immediately
-    document.documentElement.classList.remove("dark", "light");
-    document.documentElement.classList.add(savedTheme);
-    console.log('Initial theme applied:', savedTheme);
+
+    // Apply the theme immediately with minimal DOM writes
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.remove("dark", "light");
+      document.documentElement.classList.add(savedTheme);
+    }
   }, []);
 
   const toggleTheme = () => {
     if (!mounted) return;
     
     const newTheme = theme === 'dark' ? 'light' : 'dark';
-    console.log('Toggling theme from', theme, 'to', newTheme);
-    
     setTheme(newTheme);
-    
-    // Apply theme to document
-    document.documentElement.classList.remove("dark", "light");
-    document.documentElement.classList.add(newTheme);
-    
-    console.log('Applied theme class:', newTheme);
-    console.log('Document classes:', document.documentElement.className);
-    
-    // Save to localStorage
-    localStorage.setItem("theme", newTheme);
+
+    // Apply theme to document with minimal writes
+    if (typeof document !== 'undefined') {
+      document.documentElement.classList.remove("dark", "light");
+      document.documentElement.classList.add(newTheme);
+    }
+
+    // Debounce localStorage write for quicker interactions on mobile
+    try {
+      window.clearTimeout((toggleTheme as any)._debounceId);
+    } catch {}
+    (toggleTheme as any)._debounceId = window.setTimeout(() => {
+      try { localStorage.setItem("theme", newTheme); } catch {}
+    }, 120);
   };
 
   const sizeClasses = {
