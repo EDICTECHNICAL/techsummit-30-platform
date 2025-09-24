@@ -32,7 +32,7 @@ export default function HomePage() {
               <h1 className="font-bold text-lg bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
                 TECHPRENEUR
               </h1>
-              <p className="text-xs text-muted-foreground -mt-1">SUMMIT 3.0</p>
+              <p className="text-xs text-muted-foreground -mt-1">SUMMIT 2.0</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -67,7 +67,7 @@ export default function HomePage() {
                 TECHPRENEUR
               </span>
               <span className="block bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent animate-pulse">
-                SUMMIT 3.0
+                SUMMIT 2.0
               </span>
             </h1>
             <p className="text-xl sm:text-2xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
@@ -425,7 +425,7 @@ export default function HomePage() {
           <div className="flex flex-col lg:flex-row items-center justify-between gap-6">
             <div className="text-center lg:text-left">
               <p className="text-muted-foreground mb-2">
-                © {new Date().getFullYear()} Techpreneur Summit 3.0
+                © {new Date().getFullYear()} Techpreneur Summit 2.0
               </p>
               <p className="text-sm text-muted-foreground/80">
                 Axios EDIC • Thakur College of Engineering and Technology

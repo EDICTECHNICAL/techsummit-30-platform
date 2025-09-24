@@ -237,30 +237,62 @@ export default function FinalPage() {
       setLoading(true);
       
       // Load qualified teams first
-      const qualifiedRes = await fetch('/api/final/qualified-teams');
-      if (qualifiedRes.ok) {
-        const qualifiedData = await qualifiedRes.json();
-        setQualifiedTeams(qualifiedData.qualifiedTeams || []);
-        setNonQualifiedTeams(qualifiedData.nonQualifiedTeams || []);
-        setQualificationNote(qualifiedData.qualificationNote || null);
-        
-        // Check if current user's team is qualified
-        const userQualified = qualifiedData.qualifiedTeams.some((team: any) => team.teamId === userTeamId);
-        setIsQualified(userQualified);
-      }
-      
       // Load final scoreboard with judge scores and peer ratings
       const scoreboardRes = await fetch('/api/scoreboard');
       if (scoreboardRes.ok) {
         const scoreboardData = await scoreboardRes.json();
         setFinalScoreboard(scoreboardData.leaderboard || []);
       }
-      
+
       // Load teams
       const teamsRes = await fetch('/api/teams');
       if (teamsRes.ok) {
         const teamsData = await teamsRes.json();
-        setTeams(teamsData);
+        setTeams(teamsData || []);
+
+        // Compute qualification locally: top 70% by final cumulative score qualify
+        try {
+          const leaderboard = (await (await fetch('/api/scoreboard')).json()).leaderboard || [];
+          // Map teamId -> score for quick lookup
+          const scoreMap = new Map<number, number>();
+          leaderboard.forEach((row: any) => scoreMap.set(Number(row.teamId), Number(row.finalCumulativeScore || 0)));
+
+          type RankedRow = { teamId: number; teamName: string; college: string; score: number };
+          const ranked: RankedRow[] = (teamsData || []).map((t: any) => ({
+            teamId: t.id,
+            teamName: t.name || `Team #${t.id}`,
+            college: t.college || '',
+            score: scoreMap.get(t.id) ?? 0,
+          })).sort((a: RankedRow, b: RankedRow) => b.score - a.score);
+
+          const total = ranked.length;
+          const qualifyCount = Math.max(1, Math.ceil(total * 0.7)); // at least 1 qualifies when teams exist
+
+          const qualified = ranked.slice(0, qualifyCount).map((r: RankedRow, idx: number) => ({
+            teamId: r.teamId,
+            teamName: r.teamName,
+            college: r.college,
+            rank: idx + 1,
+            combinedScore: r.score
+          }));
+
+          const nonQualified = ranked.slice(qualifyCount).map((r: RankedRow, idx: number) => ({
+            teamId: r.teamId,
+            teamName: r.teamName,
+            college: r.college,
+            rank: qualifyCount + idx + 1,
+            combinedScore: r.score
+          }));
+
+          setQualifiedTeams(qualified);
+          setNonQualifiedTeams(nonQualified);
+          setQualificationNote({ message: `Qualification rule: top ${Math.round(70)}% of teams (top ${qualifyCount} of ${total}) qualify for the finals; the remaining teams are eliminated from competing.` });
+
+          const userQualified = qualified.some((team: any) => team.teamId === userTeamId);
+          setIsQualified(userQualified);
+        } catch (e) {
+          console.warn('Failed to compute local qualification, falling back to API if available', e);
+        }
       }
 
   // Load my ratings if user has a team (don't wait for qualification check to avoid timing issues)
