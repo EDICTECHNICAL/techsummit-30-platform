@@ -168,7 +168,7 @@ export default function SignUpPage() {
                 <h1 className="font-bold text-xl bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
                   TECHPRENEUR
                 </h1>
-                <p className="text-xs text-muted-foreground -mt-1">SUMMIT 3.0</p>
+                <p className="text-xs text-muted-foreground -mt-1">SUMMIT 2.0</p>
               </div>
             </Link>
             <h2 className="text-3xl font-black mb-2 bg-gradient-to-r from-foreground via-primary to-accent bg-clip-text text-transparent">
@@ -481,9 +481,9 @@ export default function SignUpPage() {
 
           {/* Bottom Info */}
           <div className="mt-8 text-center">
-            <p className="text-xs text-muted-foreground">
-              By creating an account, you agree to participate in the Techpreneur Summit 3.0 competition
-            </p>
+              <p className="text-xs text-muted-foreground">
+                    By creating an account, you agree to participate in the Techpreneur Summit 2.0 competition
+                  </p>
           </div>
         </div>
       </div>

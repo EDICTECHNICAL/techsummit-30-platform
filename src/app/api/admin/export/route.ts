@@ -61,7 +61,7 @@ export async function GET(req: NextRequest) {
 
     const exportData = {
       exportedAt: new Date().toISOString(),
-      platform: "TechSummit 3.0",
+  platform: "TechSummit 2.0",
       version: "1.0.0",
       data: {
         users: allUsers,

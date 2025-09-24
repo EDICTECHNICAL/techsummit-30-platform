@@ -115,7 +115,7 @@ export default function RulesPage() {
                 <h1 className="font-bold text-xl bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
                   TECHPRENEUR
                 </h1>
-                <p className="text-xs text-muted-foreground -mt-1">SUMMIT 3.0</p>
+                <p className="text-xs text-muted-foreground -mt-1">SUMMIT 2.0</p>
               </div>
             </div>
             <h2 className="text-3xl font-black mb-4 bg-gradient-to-r from-foreground via-primary to-accent bg-clip-text text-transparent">
@@ -126,6 +126,7 @@ export default function RulesPage() {
               <p className="relative text-lg text-muted-foreground max-w-3xl mx-auto p-6 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl">
                 An entrepreneurial strategy game where teams navigate the challenges of building and scaling a startup. 
                 Through creativity, strategic decision-making, and resource management, you'll compete to dominate the marketplace and climb the leaderboard.
+                Each team starts the quiz with 3 tokens in each of the four categories: Marketing, Capital, Team, and Strategy. Use tokens strategically when answering questions.
               </p>
             </div>
           </div>
@@ -389,6 +390,9 @@ export default function RulesPage() {
                       <p className="text-sm text-muted-foreground font-medium">
                         Final ranking is determined by total accumulated points across all rounds
                       </p>
+                    </div>
+                    <div className="relative mt-3 text-sm text-muted-foreground">
+                      Finals Qualification: The top 70% of teams by ranking qualify for the final presentation round; the bottom 30% will be eliminated.
                     </div>
                   </div>
                 </div>

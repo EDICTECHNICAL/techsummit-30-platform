@@ -8,7 +8,7 @@ import Script from "next/script";
 import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
-  title: "TechPreneuer Summit 3.0",
+  title: "Techpreneur Summit 2.0",
   description: "Made with love by EDIC",
 };
 

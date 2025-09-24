@@ -40,7 +40,7 @@ export function DashboardNavbar() {
                   <Zap className="w-4 h-4 text-white" />
                 </div>
                 <span className="font-bold text-lg bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-                  TechSummit 3.0
+                  TechSummit 2.0
                 </span>
               </Link>
             </div>
@@ -123,7 +123,7 @@ export function DashboardNavbar() {
               <h1 className="font-bold text-lg bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
                 TECHPRENEUR
               </h1>
-              <p className="text-xs text-muted-foreground -mt-1">SUMMIT 3.0</p>
+              <p className="text-xs text-muted-foreground -mt-1">SUMMIT 2.0</p>
             </div>
           </Link>
           

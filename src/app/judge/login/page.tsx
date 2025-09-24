@@ -66,7 +66,7 @@ export default function JudgeLogin() {
                 <h1 className="font-bold text-xl bg-gradient-to-r from-primary via-accent to-primary bg-clip-text text-transparent">
                   TECHPRENEUR
                 </h1>
-                <p className="text-xs text-muted-foreground -mt-1">SUMMIT 3.0</p>
+                <p className="text-xs text-muted-foreground -mt-1">SUMMIT 2.0</p>
               </div>
             </Link>
             <h2 className="text-3xl font-black mb-2 bg-gradient-to-r from-foreground via-primary to-accent bg-clip-text text-transparent">

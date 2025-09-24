@@ -70,6 +70,11 @@ export const teams = pgTable('teams', {
   id: serial('id').primaryKey(),
   name: text('name').notNull().unique(),
   college: text('college').notNull(),
+  // Tokens available to the team in each category. Default initialized to 3.
+  tokensMarketing: integer('tokens_marketing').notNull().default(3),
+  tokensCapital: integer('tokens_capital').notNull().default(3),
+  tokensTeam: integer('tokens_team').notNull().default(3),
+  tokensStrategy: integer('tokens_strategy').notNull().default(3),
   createdAt: timestamp('created_at', { withTimezone: false }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: false }).notNull().defaultNow()
 });

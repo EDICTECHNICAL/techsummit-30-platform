@@ -10,8 +10,10 @@ A modern, business-style hackathon platform built with Next.js, Drizzle ORM, Sup
 - **⚡ Real-time WebSocket synchronization** for voting timers between admin and clients
 - **🔐 5 Admin accounts** and **5 Judge accounts** pre-created with secure passwords
 - **🚀 Production deployment ready** for Vercel with optimized configurations
-- **📝 15 comprehensive quiz questions** for Techpreneur Summit 3.0
+- **📝 15 comprehensive quiz questions** for Techpreneur Summit 2.0
 - **🎯 Token-based scoring system** with 4 categories: Marketing, Capital, Team, Strategy
+ - **🎯 Token-based scoring system** with 4 categories: Marketing, Capital, Team, Strategy
+ - **🎲 Starting Tokens**: Each team starts the quiz with 3 tokens in each category (Marketing, Capital, Team, Strategy)
 - **👥 Concurrent Multi-User Access**: Full support for simultaneous users across all platform features
 
 ## 🧪 **Current Status: Testing Phase**
@@ -25,7 +27,7 @@ The platform is currently in an intensive **inhouse testing phase** for 2-3 days
 - ✅ **Bug Detection**: Identifying and documenting any issues for immediate resolution
 - ✅ **Concurrent Access Testing**: Verifying multi-user interactions work without conflicts
 
-**Post-Testing**: Any bugs or issues discovered during this testing phase will be promptly fixed before the final Techpreneur Summit 3.0 event.
+**Post-Testing**: Any bugs or issues discovered during this testing phase will be promptly fixed before the final Techpreneur Summit 2.0 event.
 
 ## 🚀 **Production Deployment**
 
@@ -136,6 +138,9 @@ The platform is designed to handle **multiple simultaneous users** across all ma
 - **Judge Scoring**: Judges can score teams concurrently with peer rating periods
 - **Real-time Updates**: SSE and polling ensure all users see rating state changes instantly
 - **Qualification Validation**: Only top 5 qualified teams can participate in peer rating
+ - **Qualification Validation**: Only top 5 qualified teams can participate in peer rating
+
+Note: Finals Qualification rule — the top 70% of teams by ranking qualify for the final presentation round; the bottom 30% will be eliminated.
 
 ### ❓ **Quiz System - Full Concurrent Support**
 - **Multiple Teams**: All teams can take the quiz simultaneously during active periods
@@ -364,7 +369,7 @@ npx drizzle-kit studio
 
 ## 🎉 Recent Achievements
 
-- ✅ **15 Quiz Questions Added**: Complete Techpreneur Summit 3.0 quiz dataset
+- ✅ **15 Quiz Questions Added**: Complete Techpreneur Summit 2.0 quiz dataset
 - ✅ **Mobile Responsiveness**: Full mobile and tablet optimization implemented
 - ✅ **Token Scoring System**: 4-category entrepreneurial assessment
 - ✅ **Admin Panel Integration**: Full quiz management through web interface
