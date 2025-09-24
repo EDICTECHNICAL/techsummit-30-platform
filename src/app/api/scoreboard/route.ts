@@ -39,30 +39,48 @@ export async function GET(request: NextRequest) {
       const teamId = team.id;
       
       try {
-        // Get quiz tokens - these form the base cumulative score
+        // Get quiz tokens and remaining tokens (after any conversions)
         const quizData = await db
           .select({
             tokensMarketing: quizSubmissions.tokensMarketing,
             tokensCapital: quizSubmissions.tokensCapital,
             tokensTeam: quizSubmissions.tokensTeam,
             tokensStrategy: quizSubmissions.tokensStrategy,
+            remainingMarketing: quizSubmissions.remainingMarketing,
+            remainingCapital: quizSubmissions.remainingCapital,
+            remainingTeam: quizSubmissions.remainingTeam,
+            remainingStrategy: quizSubmissions.remainingStrategy,
           })
           .from(quizSubmissions)
           .where(eq(quizSubmissions.teamId, teamId))
           .limit(1);
-        
+
         const tokens = quizData.length > 0 ? {
           marketing: quizData[0].tokensMarketing || 0,
           capital: quizData[0].tokensCapital || 0,
           team: quizData[0].tokensTeam || 0,
           strategy: quizData[0].tokensStrategy || 0,
         } : { marketing: 0, capital: 0, team: 0, strategy: 0 };
-        
-        // Calculate cumulative token score (sum of all 4 categories) - ensure integers
-        const cumulativeTokenScore = Math.round(Number(tokens.marketing)) + 
-                                   Math.round(Number(tokens.capital)) + 
-                                   Math.round(Number(tokens.team)) + 
-                                   Math.round(Number(tokens.strategy));
+
+        const remaining = quizData.length > 0 ? {
+          marketing: quizData[0].remainingMarketing ?? 0,
+          capital: quizData[0].remainingCapital ?? 0,
+          team: quizData[0].remainingTeam ?? 0,
+          strategy: quizData[0].remainingStrategy ?? 0,
+        } : { marketing: 0, capital: 0, team: 0, strategy: 0 };
+
+        // Calculate totals
+        // Earned total (original tokens from quiz)
+        const earnedTokenScore = Math.round(Number(tokens.marketing)) + 
+                                 Math.round(Number(tokens.capital)) + 
+                                 Math.round(Number(tokens.team)) + 
+                                 Math.round(Number(tokens.strategy));
+
+        // Remaining total (after conversions) - this is the authoritative token score used for final ranking
+        const remainingTokenScore = Math.round(Number(remaining.marketing)) + 
+                                    Math.round(Number(remaining.capital)) + 
+                                    Math.round(Number(remaining.team)) + 
+                                    Math.round(Number(remaining.strategy));
 
         // Get voting data (original votes)
         const voteData = await db
@@ -83,12 +101,11 @@ export async function GET(request: NextRequest) {
           .from(tokenConversions)
           .where(eq(tokenConversions.teamId, teamId));
 
-        const votesFromTokens = Math.round(Number(tokenVoteData[0]?.totalTokenVotes)) || 0;
-        const tokensSpent = Math.round(Number(tokenVoteData[0]?.tokensSpent)) || 0;
-        const totalVotes = originalVotes + votesFromTokens;
+  const votesFromTokens = Math.round(Number(tokenVoteData[0]?.totalTokenVotes)) || 0;
+  const tokensSpent = Math.round(Number(tokenVoteData[0]?.tokensSpent)) || 0;
+  const totalVotes = originalVotes + votesFromTokens;
 
-        // Calculate remaining tokens
-        const tokensRemaining = cumulativeTokenScore - tokensSpent;
+  // tokensSpent is the total tokens used in conversions; remainingTokenScore is authoritative when available
 
         // Get peer ratings
         const peerRatingData = await db
@@ -116,8 +133,8 @@ export async function GET(request: NextRequest) {
         const avgJudgeScore = Number(judgeScoreData[0]?.avgJudgeScore) || 0;
         const judgeCount = Math.round(Number(judgeScoreData[0]?.judgeCount)) || 0;
 
-        // Calculate final cumulative score: Token Score + Judge Score - ensure integer
-        const finalCumulativeScore = cumulativeTokenScore + totalJudgeScore;
+  // Calculate final cumulative score: use remaining tokens (after conversions) + judge score
+  const finalCumulativeScore = remainingTokenScore + totalJudgeScore;
 
         leaderboard.push({
           rank: 0, // Will be set after sorting
@@ -129,12 +146,20 @@ export async function GET(request: NextRequest) {
             capital: tokens.capital,
             team: tokens.team,
             strategy: tokens.strategy,
-            total: cumulativeTokenScore,
+            // Expose the authoritative token total as remaining tokens (used in ranking/score)
+            total: remainingTokenScore,
+            // also include remaining per-category for clarity
+            remaining: {
+              marketing: remaining.marketing,
+              capital: remaining.capital,
+              team: remaining.team,
+              strategy: remaining.strategy,
+            }
           },
           tokenActivity: {
-            earned: cumulativeTokenScore,
+            earned: earnedTokenScore,
             spent: tokensSpent,
-            remaining: tokensRemaining,
+            remaining: remainingTokenScore,
           },
           voting: {
             originalVotes: originalVotes,

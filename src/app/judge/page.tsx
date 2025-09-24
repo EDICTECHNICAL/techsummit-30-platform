@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { BackButton } from "@/components/BackButton";
 import { useRatingTimer } from '@/hooks/useRatingTimer';
-import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AlertCircle, CheckCircle2, Maximize2, Minimize2 } from 'lucide-react';
 
 interface Team {
   id: number;
@@ -351,13 +351,29 @@ export default function JudgePage() {
     <div className="min-h-screen bg-background text-foreground mobile-padding pb-20 sm:pb-6 safe-area-padding">
       <div className="max-w-6xl mx-auto">
         <div className="flex items-center justify-between mb-4">
-          <div>
-            <h1 className="mobile-title mb-0">Judge Console</h1>
-            <p className="mobile-body text-muted-foreground">
-              Submit scores for team presentations during the final round.
-            </p>
+          <div className="flex items-center gap-3">
+            <BackButton />
+            <div>
+              <h1 className="mobile-title mb-0">Judge Console</h1>
+              <p className="mobile-body text-muted-foreground">
+                Submit scores for team presentations during the final round.
+              </p>
+            </div>
           </div>
           <div className="flex items-center gap-2">
+            {/* Fullscreen toggle for judge console */}
+            <button
+              onClick={toggleFullscreen}
+              aria-pressed={isFullscreen}
+              title={isFullscreen ? 'Exit Fullscreen' : 'Enter Fullscreen'}
+              className="p-2 rounded-md hover:bg-muted/10 dark:hover:bg-muted/20 transition-colors"
+            >
+              {isFullscreen ? (
+                <Minimize2 className="w-5 h-5" />
+              ) : (
+                <Maximize2 className="w-5 h-5" />
+              )}
+            </button>
             <ThemeToggle />
           </div>
         </div>
