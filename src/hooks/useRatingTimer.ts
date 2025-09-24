@@ -26,6 +26,7 @@ export function useRatingTimer(pollInterval = 2000) {
   });
 
   const lastUpdateRef = useRef(0);
+  const tickRef = useRef<number | null>(null);
 
   const poll = useCallback(async () => {
     try {
@@ -134,6 +135,55 @@ export function useRatingTimer(pollInterval = 2000) {
       document.removeEventListener('visibilitychange', onVisibility as any);
     };
   }, [poll, pollInterval]);
+
+  // Client-side 1s tick for smooth countdown between server updates.
+  // This improves perceived responsiveness for admin/judge/final consoles.
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+
+    const startTick = () => {
+      if (tickRef.current) return;
+      tickRef.current = window.setInterval(() => {
+        setState(prev => {
+          // Only tick when a rating cycle is active and there is remaining time.
+          if (!prev.ratingCycleActive || typeof prev.phaseTimeLeft !== 'number' || prev.phaseTimeLeft <= 0) return prev;
+          const next = Math.max(0, Math.floor(prev.phaseTimeLeft) - 1);
+          return { ...prev, phaseTimeLeft: next };
+        });
+      }, 1000) as unknown as number;
+    };
+
+    const stopTick = () => {
+      if (tickRef.current) {
+        clearInterval(tickRef.current);
+        tickRef.current = null;
+      }
+    };
+
+    const onVisibility = () => {
+      if (document.hidden) {
+        stopTick();
+      } else {
+        // resume tick if cycle active
+        setTimeout(() => {
+          setState(prev => prev); // trigger re-read of state in effect
+          if (state.ratingCycleActive && state.phaseTimeLeft > 0) startTick();
+        }, 50);
+      }
+    };
+
+    // Start tick when a cycle is active and there's time remaining and page is visible
+    if (state.ratingCycleActive && state.phaseTimeLeft > 0 && !document.hidden) {
+      startTick();
+    }
+
+    document.addEventListener('visibilitychange', onVisibility, { passive: true });
+
+    return () => {
+      stopTick();
+      document.removeEventListener('visibilitychange', onVisibility as any);
+    };
+  }, [state.ratingCycleActive, state.phaseTimeLeft]);
 
   return {
     ...state,

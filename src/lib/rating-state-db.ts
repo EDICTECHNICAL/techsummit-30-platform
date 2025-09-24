@@ -15,6 +15,17 @@ async function ensureRow(): Promise<void> {
   }
 }
 
+// Return the primary id of the singleton rating_state row; create it if missing
+async function getSingletonId(): Promise<number> {
+  const rows = await db.select().from(ratingStateTable).limit(1);
+  if (rows.length === 0) {
+    const res = await db.insert(ratingStateTable).values({}).returning({ id: ratingStateTable.id });
+    // res may be an array with one element containing the id
+    return (res && res[0] && (res[0] as any).id) || 1;
+  }
+  return (rows[0] as any).id;
+}
+
 async function broadcastCurrentState() {
   try {
     const state = await getRatingStateFromDb();
@@ -78,13 +89,15 @@ export async function setTeamInDb(team: { id: number | string; name: string } | 
   }
   values.updated_at = new Date();
   values.updatedAt = new Date();
-  await db.update(ratingStateTable).set(values).where(eq(ratingStateTable.id, 1));
+  const id = await getSingletonId();
+  await db.update(ratingStateTable).set(values).where(eq(ratingStateTable.id, id));
   await broadcastCurrentState();
 }
 
 export async function setAllPitchesCompletedInDb(flag: boolean) {
   await ensureRow();
-  await db.update(ratingStateTable).set({ allPitchesCompleted: flag, updatedAt: new Date() }).where(eq(ratingStateTable.id, 1));
+  const id = await getSingletonId();
+  await db.update(ratingStateTable).set({ allPitchesCompleted: flag, updatedAt: new Date() }).where(eq(ratingStateTable.id, id));
   await broadcastCurrentState();
 }
 
@@ -101,34 +114,39 @@ export async function startRatingCycleInDb(teamId?: number, teamName?: string) {
   };
   if (teamId) values.currentTeamId = teamId;
   if (teamName) values.currentTeamName = teamName;
-  await db.update(ratingStateTable).set(values).where(eq(ratingStateTable.id, 1));
+  const id = await getSingletonId();
+  await db.update(ratingStateTable).set(values).where(eq(ratingStateTable.id, id));
   await broadcastCurrentState();
 }
 
 export async function stopRatingCycleInDb() {
   await ensureRow();
-  await db.update(ratingStateTable).set({ ratingCycleActive: false, currentPhase: 'idle', phaseStartTs: null, cycleStartTs: null, ratingActive: false, updatedAt: new Date() }).where(eq(ratingStateTable.id, 1));
+  const id = await getSingletonId();
+  await db.update(ratingStateTable).set({ ratingCycleActive: false, currentPhase: 'idle', phaseStartTs: null, cycleStartTs: null, ratingActive: false, updatedAt: new Date() }).where(eq(ratingStateTable.id, id));
   await broadcastCurrentState();
 }
 
 export async function startQnaPauseInDb() {
   await ensureRow();
   const now = new Date();
-  await db.update(ratingStateTable).set({ currentPhase: 'qna-pause', phaseStartTs: now, ratingActive: false, updatedAt: now }).where(eq(ratingStateTable.id, 1));
+  const id = await getSingletonId();
+  await db.update(ratingStateTable).set({ currentPhase: 'qna-pause', phaseStartTs: now, ratingActive: false, updatedAt: now }).where(eq(ratingStateTable.id, id));
   await broadcastCurrentState();
 }
 
 export async function startRatingWarningInDb() {
   await ensureRow();
   const now = new Date();
-  await db.update(ratingStateTable).set({ currentPhase: 'rating-warning', phaseStartTs: now, ratingActive: false, updatedAt: now }).where(eq(ratingStateTable.id, 1));
+  const id = await getSingletonId();
+  await db.update(ratingStateTable).set({ currentPhase: 'rating-warning', phaseStartTs: now, ratingActive: false, updatedAt: now }).where(eq(ratingStateTable.id, id));
   await broadcastCurrentState();
 }
 
 export async function startRatingPhaseInDb() {
   await ensureRow();
   const now = new Date();
-  await db.update(ratingStateTable).set({ currentPhase: 'rating-active', phaseStartTs: now, ratingActive: true, updatedAt: now }).where(eq(ratingStateTable.id, 1));
+  const id = await getSingletonId();
+  await db.update(ratingStateTable).set({ currentPhase: 'rating-active', phaseStartTs: now, ratingActive: true, updatedAt: now }).where(eq(ratingStateTable.id, id));
   await broadcastCurrentState();
 }
 
