@@ -29,12 +29,19 @@ async function seedJudgeAccounts() {
     console.error('DATABASE_URL environment variable is required');
     process.exit(1);
   }
-  const sql = postgres(process.env.DATABASE_URL);
+  console.log('Connecting to database...');
+  // Some hosted Postgres providers (Supabase, etc.) require SSL. Use permissive SSL
+  // so this script can run from local dev environments without failing on cert checks.
+  const sql = postgres(process.env.DATABASE_URL, { ssl: { rejectUnauthorized: false } });
   try {
     try { await sql`SELECT 1 FROM "judges" LIMIT 1`; } catch (error) {
       await sql`CREATE TABLE IF NOT EXISTS "judges" (id VARCHAR(36) PRIMARY KEY, username TEXT NOT NULL UNIQUE, name TEXT NOT NULL, password TEXT NOT NULL, created_at TIMESTAMP NOT NULL DEFAULT NOW(), updated_at TIMESTAMP NOT NULL DEFAULT NOW())`;
     }
-    for (const judge of judgeAccounts) await createJudgeAccount(sql, judge);
+    for (const judge of judgeAccounts) {
+      console.log(`Seeding judge ${judge.username}`);
+      await createJudgeAccount(sql, judge);
+    }
+    console.log('Finished seeding judges');
   } catch (error) {
     console.error('Failed to seed judge accounts:', error.message);
     process.exit(1);

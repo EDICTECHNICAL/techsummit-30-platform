@@ -58,8 +58,10 @@ async function seedAdminAccounts() {
     console.error('DATABASE_URL environment variable is required');
     process.exit(1);
   }
-
-  const sql = postgres(process.env.DATABASE_URL);
+  console.log('Connecting to database...');
+  // Use permissive SSL to avoid certificate verification issues when connecting to
+  // hosted Postgres services from local dev environments.
+  const sql = postgres(process.env.DATABASE_URL, { ssl: { rejectUnauthorized: false } });
 
   try {
     try {
@@ -77,8 +79,10 @@ async function seedAdminAccounts() {
     }
 
     for (const admin of adminAccounts) {
+      console.log(`Seeding admin ${admin.username}`);
       await createAdminAccount(sql, admin);
     }
+    console.log('Finished seeding admins');
   } catch (error) {
     console.error('Failed to seed admin accounts:', error.message);
     process.exit(1);

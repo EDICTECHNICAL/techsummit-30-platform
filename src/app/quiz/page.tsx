@@ -217,17 +217,12 @@ const QuestionContent: React.FC<{
     <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-accent/30 rounded-2xl blur opacity-25 group-hover:opacity-75 transition-opacity duration-300"></div>
     <div className="relative bg-card/80 backdrop-blur-xl border border-border/50 rounded-2xl p-6 lg:p-8 shadow-2xl">
       <div className="mb-6">
-        <div className="flex items-start justify-between gap-4 mb-4">
+          <div className="flex items-start justify-between gap-4 mb-4">
           <h2 className={`font-black leading-tight bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent ${
             isMobile ? 'text-lg' : 'text-xl'
           }`}>
             Q{question.order}. {question.text}
           </h2>
-          {locked && (
-            <div className="flex-shrink-0 px-2 py-1 bg-muted/50 rounded-lg text-xs text-muted-foreground">
-              Locked
-            </div>
-          )}
         </div>
         <p className={`text-muted-foreground bg-primary/5 backdrop-blur-sm px-4 py-3 rounded-lg border border-primary/20 ${
           isMobile ? 'text-sm' : ''
@@ -240,8 +235,16 @@ const QuestionContent: React.FC<{
         {question.options
           .sort((a, b) => a.order - b.order)
           .map((option) => (
-            <label 
-              key={option.id} 
+            <label
+              key={option.id}
+              onClick={(e) => {
+                // Prevent double events and stop propagation to avoid conflicts with other handlers
+                e.preventDefault();
+                e.stopPropagation();
+                if (locked) return;
+                try { console.debug('[Quiz] label onClick', { questionId: question.id, optionId: option.id }); } catch (err) {}
+                onAnswerChange(option.id);
+              }}
               className={`group relative flex cursor-pointer items-start gap-4 p-4 lg:p-5 transition-all duration-300 rounded-xl border backdrop-blur-sm ${
                 answer === option.id 
                   ? "border-primary/50 bg-gradient-to-r from-primary/10 to-accent/10 shadow-lg transform -translate-y-0.5" 
@@ -253,9 +256,9 @@ const QuestionContent: React.FC<{
                   type="radio"
                   name={`question-${question.id}`}
                   checked={answer === option.id}
-                  onChange={() => onAnswerChange(option.id)}
                   className="sr-only"
                   disabled={locked}
+                  aria-hidden="true"
                 />
                 <div className={`w-5 h-5 rounded-full border-2 transition-all duration-200 flex items-center justify-center ${
                   answer === option.id 
@@ -457,7 +460,8 @@ const QuizComponent: React.FC<{
               question={currentQuestion}
               answer={answers[currentQuestion.id]}
               onAnswerChange={(optionId) => onAnswerChange(currentQuestion.id, optionId)}
-              locked={!!lockedQuestions[currentQuestion.id]}
+              // Locking removed: users can change answers until final submit
+              locked={false}
               isMobile={isMobile}
             />
           )}
@@ -821,6 +825,33 @@ export default function QuizPage() {
     team: 0,
     strategy: 0,
   });
+  // Base tokens (fixed starting values)
+  const BASE_TOKENS = {
+    marketing: 3,
+    capital: 3,
+    team: 3,
+    strategy: 3,
+  } as const;
+
+  // Keep a baseTokens state so it can be extended later if needed
+  const [baseTokens] = useState(() => ({ ...BASE_TOKENS }));
+  // Calculate live tokens from base tokens + selected answers
+  const calculateLiveTokens = (base: typeof baseTokens, answersObj: Record<number, number>, qs: Question[]) => {
+    const live = { ...base };
+    Object.entries(answersObj).forEach(([qid, oid]) => {
+      const q = qs.find(x => x.id === Number(qid));
+      if (!q) return;
+      const opt = q.options.find(o => o.id === oid);
+      if (!opt) return;
+      live.marketing += Number(opt.tokenDeltaMarketing || 0);
+      live.capital += Number(opt.tokenDeltaCapital || 0);
+      live.team += Number(opt.tokenDeltaTeam || 0);
+      live.strategy += Number(opt.tokenDeltaStrategy || 0);
+    });
+    return live;
+  };
+
+  const liveTokens = useMemo(() => calculateLiveTokens(baseTokens, answers, questions), [baseTokens, answers, questions]);
   const [quizCompleted, setQuizCompleted] = useState<boolean>(false);
   const [quizPending, setQuizPending] = useState<boolean>(false);
   const [hasSubmitted, setHasSubmitted] = useState<boolean>(false);
@@ -834,11 +865,15 @@ export default function QuizPage() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showRules, setShowRules] = useState(true);
   
-  // Fullscreen warning and auto-submission states
+  // Fullscreen warning state (no auto-submission)
   const [fullscreenWarningShown, setFullscreenWarningShown] = useState(false);
   const [showFullscreenWarning, setShowFullscreenWarning] = useState(false);
-  const [autoSubmissionReason, setAutoSubmissionReason] = useState<string | null>(null);
   
+  // Refs to improve fullscreen handling and avoid false positives
+  const lastFullscreenElementRef = useRef<Element | null>(null);
+  const intentionalExitRef = useRef(false);
+  const fullscreenDebounceRef = useRef<number | null>(null);
+
   const quizRef = useRef<HTMLDivElement>(null);
 
   // Load user from localStorage
@@ -858,14 +893,24 @@ export default function QuizPage() {
   // Load persisted locked questions and committed tokens
   useEffect(() => {
     try {
-      const rawLocked = localStorage.getItem('quiz_locked_questions');
-      if (rawLocked) setLockedQuestions(JSON.parse(rawLocked));
+      // Previously we restored persisted locked questions here. Locking has been removed
+      // so we no longer restore or persist `quiz_locked_questions` to allow users to
+      // change answers until final submission.
       const rawTokens = localStorage.getItem('quiz_committed_tokens');
       if (rawTokens) setCommittedTokens(JSON.parse(rawTokens));
+      // Note: We intentionally no longer restore 'quiz_current_tokens'. The UI
+      // computes live tokens client-side from BASE_TOKENS + selected options.
     } catch (e) {
       console.error('Failed to restore locked state or tokens:', e);
     }
   }, []);
+
+  // We no longer fetch authoritative team tokens on mount. Clients use BASE_TOKENS
+  // and compute live totals from selected answers. Keep effect minimal to avoid
+  // triggering network calls during page load.
+  useEffect(() => {
+    if (!user) return;
+  }, [user]);
 
   // Load quiz questions
   useEffect(() => {
@@ -1010,45 +1055,128 @@ export default function QuizPage() {
   // Enhanced fullscreen management with auto-submission
   useEffect(() => {
     if (!quizRef.current) return;
-    
-    const handleFullscreenChange = () => {
-      const isCurrentlyFullscreen = document.fullscreenElement === quizRef.current;
-      setIsFullscreen(isCurrentlyFullscreen);
-      
-      if (isCurrentlyFullscreen && quizActive && !quizCompleted && !hasSubmitted && showFullscreenWarning) {
-        setShowFullscreenWarning(false);
-      }
-      
-      if (!isCurrentlyFullscreen && quizActive && !quizCompleted && !hasSubmitted) {
-        if (!fullscreenWarningShown) {
-          setFullscreenWarningShown(true);
-          setShowFullscreenWarning(true);
-        } else {
-          setAutoSubmissionReason("Quiz auto-submitted due to exiting fullscreen mode after warning. Please contact the nearest event coordinator for assistance.");
-          handleAutoSubmitQuiz("Fullscreen exit violation after warning");
-        }
+
+    const clearDebounce = () => {
+      if (fullscreenDebounceRef.current) {
+        clearTimeout(fullscreenDebounceRef.current);
+        fullscreenDebounceRef.current = null;
       }
     };
-    
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
-  }, [quizActive, quizCompleted, hasSubmitted, fullscreenWarningShown]);
+
+    const handleFullscreenChange = () => {
+      const currentEl = document.fullscreenElement;
+      const isCurrentlyFullscreen = currentEl === quizRef.current;
+      setIsFullscreen(isCurrentlyFullscreen);
+
+      // Track last element that was fullscreen for our quiz
+      if (isCurrentlyFullscreen) {
+        lastFullscreenElementRef.current = currentEl;
+        // If a warning modal was open, close it when the user re-enters fullscreen
+        if (showFullscreenWarning) setShowFullscreenWarning(false);
+        clearDebounce();
+        return;
+      }
+
+      // If exit was intentional via our UI, ignore it
+      if (intentionalExitRef.current) {
+        // reset the flag shortly after intentional exit
+        intentionalExitRef.current = false;
+        clearDebounce();
+        return;
+      }
+
+      // Debounce to avoid transient false positives (some browsers fire transient events)
+      clearDebounce();
+      fullscreenDebounceRef.current = window.setTimeout(() => {
+        // Only proceed if the quiz was previously fullscreen
+        const prevWasQuiz = lastFullscreenElementRef.current === quizRef.current;
+        if (!prevWasQuiz) return;
+
+        // If still not fullscreen for our quiz, treat as exit/violation
+        if (document.fullscreenElement !== quizRef.current) {
+          if (quizActive && !quizCompleted && !hasSubmitted) {
+            if (!fullscreenWarningShown) {
+              setFullscreenWarningShown(true);
+              setShowFullscreenWarning(true);
+            } else {
+              // Previously we auto-submitted the quiz after a second violation.
+              // Auto-submission has been removed: show a message and require the
+              // user to manually submit or contact event staff.
+              setMessage("You have exited fullscreen again. Auto-submit is disabled — please contact event staff or manually submit if needed.");
+            }
+          }
+        }
+      }, 350);
+    };
+
+    const handleVisibilityChange = () => {
+      // If the document becomes hidden while our quiz element is fullscreen, start a short debounce
+      if (document.visibilityState === 'hidden' && document.fullscreenElement === quizRef.current) {
+        clearDebounce();
+        fullscreenDebounceRef.current = window.setTimeout(() => {
+          // If still fullscreen and document is hidden, consider this suspicious and show warning
+          if (document.fullscreenElement === quizRef.current && document.visibilityState === 'hidden') {
+              if (!fullscreenWarningShown) {
+                setFullscreenWarningShown(true);
+                setShowFullscreenWarning(true);
+              } else {
+                setMessage("You have lost focus while in fullscreen. Auto-submit is disabled — please contact event staff if you need assistance.");
+              }
+            }
+        }, 800);
+      }
+    };
+
+    const handleWindowBlur = () => {
+      // Some platforms blur when switching apps; run a short debounce and let fullscreenchange handle actual exit
+      clearDebounce();
+      fullscreenDebounceRef.current = window.setTimeout(() => {
+        if (document.fullscreenElement !== quizRef.current && lastFullscreenElementRef.current === quizRef.current) {
+          if (!fullscreenWarningShown) {
+            setFullscreenWarningShown(true);
+            setShowFullscreenWarning(true);
+          } else {
+            setMessage("You switched apps while in fullscreen. Auto-submit is disabled — please contact event staff if you need assistance.");
+          }
+        }
+      }, 1000);
+    };
+
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('blur', handleWindowBlur);
+
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('blur', handleWindowBlur);
+      clearDebounce();
+    };
+  }, [quizActive, quizCompleted, hasSubmitted, fullscreenWarningShown, showFullscreenWarning]);
 
   const toggleFullscreen = () => {
     if (!quizRef.current) return;
     
     if (!isFullscreen) {
+      // entering fullscreen intentionally
       quizRef.current.requestFullscreen().catch((e) => {
         console.error("Failed to enter fullscreen:", e);
       });
     } else {
+      // mark this exit as intentional so the fullscreenchange handler ignores it
+      intentionalExitRef.current = true;
       document.exitFullscreen().catch((e) => {
         console.error("Failed to exit fullscreen:", e);
       });
+      // reset the intentional flag after a short delay in case of subsequent events
+      setTimeout(() => { intentionalExitRef.current = false; }, 1000);
     }
   };
 
   const handleAnswerChange = (questionId: number, optionId: number) => {
+    // Debug: log selection events to help diagnose selection issues in the wild
+    try { console.debug('[Quiz] handleAnswerChange', { questionId, optionId }); } catch (e) {}
+
     setAnswers(prev => {
       const newAnswers = { ...prev, [questionId]: optionId };
       localStorage.setItem('quiz_answers', JSON.stringify(newAnswers));
@@ -1085,9 +1213,15 @@ export default function QuizPage() {
           optionId: oid
         })),
         durationSeconds: 30 * 60 - timeLeft,
+        finalTokens: liveTokens,
       };
 
-      const authToken = localStorage.getItem("auth-token") || btoa(JSON.stringify({ id: user.id }));
+      const authToken = localStorage.getItem("auth-token");
+      if (!authToken) {
+        setMessage("You must be signed in to submit the quiz. Please sign in and try again.");
+        setSubmitting(false);
+        return;
+      }
 
       const res = await fetch("/api/quiz/submit", {
         method: "POST",
@@ -1123,64 +1257,8 @@ export default function QuizPage() {
   };
 
   // Auto-submit function for fullscreen violations
-  const handleAutoSubmitQuiz = async (reason: string) => {
-    if (hasSubmitted || submitting) return;
-    
-    const teamId = user?.team?.id || user?.teamId;
-    if (!teamId) {
-      setAutoSubmissionReason("Quiz auto-submitted due to missing team information. Please contact the nearest event coordinator.");
-      return;
-    }
-
-    setSubmitting(true);
-    setMessage("Auto-submitting quiz due to violation...");
-
-    try {
-      const payload = {
-        teamId: teamId,
-        answers: Object.entries(answers).map(([qid, oid]) => ({
-          questionId: Number(qid),
-          optionId: oid
-        })),
-        durationSeconds: 30 * 60 - timeLeft,
-        autoSubmitted: true,
-        submissionReason: reason
-      };
-
-      const authToken = localStorage.getItem("auth-token") || btoa(JSON.stringify({ id: user.id }));
-
-      const res = await fetch("/api/quiz/submit", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${authToken}`,
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await res.json();
-
-      if (!res.ok) {
-        throw new Error(data?.error || `HTTP ${res.status}: Auto-submission failed`);
-      }
-
-      setResult(data);
-      setShowResult(true);
-      setMessage(null);
-      
-      setHasSubmitted(true);
-      setPreviousSubmission(data);
-      
-      localStorage.removeItem('quiz_time_left');
-      localStorage.removeItem('quiz_answers');
-      
-    } catch (error: any) {
-      console.error("Auto-submission error:", error);
-      setAutoSubmissionReason(`Quiz auto-submitted due to violation, but submission failed: ${error?.message || 'Unknown error'}. Please contact the nearest event coordinator.`);
-    } finally {
-      setSubmitting(false);
-    }
-  };
+  // Auto-submit feature removed. In case of fullscreen violations we now show a
+  // warning/message to the user but do not automatically submit their quiz.
 
   // Lock current question and commit its token deltas, then advance to next
   const handleNextQuestion = () => {
@@ -1193,11 +1271,7 @@ export default function QuizPage() {
       return;
     }
 
-    setLockedQuestions(prev => {
-      const next = { ...prev, [q.id]: true };
-      try { localStorage.setItem('quiz_locked_questions', JSON.stringify(next)); } catch (e) {}
-      return next;
-    });
+    // Locking behavior removed: do not persist locked questions. Keep client state unchanged.
 
     const opt = q.options.find(o => o.id === selectedOptionId);
     if (opt) {
@@ -1232,9 +1306,8 @@ export default function QuizPage() {
   };
 
   const handleExitQuiz = () => {
-    setShowFullscreenWarning(false);
-    setAutoSubmissionReason("Quiz voluntarily submitted after fullscreen exit warning. Please contact the nearest event coordinator if this was unintentional.");
-    handleAutoSubmitQuiz("Voluntary submission after fullscreen warning");
+  setShowFullscreenWarning(false);
+  setMessage("You chose to exit after a fullscreen warning. Auto-submit is disabled — please contact event staff if you need assistance.");
   };
 
   // Loading state
@@ -1455,40 +1528,7 @@ export default function QuizPage() {
   if (showResult && result) {
     return (
       <div>
-        {autoSubmissionReason && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/75 backdrop-blur-sm">
-            <div className={`relative group w-full m-4 ${isMobile ? 'max-w-sm' : 'max-w-2xl'}`}>
-              <div className="absolute -inset-1 bg-gradient-to-r from-red-500/50 to-orange-500/50 rounded-2xl blur opacity-75"></div>
-              <div className="relative bg-card/90 backdrop-blur-xl border-2 border-red-500/50 rounded-2xl p-6 shadow-2xl">
-                <div className="text-center">
-                  <div className="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-500/10 backdrop-blur-sm border border-red-500/20 mb-4">
-                    <AlertCircle className="h-6 w-6 text-red-500" />
-                  </div>
-                  <h2 className={`font-black mb-4 text-red-600 dark:text-red-400 ${isMobile ? 'text-xl' : 'text-2xl'}`}>
-                    Quiz Auto-Submitted
-                  </h2>
-                  <div className={`mb-6 text-foreground space-y-2 ${isMobile ? 'text-sm' : 'text-sm'}`}>
-                    <div className="p-3 bg-red-500/10 backdrop-blur-sm border border-red-500/20 rounded-xl">
-                      <p className="font-bold text-red-600 dark:text-red-400">
-                        {autoSubmissionReason}
-                      </p>
-                    </div>
-                    <p className="text-muted-foreground">
-                      Your quiz responses have been recorded. Click continue to view your results.
-                    </p>
-                  </div>
-                  <button
-                    className="group relative w-full px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1 overflow-hidden"
-                    onClick={() => setAutoSubmissionReason(null)}
-                  >
-                    <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
-                    <div className="relative">Continue to Results</div>
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        {/* Auto-submission UI removed; auto-submit is disabled. */}
         <QuizResults result={result} onReturnToDashboard={handleReturnToDashboard} isMobile={isMobile} />
       </div>
     );
@@ -1619,16 +1659,16 @@ export default function QuizPage() {
                 </div>
                 <div className={`mt-3 grid grid-cols-4 gap-2 ${isMobile ? 'text-xs' : 'text-xs'}`}>
                   <div className="p-2 rounded-md bg-blue-50 border border-blue-100 text-blue-700 text-center dark:bg-blue-950 dark:border-blue-800 dark:text-blue-300">
-                    Marketing: {committedTokens.marketing}
+                    <div className="font-medium">Marketing: {liveTokens.marketing}</div>
                   </div>
                   <div className="p-2 rounded-md bg-green-50 border border-green-100 text-green-700 text-center dark:bg-green-950 dark:border-green-800 dark:text-green-300">
-                    Capital: {committedTokens.capital}
+                    <div className="font-medium">Capital: {liveTokens.capital}</div>
                   </div>
                   <div className="p-2 rounded-md bg-purple-50 border border-purple-100 text-purple-700 text-center dark:bg-purple-950 dark:border-purple-800 dark:text-purple-300">
-                    Team: {committedTokens.team}
+                    <div className="font-medium">Team: {liveTokens.team}</div>
                   </div>
                   <div className="p-2 rounded-md bg-orange-50 border border-orange-100 text-orange-700 text-center dark:bg-orange-950 dark:border-orange-800 dark:text-orange-300">
-                    Strategy: {committedTokens.strategy}
+                    <div className="font-medium">Strategy: {liveTokens.strategy}</div>
                   </div>
                 </div>
               </div>

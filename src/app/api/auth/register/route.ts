@@ -74,6 +74,11 @@ export async function POST(req: NextRequest) {
     const newTeam = await db.insert(teams).values({
       name: sanitizedTeamName.trim(),
       college: sanitizedCollege.trim(),
+      // Ensure teams start with 3 tokens in each category
+      tokensMarketing: 3,
+      tokensCapital: 3,
+      tokensTeam: 3,
+      tokensStrategy: 3,
       createdAt: new Date(),
       updatedAt: new Date(),
     }).returning();
@@ -103,6 +108,11 @@ export async function POST(req: NextRequest) {
         id: newTeam[0].id,
         name: newTeam[0].name,
         college: newTeam[0].college,
+        // Expose initial token counts so callers can verify initialization immediately
+        tokensMarketing: newTeam[0].tokensMarketing ?? 3,
+        tokensCapital: newTeam[0].tokensCapital ?? 3,
+        tokensTeam: newTeam[0].tokensTeam ?? 3,
+        tokensStrategy: newTeam[0].tokensStrategy ?? 3,
       }
     });
   } catch (error) {

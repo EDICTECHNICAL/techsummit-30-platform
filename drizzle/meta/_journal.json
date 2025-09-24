@@ -5,36 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1758277140180,
-      "tag": "0000_polite_karnak",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1758292976701,
-      "tag": "0001_stormy_phantom_reporter",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1758371026701,
-      "tag": "0002_productive_blonde_phantom",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1758474214262,
-      "tag": "0003_thankful_mother_askani",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1758474559659,
-      "tag": "0004_wonderful_prowler",
+      "when": 1758730855592,
+      "tag": "0000_white_screwball",
       "breakpoints": true
     }
   ]

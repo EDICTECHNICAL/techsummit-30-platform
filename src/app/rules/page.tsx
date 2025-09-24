@@ -123,11 +123,18 @@ export default function RulesPage() {
             </h2>
             <div className="relative group">
               <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-accent/20 rounded-2xl blur opacity-25"></div>
-              <p className="relative text-lg text-muted-foreground max-w-3xl mx-auto p-6 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl">
-                An entrepreneurial strategy game where teams navigate the challenges of building and scaling a startup. 
-                Through creativity, strategic decision-making, and resource management, you'll compete to dominate the marketplace and climb the leaderboard.
-                Each team starts the quiz with 3 tokens in each of the four categories: Marketing, Capital, Team, and Strategy. Use tokens strategically when answering questions.
-              </p>
+              <div className="relative text-lg text-muted-foreground max-w-3xl mx-auto p-6 bg-card/50 backdrop-blur-sm border border-border/50 rounded-2xl">
+                <h3 className="text-xl font-bold mb-2">TECHPRENEUR — SUMMIT 2.0</h3>
+                <p className="mb-2">
+                  Techpreneur Summit 2.0 is an entrepreneurial strategy game where teams navigate the challenges of building and scaling a startup. Through creativity, strategic decision-making and resource management, teams compete to dominate the marketplace and climb the leaderboard.
+                </p>
+                <p className="mb-2">
+                  Note: Teams earn or lose tokens based on their decisions. Tokens can be redeemed to buy customers in the Token Marketplace phase — customers determine leaderboard position during the Event Day marketplace.
+                </p>
+                <p>
+                  Each team starts with 12 tokens (3 of each kind): <strong>Capital (Green)</strong>, <strong>Marketing (Red)</strong>, <strong>Innovation (Blue)</strong> and <strong>Team Morale (Yellow)</strong>. Use tokens strategically across rounds.
+                </p>
+              </div>
             </div>
           </div>
 
@@ -180,107 +187,52 @@ export default function RulesPage() {
                   <div className="w-8 h-8 bg-gradient-to-br from-accent to-primary rounded-lg flex items-center justify-center">
                     <Target className="h-5 w-5 text-white" />
                   </div>
-                  Competition Structure
+                  Competition Structure & How to Play
                 </CardTitle>
                 <CardDescription className="text-base">
-                  The competition consists of three main phases designed to test different entrepreneurial skills
+                  Overview, roles, tokens, phases and marketplace rules
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
-                {/* Round 1: Quiz */}
-                <div className="relative group">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-primary/20 to-primary/10 rounded-xl blur opacity-50 group-hover:opacity-75 transition-opacity"></div>
-                  <div className="relative border border-primary/20 rounded-xl p-6 bg-primary/5 backdrop-blur-sm">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="bg-gradient-to-br from-primary to-primary/80 text-white rounded-full w-12 h-12 flex items-center justify-center text-lg font-bold shadow-lg">1</div>
-                      <div>
-                        <h3 className="text-xl font-bold text-primary mb-1">Knowledge Round (Quiz)</h3>
-                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/30">Individual</Badge>
-                      </div>
-                    </div>
-                    <p className="text-muted-foreground mb-4 leading-relaxed">
-                      Test your entrepreneurial knowledge and business acumen through a comprehensive quiz covering startup fundamentals, 
-                      market dynamics, and strategic thinking.
-                    </p>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 text-sm bg-background/50 backdrop-blur-sm p-3 rounded-lg border border-border/50">
-                        <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
-                        <span className="font-medium">20 multiple-choice questions</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm bg-background/50 backdrop-blur-sm p-3 rounded-lg border border-border/50">
-                        <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
-                        <span className="font-medium">Time limit: 15 minutes</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm bg-background/50 backdrop-blur-sm p-3 rounded-lg border border-border/50">
-                        <CheckCircle className="h-4 w-4 text-primary flex-shrink-0" />
-                        <span className="font-medium">Individual scoring contributes to team total</span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="rounded-xl p-4 bg-background/50 border border-border/50">
+                  <h4 className="font-semibold mb-2">How to Play</h4>
+                  <p className="text-sm text-muted-foreground mb-2">Form a team of 3–5 participants and assign roles. Teams compete across multiple rounds to earn points and customers. Decisions during rounds earn or deduct tokens; tokens are used strategically in the Token Marketplace to buy customers and improve leaderboard rank.</p>
+
+                  <h5 className="font-medium mt-2">Roles & Team Composition</h5>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground">
+                    <li>CMO — Marketing campaign wizardry</li>
+                    <li>CTO — Tech innovation</li>
+                    <li>PR Head — Customer engagement</li>
+                    <li>CFO — Financial mastery</li>
+                    <li>CEO / Biz Dev — Business development & strategy</li>
+                  </ul>
+
+                  <h5 className="font-medium mt-3">Tokens (Resources)</h5>
+                  <p className="text-sm text-muted-foreground">Tokens represent critical resources. Each team starts with 12 tokens (3 of each):</p>
+                  <ul className="list-disc list-inside text-sm text-muted-foreground">
+                    <li><strong>Capital (Green)</strong> — Financial assets</li>
+                    <li><strong>Marketing (Red)</strong> — Audience reach & engagement</li>
+                    <li><strong>Innovation (Blue)</strong> — Creativity & technical depth</li>
+                    <li><strong>Team Morale (Yellow)</strong> — Team spirit & resilience</li>
+                  </ul>
                 </div>
 
-                {/* Round 2: Voting */}
-                <div className="relative group">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-accent/20 to-accent/10 rounded-xl blur opacity-50 group-hover:opacity-75 transition-opacity"></div>
-                  <div className="relative border border-accent/20 rounded-xl p-6 bg-accent/5 backdrop-blur-sm">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="bg-gradient-to-br from-accent to-accent/80 text-white rounded-full w-12 h-12 flex items-center justify-center text-lg font-bold shadow-lg">2</div>
-                      <div>
-                        <h3 className="text-xl font-bold text-accent mb-1">Strategy Round (Voting)</h3>
-                        <Badge variant="secondary" className="bg-accent/10 text-accent border-accent/30">Team</Badge>
-                      </div>
-                    </div>
-                    <p className="text-muted-foreground mb-4 leading-relaxed">
-                      Demonstrate strategic thinking by evaluating and voting on various business scenarios, 
-                      startup pitches, and market opportunities.
-                    </p>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 text-sm bg-background/50 backdrop-blur-sm p-3 rounded-lg border border-border/50">
-                        <CheckCircle className="h-4 w-4 text-accent flex-shrink-0" />
-                        <span className="font-medium">Multiple voting scenarios</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm bg-background/50 backdrop-blur-sm p-3 rounded-lg border border-border/50">
-                        <CheckCircle className="h-4 w-4 text-accent flex-shrink-0" />
-                        <span className="font-medium">Team consensus required</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm bg-background/50 backdrop-blur-sm p-3 rounded-lg border border-border/50">
-                        <CheckCircle className="h-4 w-4 text-accent flex-shrink-0" />
-                        <span className="font-medium">Strategic decision making</span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="rounded-xl p-4 bg-background/50 border border-border/50">
+                  <h4 className="font-semibold mb-2">Game Phases</h4>
+                  <ol className="list-decimal list-inside text-sm text-muted-foreground">
+                    <li><strong>Pre-Event (Phase 1)</strong> — Ideation & Branding (online). Submit a Business Model Canvas with domain, name and tagline. Selected teams proceed to Event Day.</li>
+                    <li><strong>Event Day — Strategic Challenges (Phase 2)</strong> — Teams face domain-specific dilemmas and resource-management decisions. Choices affect token balances.</li>
+                    <li><strong>Token Marketplace Domination (Phase 3)</strong> — Teams present for 2 minutes to an audience acting as customers. Audience votes Yes/No. Teams can redeem tokens to convert No votes to Yes (see marketplace rules).</li>
+                    <li><strong>Final Round (Phase 4)</strong> — Top teams present full pitches and face judge evaluations and peer ratings.</li>
+                  </ol>
+
+                  <h5 className="font-medium mt-3">Token Marketplace Rules</h5>
+                  <p className="text-sm text-muted-foreground">During Phase 3, a team may convert a single No vote into a Yes by spending <strong>one token of each kind</strong> (1 Capital + 1 Marketing + 1 Innovation + 1 Team Morale = 1 customer). Tokens spent to buy customers are non-refundable and must be decided before the next team begins pitching. A team may buy as many customers as their tokens allow. Customers determine leaderboard position; top teams with most customers proceed to the final round.</p>
                 </div>
 
-                {/* Round 3: Final */}
-                <div className="relative group">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-primary/15 to-accent/15 dark:from-primary/25 dark:to-accent/25 rounded-xl blur opacity-50 group-hover:opacity-75 transition-opacity"></div>
-                  <div className="relative border border-primary/20 dark:border-primary/30 rounded-xl p-6 bg-gradient-to-br from-primary/5 to-accent/5 dark:from-primary/10 dark:to-accent/10 backdrop-blur-sm">
-                    <div className="flex items-center gap-4 mb-4">
-                      <div className="bg-gradient-to-br from-primary to-accent text-white rounded-full w-12 h-12 flex items-center justify-center text-lg font-bold shadow-lg dark:shadow-primary/20">3</div>
-                      <div>
-                        <h3 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent mb-1">Final Round (Presentation)</h3>
-                        <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/30 dark:bg-primary/20 dark:text-primary-foreground dark:border-primary/40">Team</Badge>
-                      </div>
-                    </div>
-                    <p className="text-muted-foreground dark:text-muted-foreground/80 mb-4 leading-relaxed">
-                      Present your startup concept, business model, and growth strategy to a panel of judges
-                      and receive peer evaluations from other teams.
-                    </p>
-                    <div className="space-y-3">
-                      <div className="flex items-center gap-3 text-sm bg-background/50 dark:bg-background/30 backdrop-blur-sm p-3 rounded-lg border border-border/50 dark:border-border/30">
-                        <CheckCircle className="h-4 w-4 text-primary dark:text-primary/90 flex-shrink-0" />
-                        <span className="font-medium text-foreground dark:text-foreground/90">5-minute team presentation</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm bg-background/50 dark:bg-background/30 backdrop-blur-sm p-3 rounded-lg border border-border/50 dark:border-border/30">
-                        <CheckCircle className="h-4 w-4 text-primary dark:text-primary/90 flex-shrink-0" />
-                        <span className="font-medium text-foreground dark:text-foreground/90">Judge evaluation and scoring</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-sm bg-background/50 dark:bg-background/30 backdrop-blur-sm p-3 rounded-lg border border-border/50 dark:border-border/30">
-                        <CheckCircle className="h-4 w-4 text-primary dark:text-primary/90 flex-shrink-0" />
-                        <span className="font-medium text-foreground dark:text-foreground/90">Peer rating system</span>
-                      </div>
-                    </div>
-                  </div>
+                <div className="rounded-xl p-4 bg-background/50 border border-border/50">
+                  <h4 className="font-semibold mb-2">How to Win</h4>
+                  <p className="text-sm text-muted-foreground">The team with the highest cumulative score (judges' points + remaining tokens and marketplace customers) wins. Scores reflect strategy, execution and adaptability.</p>
                 </div>
               </CardContent>
             </Card>
@@ -295,47 +247,20 @@ export default function RulesPage() {
                   <div className="w-8 h-8 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center">
                     <AlertTriangle className="h-5 w-5 text-white" />
                   </div>
-                  Important Guidelines
+                  General Rules
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-6">
-                <div className="grid gap-4">
-                  <div className="flex items-start gap-4 p-4 bg-orange-50/50 dark:bg-orange-900/20 backdrop-blur-sm rounded-xl border border-orange-200/50 dark:border-orange-800/50">
-                    <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Shield className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-orange-700 dark:text-orange-300 mb-2">Fair Play</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">All participants must maintain integrity throughout the competition. Any form of cheating or misconduct will result in immediate disqualification.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4 p-4 bg-orange-50/50 dark:bg-orange-900/20 backdrop-blur-sm rounded-xl border border-orange-200/50 dark:border-orange-800/50">
-                    <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Clock className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-orange-700 dark:text-orange-300 mb-2">Time Management</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">Each round has strict time limits. Late submissions or presentations will not be accepted under any circumstances.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4 p-4 bg-orange-50/50 dark:bg-orange-900/20 backdrop-blur-sm rounded-xl border border-orange-200/50 dark:border-orange-800/50">
-                    <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Users className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-orange-700 dark:text-orange-300 mb-2">Team Collaboration</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">All team members must participate actively. Teams with inactive members may face point deductions.</p>
-                    </div>
-                  </div>
-                  <div className="flex items-start gap-4 p-4 bg-orange-50/50 dark:bg-orange-900/20 backdrop-blur-sm rounded-xl border border-orange-200/50 dark:border-orange-800/50">
-                    <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <FileText className="h-5 w-5 text-white" />
-                    </div>
-                    <div>
-                      <h4 className="font-bold text-orange-700 dark:text-orange-300 mb-2">Documentation</h4>
-                      <p className="text-sm text-muted-foreground leading-relaxed">Keep records of your strategies and decisions. You may be asked to explain your reasoning during evaluations.</p>
-                    </div>
-                  </div>
+                <div className="space-y-2">
+                  <p className="text-sm text-muted-foreground">Please read and follow these rules carefully:</p>
+                  <ol className="list-decimal list-inside text-sm text-muted-foreground space-y-1">
+                    <li>All decisions are final once submitted.</li>
+                    <li>Be respectful and professional during pitches and discussions.</li>
+                    <li>Follow the timeline and deadlines provided by the organizers.</li>
+                    <li>Tokens cannot be traded between teams.</li>
+                    <li>Use of unauthorized tools or plagiarized content will lead to disqualification.</li>
+                    <li>The organizing committee's decision will be final in case of any discrepancy.</li>
+                  </ol>
                 </div>
               </CardContent>
             </Card>
@@ -400,32 +325,41 @@ export default function RulesPage() {
             </Card>
           </div>
 
-          {/* Contact & Support */}
+          {/* Contact, Prizes & Support */}
           <div className="relative group">
             <div className="absolute -inset-1 bg-gradient-to-r from-primary/30 to-accent/30 rounded-2xl blur opacity-25 group-hover:opacity-75 transition-opacity duration-300"></div>
             <Card className="relative bg-card/80 backdrop-blur-xl border border-border/50 shadow-2xl">
               <CardHeader>
-                <CardTitle className="text-xl">Need Help?</CardTitle>
+                <CardTitle className="text-xl">Prizes & Contact</CardTitle>
                 <CardDescription className="text-base">
-                  For questions, technical issues, or clarifications about the rules
+                  Incentives and organizer contacts
                 </CardDescription>
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  <p className="text-muted-foreground leading-relaxed">
-                    If you encounter any technical issues or have questions about the competition rules, 
-                    please contact the organizing team immediately.
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/30 hover:bg-primary/10 transition-colors">
-                      Event Organizers Available
-                    </Badge>
-                    <Badge variant="outline" className="bg-accent/5 text-accent border-accent/30 hover:bg-accent/10 transition-colors">
-                      Technical Support Ready
-                    </Badge>
-                    <Badge variant="outline" className="bg-primary/5 text-primary border-primary/30 hover:bg-primary/10 transition-colors">
-                      Real-time Assistance
-                    </Badge>
+                  <div className="bg-background/50 border border-border/50 rounded-lg p-4">
+                    <h4 className="font-semibold">Prizes & Incentives</h4>
+                    <ul className="list-decimal list-inside text-sm text-muted-foreground mt-2">
+                      <li>Prize pool of ₹15,000</li>
+                      <li>Certificate of Participation</li>
+                      <li>Certificate of Completion</li>
+                      <li>Incubation Fast-Track / Pre-Incubation support</li>
+                      <li>Mentorship credits (1:1 hours with entrepreneurs & experts)</li>
+                      <li>Internship opportunities & access to curated courses</li>
+                      <li>Startup kit and corporate introductions</li>
+                      <li>Global exposure & nominations for international events</li>
+                    </ul>
+                  </div>
+
+                  <div className="bg-background/50 border border-border/50 rounded-lg p-4">
+                    <h4 className="font-semibold">Contact Organizers</h4>
+                    <p className="text-sm text-muted-foreground mt-2">For queries and assistance, reach out to:</p>
+                    <ul className="list-disc list-inside text-sm text-muted-foreground mt-2">
+                      <li>Ayush Pardeshi (CEO): 87665 36270</li>
+                      <li>Ahana Kulkarni (CTO): 89283 52406</li>
+                      <li>Bhummi Girnara (COO): 98698 32960</li>
+                      <li>Hredey Chaand (CMO): 90047 24466</li>
+                    </ul>
                   </div>
                 </div>
               </CardContent>

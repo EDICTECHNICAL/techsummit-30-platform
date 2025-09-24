@@ -30,7 +30,18 @@ CREATE TABLE "judge_scores" (
 	"judge_name" text NOT NULL,
 	"team_id" integer NOT NULL,
 	"score" integer NOT NULL,
+	"round" text DEFAULT 'FINAL' NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "judges" (
+	"id" varchar(36) PRIMARY KEY NOT NULL,
+	"username" text NOT NULL,
+	"name" text NOT NULL,
+	"password" text NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "judges_username_unique" UNIQUE("username")
 );
 --> statement-breakpoint
 CREATE TABLE "options" (
@@ -89,6 +100,35 @@ CREATE TABLE "quiz_submissions" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "rating_state" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"current_team_id" integer,
+	"current_team_name" text,
+	"rating_cycle_active" boolean DEFAULT false NOT NULL,
+	"rating_active" boolean DEFAULT false NOT NULL,
+	"all_pitches_completed" boolean DEFAULT false NOT NULL,
+	"current_phase" text,
+	"cycle_start_ts" timestamp with time zone,
+	"phase_start_ts" timestamp with time zone,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "round3_judge_ratings" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"judge_name" text NOT NULL,
+	"team_id" integer NOT NULL,
+	"rating" integer NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
+CREATE TABLE "round3_peer_ratings" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"from_team_id" integer NOT NULL,
+	"to_team_id" integer NOT NULL,
+	"rating" integer NOT NULL,
+	"created_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 CREATE TABLE "rounds" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
@@ -110,10 +150,24 @@ CREATE TABLE "session" (
 	CONSTRAINT "session_token_unique" UNIQUE("token")
 );
 --> statement-breakpoint
+CREATE TABLE "system_settings" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"key" text NOT NULL,
+	"value" text NOT NULL,
+	"description" text,
+	"created_at" timestamp DEFAULT now() NOT NULL,
+	"updated_at" timestamp DEFAULT now() NOT NULL,
+	CONSTRAINT "system_settings_key_unique" UNIQUE("key")
+);
+--> statement-breakpoint
 CREATE TABLE "teams" (
 	"id" serial PRIMARY KEY NOT NULL,
 	"name" text NOT NULL,
 	"college" text NOT NULL,
+	"tokens_marketing" integer DEFAULT 3 NOT NULL,
+	"tokens_capital" integer DEFAULT 3 NOT NULL,
+	"tokens_team" integer DEFAULT 3 NOT NULL,
+	"tokens_strategy" integer DEFAULT 3 NOT NULL,
 	"created_at" timestamp DEFAULT now() NOT NULL,
 	"updated_at" timestamp DEFAULT now() NOT NULL,
 	CONSTRAINT "teams_name_unique" UNIQUE("name")
@@ -157,6 +211,19 @@ CREATE TABLE "votes" (
 	"created_at" timestamp DEFAULT now() NOT NULL
 );
 --> statement-breakpoint
+CREATE TABLE "voting_state" (
+	"id" serial PRIMARY KEY NOT NULL,
+	"current_team_id" integer,
+	"current_team_name" text,
+	"pitch_cycle_active" boolean DEFAULT false NOT NULL,
+	"voting_active" boolean DEFAULT false NOT NULL,
+	"all_pitches_completed" boolean DEFAULT false NOT NULL,
+	"current_phase" text DEFAULT 'idle' NOT NULL,
+	"cycle_start_ts" timestamp,
+	"phase_start_ts" timestamp,
+	"updated_at" timestamp DEFAULT now() NOT NULL
+);
+--> statement-breakpoint
 ALTER TABLE "account" ADD CONSTRAINT "account_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "final_pitches" ADD CONSTRAINT "final_pitches_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "judge_scores" ADD CONSTRAINT "judge_scores_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -165,6 +232,9 @@ ALTER TABLE "peer_ratings" ADD CONSTRAINT "peer_ratings_from_team_id_teams_id_fk
 ALTER TABLE "peer_ratings" ADD CONSTRAINT "peer_ratings_to_team_id_teams_id_fk" FOREIGN KEY ("to_team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "pitches" ADD CONSTRAINT "pitches_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "quiz_submissions" ADD CONSTRAINT "quiz_submissions_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "round3_judge_ratings" ADD CONSTRAINT "round3_judge_ratings_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "round3_peer_ratings" ADD CONSTRAINT "round3_peer_ratings_from_team_id_teams_id_fk" FOREIGN KEY ("from_team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "round3_peer_ratings" ADD CONSTRAINT "round3_peer_ratings_to_team_id_teams_id_fk" FOREIGN KEY ("to_team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "session" ADD CONSTRAINT "session_user_id_user_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."user"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "token_conversions" ADD CONSTRAINT "token_conversions_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "user" ADD CONSTRAINT "user_team_id_teams_id_fk" FOREIGN KEY ("team_id") REFERENCES "public"."teams"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
