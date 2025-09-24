@@ -8,6 +8,7 @@ import PageLock from "@/components/ui/PageLock";
 import { Button } from "@/components/ui/button";
 import { useRoundStatus } from "@/hooks/useRoundStatus";
 import { useVotingTimer } from '@/hooks/useVotingTimer';
+import { useVotingSSE } from '@/hooks/useVotingSSE';
 import { useIsMobile } from "@/hooks/use-mobile";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -89,6 +90,7 @@ export default function VotingPage() {
   const [isConvertingTokens, setIsConvertingTokens] = useState(false);
   const [tokenStatus, setTokenStatus] = useState<TokenStatus | null>(null);
   const [votingStatus, setVotingStatus] = useState<VotingStatus | null>(null);
+  const [currentTeamVotes, setCurrentTeamVotes] = useState<{ upvotes: number; downvotes: number; totalVotes: number } | null>(null);
   const [conversionQuantity, setConversionQuantity] = useState(1);
   
   // Auto-timeout functionality
@@ -156,6 +158,47 @@ export default function VotingPage() {
   useEffect(() => {
     setCurrentPitchTeam(currentPitchTeam || null);
   }, [currentPitchTeam]);
+
+  // Listen to voting SSE for real-time updates and refresh counts when events arrive
+  const { lastEvent: votingLastEvent, isConnected: votingSseConnected } = useVotingSSE();
+
+  const fetchTeamVotes = useCallback(async (teamId?: number | null) => {
+    if (!teamId) {
+      setCurrentTeamVotes(null);
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/votes?teamId=${teamId}`);
+      if (!res.ok) {
+        console.warn(`Failed to fetch votes for team ${teamId}: ${res.status}`);
+        return;
+      }
+      const data = await res.json();
+      setCurrentTeamVotes({ upvotes: data.upvotes || 0, downvotes: data.downvotes || 0, totalVotes: data.totalVotes || 0 });
+    } catch (err) {
+      console.warn('Error fetching team votes:', err);
+    }
+  }, []);
+
+  // Refresh when the currently pitching team object changes
+  useEffect(() => {
+    if (currentPitchTeam && currentPitchTeam.id) {
+      fetchTeamVotes(currentPitchTeam.id);
+    } else {
+      setCurrentTeamVotes(null);
+    }
+  }, [currentPitchTeam, fetchTeamVotes]);
+
+  // Refresh when SSE indicates a state change (coarse-grained)
+  useEffect(() => {
+    if (!votingLastEvent) return;
+    // Ignore simple connected/heartbeat events
+    if (votingLastEvent.type === 'connected' || votingLastEvent.type === 'heartbeat') return;
+    if (currentPitchTeam && currentPitchTeam.id) {
+      fetchTeamVotes(currentPitchTeam.id);
+    }
+  }, [votingLastEvent, currentPitchTeam, fetchTeamVotes]);
 
   useEffect(() => {
     setVotingActive(!!votingActiveFromHook);
@@ -345,6 +388,10 @@ export default function VotingPage() {
             };
             setVotingStatus(safeStatusData);
           }
+        }
+        // Refresh the displayed counts for the currently pitching team
+        if (currentPitchTeam && currentPitchTeam.id) {
+          fetchTeamVotes(currentPitchTeam.id);
         }
       } else {
         showMessage(data?.error || "Failed to cast vote", 'error');
@@ -706,6 +753,23 @@ export default function VotingPage() {
                     <div className="p-3 bg-gradient-to-r from-primary to-accent rounded-xl text-white font-bold text-lg">
                       {currentPitchTeam.name} (#{currentPitchTeam.id})
                     </div>
+                    {currentTeamVotes && (
+                      <div className="mt-3 text-sm text-muted-foreground flex items-center gap-4">
+                        <div className="inline-flex items-center gap-2">
+                          <svg className="w-4 h-4 text-green-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                            <path d="M9 21V11h6v10h4V9h3L12 0 2 9h3v12z" />
+                          </svg>
+                          <span className="font-medium text-green-600">Yes: {currentTeamVotes.upvotes}</span>
+                        </div>
+                        <div className="inline-flex items-center gap-2">
+                          <svg className="w-4 h-4 text-red-500" viewBox="0 0 24 24" fill="currentColor" aria-hidden>
+                            <path d="M15 3v10H9V3H5l7-9 7 9h-4zM3 13h18v8H3v-8z" />
+                          </svg>
+                          <span className="font-medium text-red-600">No: {currentTeamVotes.downvotes}</span>
+                        </div>
+                        <div className="ml-2 text-sm text-muted-foreground">Net: <span className="font-semibold">{currentTeamVotes.totalVotes}</span></div>
+                      </div>
+                    )}
                     {userTeamId === currentPitchTeam.id && (
                       <div className="flex items-center gap-2 mt-3 p-2 bg-amber-500/10 border border-amber-500/20 rounded-lg">
                         <AlertCircle className="h-4 w-4 text-amber-500" />
