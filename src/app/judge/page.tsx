@@ -314,7 +314,8 @@ export default function JudgePage() {
       team,
       scores: teamScores,
       totalScore,
-      averageScore: Math.round(averageScore * 100) / 100,
+      // For display, prefer totalScore. Keep averageScore field present but map to totalScore for compatibility.
+      averageScore: totalScore,
       judgeCount: teamScores.length
     };
   });
@@ -515,7 +516,7 @@ export default function JudgePage() {
                   <th className="text-left p-2">College</th>
                   <th className="text-center p-2">Judges</th>
                   <th className="text-center p-2">Total Score</th>
-                  <th className="text-center p-2">Average</th>
+                  <th className="text-center p-2">Average (mapped to total)</th>
                   <th className="text-left p-2">Individual Scores</th>
                 </tr>
               </thead>

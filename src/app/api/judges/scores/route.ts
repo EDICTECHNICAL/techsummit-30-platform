@@ -176,8 +176,10 @@ export async function GET(request: NextRequest) {
       return NextResponse.json({
         teamId: parseInt(teamId),
         scores: teamScores,
+        // Provide totalScore as authoritative value for final display
         totalScore: totalScore,
-        averageScore: Math.round(averageScore * 100) / 100,
+        // Keep averageScore for backward compatibility but map to totalScore so front-ends using `average` will see totals instead
+        averageScore: totalScore,
         judgeCount: teamScores.length,
       });
     }

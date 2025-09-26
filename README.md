@@ -1,4 +1,4 @@
-# TechSummit-30 Platform
+# TechSummit-2.0 Platform
 
 A modern, business-style hackathon platform built with Next.js, Drizzle ORM, Supabase, and Tailwind CSS. This project supports leader-only teams, custom authentication, admin console, and comprehensive quiz functionality for entrepreneurial skill assessment.
 
@@ -12,8 +12,8 @@ A modern, business-style hackathon platform built with Next.js, Drizzle ORM, Sup
 - **🚀 Production deployment ready** for Vercel with optimized configurations
 - **📝 15 comprehensive quiz questions** for Techpreneur Summit 2.0
 - **🎯 Token-based scoring system** with 4 categories: Marketing, Capital, Team, Strategy
- - **🎯 Token-based scoring system** with 4 categories: Marketing, Capital, Team, Strategy
- - **🎲 Starting Tokens**: Each team starts the quiz with 3 tokens in each category (Marketing, Capital, Team, Strategy)
+- **🎯 Token-based scoring system** with 4 categories: Marketing, Capital, Team, Strategy
+- **🎲 Starting Tokens**: Each team starts the quiz with 3 tokens in each category (Marketing, Capital, Team, Strategy)
 - **👥 Concurrent Multi-User Access**: Full support for simultaneous users across all platform features
 
 ## 🧪 **Current Status: Testing Phase**
@@ -86,14 +86,15 @@ SELECT * FROM rating_state ORDER BY id LIMIT 5;
 ```
 
 Smoke tests
+
 - API smoke test: `node scripts/test-rating-api.js` — exercises `GET /api/rating/current` and admin POST actions.
 - SSE smoke test: `node scripts/test-rating-sse.js` — connects to the rating SSE stream and validates broadcasts.
 - Combined (npm script): `npm run test:smoke` (runs API + SSE smoke tests if present).
 
 Safety notes
+
 - The migration is idempotent but please snapshot/back up your production DB before running any migration.
 - The apply script retries with permissive SSL for convenience when connecting to DBs with custom/self-signed certs; prefer validating cert chains in production.
-
 
 ## Features
 
@@ -116,33 +117,38 @@ Safety notes
 The platform is designed to handle **multiple simultaneous users** across all major features without conflicts or requiring page refreshes:
 
 ### 🗳️ **Round 2 Voting - Full Concurrent Support**
+
 - **Multiple Teams**: All teams can vote simultaneously during active voting periods
 - **Real-time Updates**: Server-Sent Events (SSE) broadcast voting state changes instantly
 - **Duplicate Prevention**: Teams can only vote once per pitch (enforced at API level)
 - **No Conflicts**: Database constraints prevent race conditions between concurrent votes
 
 ### 🗽️ **Admin Console - Full Concurrent Support**
+
 - **Multiple Admins**: Several administrators can manage the platform simultaneously
 - **Real-time Synchronization**: Centralized timer hook keeps all admin consoles updated
 - **Parallel Operations**: Round management, team updates, and user role changes work concurrently
 - **Background Refresh**: UI updates immediately with background data synchronization
 
 ### 👨‍⚖️ **Judge Scoring - Full Concurrent Support**
+
 - **Multiple Judges**: All judges can submit scores simultaneously during rating cycles
 - **Real-time SSE**: Broadcasting of rating phase changes and timer updates
 - **Duplicate Prevention**: Judges can only score each team once (API-level validation)
 - **Polling Fallback**: Automatic state synchronization when SSE is unavailable
 
 ### 🏆 **Finals Round - Full Concurrent Support**
+
 - **Peer Ratings**: Qualified teams can submit peer ratings simultaneously during active phases
 - **Judge Scoring**: Judges can score teams concurrently with peer rating periods
 - **Real-time Updates**: SSE and polling ensure all users see rating state changes instantly
 - **Qualification Validation**: Only top 5 qualified teams can participate in peer rating
- - **Qualification Validation**: Only top 5 qualified teams can participate in peer rating
+- **Qualification Validation**: Only top 5 qualified teams can participate in peer rating
 
 Note: Finals Qualification rule — the top 70% of teams by ranking qualify for the final presentation round; the bottom 30% will be eliminated.
 
 ### ❓ **Quiz System - Full Concurrent Support**
+
 - **Multiple Teams**: All teams can take the quiz simultaneously during active periods
 - **Isolated Sessions**: Each team has independent quiz experience with localStorage persistence
 - **Progress Preservation**: Quiz progress survives browser refreshes and navigation
@@ -157,6 +163,7 @@ Note: Finals Qualification rule — the top 70% of teams by ranking qualify for 
 **Database Safety**: No blocking constraints - concurrent operations handled safely
 
 **Key Benefits**:
+
 - ✅ **No Page Refreshes Required**: Real-time updates keep all users synchronized
 - ✅ **No Race Conditions**: Proper validation prevents conflicts between simultaneous actions
 - ✅ **Scalable Architecture**: Supports dozens of concurrent users without performance degradation
@@ -262,7 +269,74 @@ D. Create a lean strategy           [Strategy +4, Marketing -1]
 - `/api/voting/*` - Real-time voting system
 - `/api/teams/*` - Team management and statistics
 
-## 🚀 Running the Platform
+## � Scoring, Tiebreakers & Testing (Important)
+
+This section documents the canonical scoring rules and how to test judge/team submissions locally.
+
+Canonical ranking criteria (used across Finals and Scoreboard pages):
+
+- Final cumulative score = Judge total + Peer total + Remaining token score (after conversions)
+- First tiebreaker = Original votes received (net/original yes votes)
+- Final tiebreaker = Total votes (including converted votes)
+
+Key implementation notes:
+
+- The platform now treats judge and peer values as totals for final ranking (not averages). APIs return totals as the authoritative values:
+   - `judgeScores.total` (sum of all judge scores received by the team)
+   - `peerRating.total` or `totalRating` (sum of all peer ratings received by the team)
+- For backward compatibility some legacy responses still expose an `average` field; those fields have been mapped to the authoritative totals so older clients continue to display totals.
+
+How to test judge/team submissions locally (PowerShell)
+
+Prerequisites:
+- Dev server running: `npm run dev` (or `npm start` for production build)
+- The server must have `JWT_SECRET` set the same value you use to sign test tokens
+- For team-submission tests the database must contain the user id and the user's team id used in the token
+
+1) Generate a judge token (signed with `JWT_SECRET`) — run in PowerShell in project root:
+
+```powershell
+# Set secret in env (temporary in this shell); replace with your real secret
+$env:JWT_SECRET = "<YOUR_JWT_SECRET>"
+
+# Generate a judge-token JWT (1 hour expiry)
+node -e "const jwt=require('jsonwebtoken'); const token=jwt.sign({ judgeId: 'judge-1', isJudge: true, exp: Math.floor(Date.now()/1000)+3600 }, process.env.JWT_SECRET); console.log(token);"
+```
+
+2) Submit a judge score using the cookie header (replace <JWT> and teamId):
+
+```powershell
+$jwt = "<JWT>"
+$body = @{ judgeName = "Judge Alice"; teamId = 123; score = 85 } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3000/api/judges/scores" -Method Post -Body $body -ContentType "application/json" -Headers @{ Cookie = "judge-token=$jwt" }
+```
+
+Expected: 201 created with success message if JWT_SECRET matches the server and DB insert succeeds.
+
+3) Generate an auth token for a team user (userId must exist in DB):
+
+```powershell
+$env:JWT_SECRET = "<YOUR_JWT_SECRET>"
+node -e "const jwt=require('jsonwebtoken'); const token=jwt.sign({ userId: 42, exp: Math.floor(Date.now()/1000)+3600 }, process.env.JWT_SECRET); console.log(token);"
+```
+
+4) Submit a peer rating as a team (replace tokens and IDs):
+
+```powershell
+$authToken = "<AUTH_JWT>"
+$body = @{ fromTeamId = 10; toTeamId = 11; rating = 8 } | ConvertTo-Json
+Invoke-RestMethod -Uri "http://localhost:3000/api/final/ratings" -Method Post -Body $body -ContentType "application/json" -Headers @{ Cookie = "auth-token=$authToken" }
+```
+
+Expected: success if the token is valid, the `userId` exists and belongs to `fromTeamId`, the rating phase is active, and DB insert succeeds.
+
+Notes:
+- Judge authentication (`judge-token`) is validated by JWT payload (server checks `isJudge` and `judgeId`) and also allows admin users with a valid `auth-token`.
+- Team peer submissions require a valid user (in DB) — the server loads the user by `userId` from the token and checks `authUser.team.id === fromTeamId` unless the user is admin.
+
+If you'd like, I can add a small test script under `/scripts` that generates tokens from an env `JWT_SECRET` and runs these API calls automatically; tell me if you want that and whether to include interactive prompts for IDs.
+
+## �🚀 Running the Platform
 
 ### Development Server
 
@@ -382,7 +456,7 @@ npx drizzle-kit studio
 ## Contributing
 
 Pull requests are welcome! For major changes, please open an issue first to discuss what you would like to change.
-Built by Pawan Shetty for AXIOS EDIC 
+Built by Pawan Shetty for AXIOS EDIC
 
 ## License
 
