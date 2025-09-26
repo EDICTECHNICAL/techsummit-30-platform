@@ -162,8 +162,8 @@ export default function FinalPage() {
   // Show qualification popup when qualification status is determined (only once per session)
   useEffect(() => {
     if (userTeamId && qualifiedTeams.length > 0 && !loading) {
-      // Check if popup has already been shown in this session
-      const popupShownKey = `qualification-popup-shown-${userTeamId}`;
+      // Show a one-time modal that explains how final winners are declared
+      const popupShownKey = `finals-winner-popup-shown-${userTeamId}`;
       const hasBeenShown = sessionStorage.getItem(popupShownKey) === 'true';
 
       if (!hasBeenShown) {
@@ -265,10 +265,9 @@ export default function FinalPage() {
             score: scoreMap.get(t.id) ?? 0,
           })).sort((a: RankedRow, b: RankedRow) => b.score - a.score);
 
+          // Per updated rules, all teams qualify for finals
           const total = ranked.length;
-          const qualifyCount = Math.max(1, Math.ceil(total * 0.7)); // at least 1 qualifies when teams exist
-
-          const qualified = ranked.slice(0, qualifyCount).map((r: RankedRow, idx: number) => ({
+          const qualified = ranked.map((r: RankedRow, idx: number) => ({
             teamId: r.teamId,
             teamName: r.teamName,
             college: r.college,
@@ -276,17 +275,9 @@ export default function FinalPage() {
             combinedScore: r.score
           }));
 
-          const nonQualified = ranked.slice(qualifyCount).map((r: RankedRow, idx: number) => ({
-            teamId: r.teamId,
-            teamName: r.teamName,
-            college: r.college,
-            rank: qualifyCount + idx + 1,
-            combinedScore: r.score
-          }));
-
           setQualifiedTeams(qualified);
-          setNonQualifiedTeams(nonQualified);
-          setQualificationNote({ message: `Qualification rule: top ${Math.round(70)}% of teams (top ${qualifyCount} of ${total}) qualify for the finals; the remaining teams are eliminated from competing.` });
+          setNonQualifiedTeams([]);
+          setQualificationNote({ message: `All ${total} teams are qualified for the finals.` });
 
           const userQualified = qualified.some((team: any) => team.teamId === userTeamId);
           setIsQualified(userQualified);
@@ -322,9 +313,15 @@ export default function FinalPage() {
         ...qualifiedTeam,
         finalScore: scoreboardTeam?.finalCumulativeScore || qualifiedTeam.combinedScore || 0,
         judgeScores: scoreboardTeam?.judgeScores || { total: 0, average: 0, count: 0 },
-        peerRating: scoreboardTeam?.peerRating || { average: 0, count: 0 }
+        peerRating: scoreboardTeam?.peerRating || { total: 0, count: 0 }
       };
     });
+  };
+
+  // Helper to fetch scoreboard entry for any team id
+  const getScoreForTeam = (teamId?: number) => {
+    if (!teamId) return null;
+    return finalScoreboard.find(t => t.teamId === teamId) || null;
   };
 
   const submitRating = async () => {
@@ -522,7 +519,7 @@ export default function FinalPage() {
         <div className="mb-4 sm:mb-6 text-center">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">Round 3: Finals</h1>
           <p className="text-sm sm:text-base lg:text-lg text-muted-foreground px-2">
-            Top 5 qualified teams compete in the final round. {teams.length > 5 ? `${teams.length - 5} teams in spectator mode.` : ''}
+            All teams are qualified for the final round. Winners are decided using the sum of judge scores, peer ratings, and remaining tokens after conversions. Votes are not part of the final score; they are only used as a tiebreaker.
           </p>
         </div>
         
@@ -592,6 +589,27 @@ export default function FinalPage() {
               <div className="text-base sm:text-lg font-bold text-blue-800 dark:text-blue-300">
                 {currentPitchTeam.name} (#{currentPitchTeam.id})
               </div>
+              {/* Show live judge / peer summary for the presenting team */}
+              {(() => {
+                const presenting = getScoreForTeam(currentPitchTeam.id);
+                const peerCount = presenting?.peerRating?.count ?? presenting?.peerRating?.ratingCount ?? 0;
+                const peerTotal = presenting?.peerRating?.total ?? presenting?.peerRating?.totalPeerScore ?? 0;
+                const judgeTotal = presenting?.judgeScores?.total ?? presenting?.judgeScores?.totalJudgeScore ?? 0;
+                const judgeCount = presenting?.judgeScores?.count ?? presenting?.judgeScores?.judgeCount ?? 0;
+
+                return (
+                  <div className="mt-2 flex flex-wrap gap-3 text-sm text-muted-foreground">
+                    <div className="flex items-center gap-2">
+                      <Users className="h-4 w-4 text-muted-foreground" />
+                      <span>Peer: {peerTotal} ({peerCount})</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Timer className="h-4 w-4 text-muted-foreground" />
+                      <span>Judge: {judgeTotal} ({judgeCount})</span>
+                    </div>
+                  </div>
+                );
+              })()}
             </CardContent>
           </Card>
         ) : (
@@ -631,7 +649,7 @@ export default function FinalPage() {
             {qualifiedTeams.length > 0 && (
               <Card>
                 <CardContent className="p-4 sm:p-6">
-                  <h2 className="text-lg sm:text-xl font-semibold mb-4">🏆 Top 5 Qualified Teams</h2>
+                  <h2 className="text-lg sm:text-xl font-semibold mb-4">🏆 Qualified Teams</h2>
 
                   {/* Qualification Tiebreaker Note */}
                   {qualificationNote && (
@@ -648,29 +666,23 @@ export default function FinalPage() {
 
                   <div className="grid gap-3">
                     {getQualifiedTeamsWithFinalScores().map((team, index) => (
-                      <div key={team.teamId} className="flex flex-col sm:flex-row items-start sm:items-center justify-between p-3 rounded-lg bg-muted dark:bg-muted/50 gap-2 sm:gap-0">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 ${
-                            index === 0 ? 'bg-yellow-500 text-white' :
-                            index === 1 ? 'bg-gray-400 text-white' :
-                            index === 2 ? 'bg-amber-600 text-white' :
-                            'bg-blue-500 text-white'
-                          }`}>
-                            #{team.rank}
+                      <div key={team.teamId} className="p-3 rounded-lg bg-muted dark:bg-muted/50">
+                        <div className="text-sm text-muted-foreground">#{team.rank}</div>
+                        <div className="mt-1 font-semibold text-lg">{team.teamName}</div>
+                        <div className="text-xs text-muted-foreground mt-1">{team.college}</div>
+
+                        <div className="mt-3 text-2xl font-bold">{(team.finalScore || 0).toFixed(1)} pts</div>
+                        <div className="text-xs text-muted-foreground">Final Score</div>
+
+                        <div className="mt-3 flex flex-wrap gap-3 text-sm text-muted-foreground">
+                          <div className="flex items-center gap-2">
+                            <Users className="h-4 w-4 text-muted-foreground" />
+                            <span>Peer: {team.peerRating?.total ?? team.peerRating?.totalPeerScore ?? 0} ({team.peerRating?.count ?? 0})</span>
                           </div>
-                          <div className="min-w-0 flex-1">
-                            <p className="font-medium text-sm sm:text-base truncate">{team.teamName}</p>
-                            <p className="text-xs sm:text-sm text-muted-foreground truncate">{team.college}</p>
+                          <div className="flex items-center gap-2">
+                            <Timer className="h-4 w-4 text-muted-foreground" />
+                            <span>Judge: {team.judgeScores?.total ?? team.judgeScores?.totalJudgeScore ?? 0} ({team.judgeScores?.count ?? 0})</span>
                           </div>
-                        </div>
-                        <div className="text-right shrink-0 w-full sm:w-auto">
-                          <p className="font-medium text-sm sm:text-base">{(team.finalScore || 0).toFixed(1)} pts</p>
-                          <p className="text-xs text-muted-foreground">Final Score</p>
-                          {team.judgeScores.count > 0 && (
-                            <p className="text-xs text-muted-foreground">
-                              {team.judgeScores.count} judge{team.judgeScores.count !== 1 ? 's' : ''}
-                            </p>
-                          )}
                         </div>
                       </div>
                     ))}
@@ -902,27 +914,14 @@ export default function FinalPage() {
                 <div className="text-4xl sm:text-6xl mb-4">
                   {isQualified ? '🎉' : '👀'}
                 </div>
-                <h2 className={`text-xl sm:text-2xl font-bold mb-3 ${
-                  isQualified ? 'text-green-600 dark:text-green-400' : 'text-yellow-600 dark:text-yellow-400'
-                }`}>
-                  {isQualified 
-                    ? '🏆 Congratulations!' 
-                    : '📺 Spectator Mode'
-                  }
+                <h2 className={`text-xl sm:text-2xl font-bold mb-3 text-green-600 dark:text-green-400`}>
+                  🏆 Finals — All Teams Qualified
                 </h2>
-                <p className={`text-base sm:text-lg mb-4 ${
-                  isQualified ? 'text-green-700 dark:text-green-300' : 'text-yellow-700 dark:text-yellow-300'
-                }`}>
-                  {isQualified 
-                    ? 'Your team qualified for the finals!' 
-                    : 'Your team can watch the final pitches'
-                  }
+                <p className={`text-base sm:text-lg mb-4 text-green-700 dark:text-green-300`}>
+                  All teams are qualified for the finals. Please participate and rate other teams during the rating phases.
                 </p>
                 <p className="text-xs sm:text-sm text-muted-foreground mb-6 px-2">
-                  {isQualified 
-                    ? 'You can register your pitch and rate other teams.'
-                    : 'Only the top 5 teams can participate and rate in the finals.'
-                  }
+                  Winners are determined by the final cumulative score: judge total + peer total + remaining token score (after any conversions). Votes do not contribute to the final score and are used only to break ties. Tiebreaker order: 1) Original yes votes (audience 'Yes' votes only, before any token-based conversions) — higher is better; 2) Team name alphabetical order.
                 </p>
                 <button
                   onClick={() => setShowQualificationPopup(false)}

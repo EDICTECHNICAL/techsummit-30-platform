@@ -227,7 +227,7 @@ export default function RulesPage() {
                   </ol>
 
                   <h5 className="font-medium mt-3">Token Marketplace Rules</h5>
-                  <p className="text-sm text-muted-foreground">During Phase 3, a team may convert a single No vote into a Yes by spending <strong>one token of each kind</strong> (1 Capital + 1 Marketing + 1 Innovation + 1 Team Morale = 1 customer). Tokens spent to buy customers are non-refundable and must be decided before the next team begins pitching. A team may buy as many customers as their tokens allow. Customers determine leaderboard position; top teams with most customers proceed to the final round.</p>
+                  <p className="text-sm text-muted-foreground">During Phase 3, a team may convert a single No vote into a Yes by spending <strong>one token of each kind</strong> (1 Capital + 1 Marketing + 1 Innovation + 1 Team Morale = 1 customer). Tokens spent to buy customers are non-refundable and must be decided before the next team begins pitching. A team may buy as many customers as their tokens allow. Customers determine leaderboard position which affects final rankings; all teams advance to the final round.</p>
                 </div>
 
                 <div className="rounded-xl p-4 bg-background/50 border border-border/50">
@@ -312,13 +312,13 @@ export default function RulesPage() {
                   <div className="relative">
                     <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 to-accent/10 rounded-xl blur opacity-50"></div>
                     <div className="relative text-center p-4 bg-background/50 backdrop-blur-sm rounded-xl border border-border/50">
-                      <p className="text-sm text-muted-foreground font-medium">
-                        Final ranking is determined by total accumulated points across all rounds
-                      </p>
-                    </div>
-                    <div className="relative mt-3 text-sm text-muted-foreground">
-                      Finals Qualification: The top 70% of teams by ranking qualify for the final presentation round; the bottom 30% will be eliminated.
-                    </div>
+                          <p className="text-sm text-muted-foreground font-medium">
+                            Final ranking is determined by total accumulated points across all rounds.
+                          </p>
+                        </div>
+                        <div className="relative mt-3 text-sm text-muted-foreground">
+                          Ranking Criteria: Final cumulative score (judge total + peer total + remaining token score) • Original yes votes (audience votes only) as first tiebreaker • Team name alphabetical order as final tiebreaker.
+                        </div>
                   </div>
                 </div>
               </CardContent>

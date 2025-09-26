@@ -3,7 +3,7 @@ import { db } from '@/db';
 import { teams, quizSubmissions, votes, tokenConversions, judgeScores } from '@/db/schema';
 import { eq, sql, desc } from 'drizzle-orm';
 
-// GET handler - Get top 5 qualified teams for final round
+// GET handler - Get qualified teams for final round (all teams are qualified)
 export async function GET(request: NextRequest) {
   try {
     // Get all teams with their token scores and judge scores
@@ -86,50 +86,15 @@ export async function GET(request: NextRequest) {
         rank: index + 1
       }));
 
-    // Detect and resolve ties for 5th position (qualification cutoff)
-    let qualificationNote = null;
-    if (rankedTeams.length >= 5) {
-      const cutoffScore = rankedTeams[4].combinedScore;
-  const teamsWithCutoffScore = rankedTeams.filter((team: any) => team.combinedScore === cutoffScore);
-      
-      if (teamsWithCutoffScore.length > 1) {
-  const qualifiedFromTie = teamsWithCutoffScore.filter((team: any) => team.rank <= 5);
-  const nonQualifiedFromTie = teamsWithCutoffScore.filter((team: any) => team.rank > 5);
-        
-        if (qualifiedFromTie.length > 0 && nonQualifiedFromTie.length > 0) {
-          // Generate tiebreaker explanation
-          const qualifiedTeam = qualifiedFromTie[0];
-          const firstNonQualified = nonQualifiedFromTie[0];
-          
-          let reason = "";
-          if (qualifiedTeam.totalJudgeScore > firstNonQualified.totalJudgeScore) {
-            reason = `higher judge score (${qualifiedTeam.totalJudgeScore} vs ${firstNonQualified.totalJudgeScore})`;
-          } else if (qualifiedTeam.totalVotes > firstNonQualified.totalVotes) {
-            reason = `higher total votes (${qualifiedTeam.totalVotes} vs ${firstNonQualified.totalVotes})`;
-          } else {
-            reason = `alphabetical order of team name`;
-          }
-          
-          qualificationNote = {
-            type: 'tiebreaker',
-            message: `Tiebreaker applied for 5th position: ${qualifiedTeam.teamName} qualified over ${nonQualifiedFromTie.map((t: any) => t.teamName).join(', ')} due to ${reason}.`,
-            tiedScore: cutoffScore,
-            tiedTeams: teamsWithCutoffScore.map((t: any) => ({ name: t.teamName, rank: t.rank }))
-          };
-        }
-      }
-    }
-
-    // Get top 5 qualified teams
-    const top5Teams = rankedTeams.slice(0, 5);
-    const nonQualifiedTeams = rankedTeams.slice(5);
+    // All teams are qualified for finals. Return the full ranked list as qualifiedTeams.
+    const qualifiedTeams = rankedTeams;
 
     return NextResponse.json({
-      qualifiedTeams: top5Teams,
-      nonQualifiedTeams: nonQualifiedTeams,
+      qualifiedTeams: qualifiedTeams,
+      nonQualifiedTeams: [],
       totalTeams: rankedTeams.length,
-      cutoffScore: top5Teams.length > 0 ? top5Teams[top5Teams.length - 1].combinedScore : 0,
-      qualificationNote: qualificationNote
+      cutoffScore: null,
+      qualificationNote: null
     });
 
   } catch (error) {
