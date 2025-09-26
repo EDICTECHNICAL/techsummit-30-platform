@@ -317,7 +317,7 @@ export default function RulesPage() {
                           </p>
                         </div>
                         <div className="relative mt-3 text-sm text-muted-foreground">
-                          Ranking Criteria: Final cumulative score (judge total + peer total + remaining token score) • Original yes votes (audience votes only) as first tiebreaker • Team name alphabetical order as final tiebreaker.
+                          Ranking Criteria: Final cumulative score (judge total + peer total + remaining token score) • Original yes votes (audience votes only) as first tiebreaker • Total votes (including converted votes) as final tiebreaker.
                         </div>
                   </div>
                 </div>
@@ -355,10 +355,10 @@ export default function RulesPage() {
                     <h4 className="font-semibold">Contact Organizers</h4>
                     <p className="text-sm text-muted-foreground mt-2">For queries and assistance, reach out to:</p>
                     <ul className="list-disc list-inside text-sm text-muted-foreground mt-2">
-                      <li>Ayush Pardeshi (CEO): 87665 36270</li>
-                      <li>Ahana Kulkarni (CTO): 89283 52406</li>
-                      <li>Bhummi Girnara (COO): 98698 32960</li>
-                      <li>Hredey Chaand (CMO): 90047 24466</li>
+                      <li>Ayush Pardeshi (CEO):  +91 87665 36270</li>
+                      <li>Ahana Kulkarni (CTO):  +91 89283 52406</li>
+                      <li>Bhummi Girnara (COO):  +91 98698 32960</li>
+                      <li>Hredey Chaand (CMO):  +91 90047 24466</li>
                     </ul>
                   </div>
                 </div>

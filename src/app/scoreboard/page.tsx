@@ -693,7 +693,7 @@ export default function ScoreboardPage() {
           <div className="text-center space-y-6">
             <div className="p-6 bg-card/30 backdrop-blur-sm border border-border/30 rounded-2xl">
                 <p className="text-muted-foreground mb-2">
-                <span className="font-medium">Ranking Criteria:</span> {data.metadata.rankingCriteria?.join(' • ') || 'Final cumulative score (judge total + peer total + remaining token score) • Original yes votes (audience votes only) as first tiebreaker • Team name alphabetical order as final tiebreaker'}
+                <span className="font-medium">Ranking Criteria:</span> Final cumulative score (judge total + peer total + remaining token score) • Original votes received (net) as first tiebreaker • Total votes (including converted votes) as final tiebreaker
               </p>
               <p className="text-xs text-muted-foreground">
                 Generated at: {new Date(data.metadata.generatedAt).toLocaleString()}
