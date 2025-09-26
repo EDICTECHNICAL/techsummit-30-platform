@@ -186,14 +186,16 @@ export async function GET(request: NextRequest) {
     // If requesting specific team ratings, include summary stats
     if (teamId && !fromTeamId) {
       const teamRatings: any[] = ratings;
-      const averageRating = teamRatings.length > 0 
-        ? teamRatings.reduce((sum: number, r: any) => sum + r.rating, 0) / teamRatings.length 
-        : 0;
+      const totalRating = teamRatings.reduce((sum: number, r: any) => sum + r.rating, 0);
+      const averageRating = teamRatings.length > 0 ? totalRating / teamRatings.length : 0;
 
       return NextResponse.json({
         teamId: parseInt(teamId),
         ratings: teamRatings,
-        averageRating: Math.round(averageRating * 100) / 100,
+        // Provide total peer rating for final display
+        totalRating: totalRating,
+        // Keep averageRating for compatibility but map to totalRating so older clients show totals
+        averageRating: totalRating,
         ratingCount: teamRatings.length,
       });
     }

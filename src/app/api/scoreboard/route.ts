@@ -134,9 +134,9 @@ export async function GET(request: NextRequest) {
           .from(judgeScores)
           .where(eq(judgeScores.teamId, teamId));
 
-        const totalJudgeScore = Math.round(Number(judgeScoreData[0]?.totalJudgeScore)) || 0;
-        const avgJudgeScore = Number(judgeScoreData[0]?.avgJudgeScore) || 0;
-        const judgeCount = Math.round(Number(judgeScoreData[0]?.judgeCount)) || 0;
+  const totalJudgeScore = Math.round(Number(judgeScoreData[0]?.totalJudgeScore)) || 0;
+  const avgJudgeScore = Number(judgeScoreData[0]?.avgJudgeScore) || 0;
+  const judgeCount = Math.round(Number(judgeScoreData[0]?.judgeCount)) || 0;
 
   // Also fetch original quiz score (rawScore) for tiebreaker and transparency
         const quizRawData = await db
@@ -187,8 +187,10 @@ export async function GET(request: NextRequest) {
             count: peerRatingCount,
           },
           judgeScores: {
+            // Keep total available (authoritative for final ranking)
             total: totalJudgeScore,
-            average: Math.round(avgJudgeScore * 100) / 100,
+            // For backward compatibility some clients read `.average` — map it to the total so UIs show totals instead of averages
+            average: totalJudgeScore,
             count: judgeCount,
           },
           originalQuizScore,
