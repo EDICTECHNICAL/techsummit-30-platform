@@ -237,11 +237,13 @@ export default function FinalPage() {
       setLoading(true);
       
       // Load qualified teams first
-      // Load final scoreboard with judge scores and peer ratings
+      // Load final scoreboard with judge scores and peer ratings (authoritative for ranking)
+      let scoreboardEntries: any[] = [];
       const scoreboardRes = await fetch('/api/scoreboard');
       if (scoreboardRes.ok) {
         const scoreboardData = await scoreboardRes.json();
-        setFinalScoreboard(scoreboardData.leaderboard || []);
+        scoreboardEntries = scoreboardData.leaderboard || [];
+        setFinalScoreboard(scoreboardEntries);
       }
 
       // Load teams
@@ -250,29 +252,55 @@ export default function FinalPage() {
         const teamsData = await teamsRes.json();
         setTeams(teamsData || []);
 
-        // Compute qualification locally: top 70% by final cumulative score qualify
+        // Compute qualification and ranking using the authoritative scoreboard entries
         try {
-          const leaderboard = (await (await fetch('/api/scoreboard')).json()).leaderboard || [];
-          // Map teamId -> score for quick lookup
-          const scoreMap = new Map<number, number>();
-          leaderboard.forEach((row: any) => scoreMap.set(Number(row.teamId), Number(row.finalCumulativeScore || 0)));
+          const teamById = new Map<number, any>();
+          (teamsData || []).forEach((t: any) => teamById.set(Number(t.id), t));
 
-          type RankedRow = { teamId: number; teamName: string; college: string; score: number };
-          const ranked: RankedRow[] = (teamsData || []).map((t: any) => ({
-            teamId: t.id,
-            teamName: t.name || `Team #${t.id}`,
-            college: t.college || '',
-            score: scoreMap.get(t.id) ?? 0,
-          })).sort((a: RankedRow, b: RankedRow) => b.score - a.score);
+          // Build ranked list from scoreboardEntries; if scoreboardEntries missing, fall back to teamsData
+          const ranked = (scoreboardEntries.length ? scoreboardEntries : []).map((row: any) => {
+            const meta = teamById.get(Number(row.teamId)) || {};
+            return {
+              teamId: Number(row.teamId),
+              teamName: meta.name || row.teamName || `Team #${row.teamId}`,
+              college: meta.college || '',
+              finalCumulativeScore: Number(row.finalCumulativeScore ?? row.combinedScore ?? 0),
+              voting: row.voting || row.voteBreakdown || {},
+            };
+          });
 
-          // Per updated rules, all teams qualify for finals
-          const total = ranked.length;
-          const qualified = ranked.map((r: RankedRow, idx: number) => ({
+          // Sort with explicit tiebreakers to match server intent:
+          // 1) final cumulative score desc
+          // 2) original yes votes (net) desc
+          // 3) total votes including converted desc
+          // 4) team name alphabetical asc
+          ranked.sort((a: any, b: any) => {
+            const scoreDiff = (b.finalCumulativeScore || 0) - (a.finalCumulativeScore || 0);
+            if (scoreDiff !== 0) return scoreDiff;
+
+            const aOriginalYes = Number(a.voting?.originalYesVotes ?? a.voting?.originalVotesNet ?? 0);
+            const bOriginalYes = Number(b.voting?.originalYesVotes ?? b.voting?.originalVotesNet ?? 0);
+            const yesDiff = bOriginalYes - aOriginalYes;
+            if (yesDiff !== 0) return yesDiff;
+
+            const aTotalVotes = Number(a.voting?.totalVotes ?? a.voting?.total ?? a.voting?.votes ?? 0);
+            const bTotalVotes = Number(b.voting?.totalVotes ?? b.voting?.total ?? b.voting?.votes ?? 0);
+            const totalVotesDiff = bTotalVotes - aTotalVotes;
+            if (totalVotesDiff !== 0) return totalVotesDiff;
+
+            const aName = (a.teamName || '').toString().toLowerCase();
+            const bName = (b.teamName || '').toString().toLowerCase();
+            return aName.localeCompare(bName);
+          });
+
+          const total = ranked.length || (teamsData || []).length;
+          const qualified = ranked.map((r: any, idx: number) => ({
             teamId: r.teamId,
             teamName: r.teamName,
             college: r.college,
             rank: idx + 1,
-            combinedScore: r.score
+            combinedScore: r.finalCumulativeScore,
+            voting: r.voting,
           }));
 
           setQualifiedTeams(qualified);
@@ -518,9 +546,12 @@ export default function FinalPage() {
         {/* Round Header */}
         <div className="mb-4 sm:mb-6 text-center">
           <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold mb-2">Round 3: Finals</h1>
-          <p className="text-sm sm:text-base lg:text-lg text-muted-foreground px-2">
-            All teams are qualified for the final round. Winners are decided using the sum of judge scores, peer ratings, and remaining tokens after conversions. Votes are not part of the final score; they are only used as a tiebreaker.
-          </p>
+          <div className="px-2">
+            <p className="text-sm sm:text-base lg:text-lg text-muted-foreground">
+              Ranking Criteria: Final cumulative score (judge total + peer total + remaining token score) • Original votes received (net) as first tiebreaker • Total votes (including converted votes) as final tiebreaker
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">Generated at: 9/26/2025, 4:19:41 PM</p>
+          </div>
         </div>
         
         {/* SSE Connection Status */}
@@ -920,9 +951,10 @@ export default function FinalPage() {
                 <p className={`text-base sm:text-lg mb-4 text-green-700 dark:text-green-300`}>
                   All teams are qualified for the finals. Please participate and rate other teams during the rating phases.
                 </p>
-                <p className="text-xs sm:text-sm text-muted-foreground mb-6 px-2">
-                  Winners are determined by the final cumulative score: judge total + peer total + remaining token score (after any conversions). Votes do not contribute to the final score and are used only to break ties. Tiebreaker order: 1) Original yes votes (audience 'Yes' votes only, before any token-based conversions) — higher is better; 2) Team name alphabetical order.
+                <p className="text-xs sm:text-sm text-muted-foreground mb-2 px-2">
+                  Ranking Criteria: Final cumulative score (judge total + peer total + remaining token score) • Original votes received (net) as first tiebreaker • Total votes (including converted votes) as final tiebreaker
                 </p>
+                <p className="text-xs text-muted-foreground mb-6 px-2">Generated at: 9/26/2025, 4:19:41 PM</p>
                 <button
                   onClick={() => setShowQualificationPopup(false)}
                   className={`w-full px-4 py-2 sm:py-3 rounded-md font-medium text-white transition-colors text-sm sm:text-base ${
