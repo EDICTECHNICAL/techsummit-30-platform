@@ -179,7 +179,7 @@ export default function SignUpPage() {
 
           {/* Main Form Card */}
           <div className="relative group">
-            <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-accent/50 rounded-2xl blur opacity-25 group-hover:opacity-75 transition-opacity duration-300"></div>
+            <div className="absolute -inset-1 bg-gradient-to-r from-primary/50 to-accent/50 rounded-2xl blur opacity-25 group-hover:opacity-75 transition-opacity duration-300 pointer-events-none" style={{ willChange: 'opacity, transform' }}></div>
             <div className="relative p-8 bg-card/80 backdrop-blur-xl border border-border/50 rounded-2xl shadow-2xl">
               
               {/* Registration Status */}
@@ -229,11 +229,10 @@ export default function SignUpPage() {
                   </div>
                   
                   <div className="space-y-4">
-                    <Link 
+                    <Link
                       href="/sign-in"
                       className="group w-full flex items-center justify-center gap-2 px-6 py-3 bg-gradient-to-r from-primary to-accent text-white font-bold rounded-xl hover:shadow-lg hover:shadow-primary/25 transition-all duration-300 hover:-translate-y-1"
                     >
-                      <div className="absolute inset-0 bg-gradient-to-r from-accent to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-xl"></div>
                       <div className="relative flex items-center gap-2">
                         Already have an account? Sign In
                       </div>

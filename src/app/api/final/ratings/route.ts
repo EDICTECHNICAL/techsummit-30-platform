@@ -64,7 +64,7 @@ export async function POST(request: NextRequest) {
           
           if (!isQualified) {
             return NextResponse.json({ 
-              error: 'Only top 5 qualified teams can submit peer ratings', 
+              error: 'Team is not qualified to submit peer ratings', 
               code: 'TEAM_NOT_QUALIFIED' 
             }, { status: 403 });
           }

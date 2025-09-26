@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { teams, quizSubmissions, votes, tokenConversions, peerRatings, judgeScores } from '@/db/schema';
-import { eq, sum, count, avg, sql } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 
 // GET handler - Generate token-based leaderboard with cumulative scoring
 export async function GET(request: NextRequest) {
@@ -16,7 +16,7 @@ export async function GET(request: NextRequest) {
           totalTeams: 0,
           generatedAt: new Date().toISOString(),
           focus: 'Token-based competition with cumulative scoring',
-          rankingCriteria: ['Total cumulative score from tokens and judge scores', 'Total votes as tiebreaker'],
+          rankingCriteria: ['Total cumulative score from tokens and judge scores', 'Original yes votes (count) as tiebreaker'],
           participation: {
             quizSubmissions: 0,
             votingParticipation: 0,
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
           },
           explanation: {
             tokens: 'Cumulative score from 4 token categories earned in quiz',
-            voting: 'Original votes plus votes gained from token conversions',
+            voting: 'Original yes votes (count) are used as the tiebreaker; votes gained from token conversions are not counted for tiebreaks',
             judgeScores: 'Scores given by judges in final evaluation',
           }
         }
@@ -82,15 +82,19 @@ export async function GET(request: NextRequest) {
                                     Math.round(Number(remaining.team)) + 
                                     Math.round(Number(remaining.strategy));
 
-        // Get voting data (original votes)
+        // Get voting data (original votes): net votes and counts of yes/no for transparency
         const voteData = await db
           .select({
-            totalVotes: sql<number>`COALESCE(SUM(${votes.value}), 0)`,
+            netVotes: sql<number>`COALESCE(SUM(${votes.value}), 0)`,
+            yesCount: sql<number>`COALESCE(SUM(CASE WHEN ${votes.value} = 1 THEN 1 ELSE 0 END), 0)`,
+            noCount: sql<number>`COALESCE(SUM(CASE WHEN ${votes.value} = -1 THEN 1 ELSE 0 END), 0)`,
           })
           .from(votes)
           .where(eq(votes.toTeamId, teamId));
 
-        const originalVotes = Math.round(Number(voteData[0]?.totalVotes)) || 0;
+        const originalVotesNet = Math.round(Number(voteData[0]?.netVotes)) || 0;
+        const originalYesCount = Math.round(Number(voteData[0]?.yesCount)) || 0;
+        const originalNoCount = Math.round(Number(voteData[0]?.noCount)) || 0;
 
         // Get token conversion votes
         const tokenVoteData = await db
@@ -103,23 +107,24 @@ export async function GET(request: NextRequest) {
 
   const votesFromTokens = Math.round(Number(tokenVoteData[0]?.totalTokenVotes)) || 0;
   const tokensSpent = Math.round(Number(tokenVoteData[0]?.tokensSpent)) || 0;
-  const totalVotes = originalVotes + votesFromTokens;
+  // totalVotes used for tiebreaker: net original votes + votes from token conversions
+  const totalVotes = originalVotesNet + votesFromTokens;
 
   // tokensSpent is the total tokens used in conversions; remainingTokenScore is authoritative when available
 
-        // Get peer ratings
+        // Get peer ratings: sum of all peer ratings (not average) and count
         const peerRatingData = await db
           .select({
-            avgRating: sql<number>`COALESCE(AVG(CAST(${peerRatings.rating} AS DECIMAL)), 0)`,
+            totalPeerScore: sql<number>`COALESCE(SUM(CAST(${peerRatings.rating} AS INTEGER)), 0)`,
             ratingCount: sql<number>`COALESCE(COUNT(${peerRatings.id}), 0)`,
           })
           .from(peerRatings)
           .where(eq(peerRatings.toTeamId, teamId));
 
-        const peerRatingAvg = Number(peerRatingData[0]?.avgRating) || 0;
+        const peerRatingTotal = Math.round(Number(peerRatingData[0]?.totalPeerScore)) || 0;
         const peerRatingCount = Math.round(Number(peerRatingData[0]?.ratingCount)) || 0;
 
-        // Get judge scores
+        // Get judge scores (sum and average)
         const judgeScoreData = await db
           .select({
             totalJudgeScore: sql<number>`COALESCE(SUM(${judgeScores.score}), 0)`,
@@ -133,8 +138,17 @@ export async function GET(request: NextRequest) {
         const avgJudgeScore = Number(judgeScoreData[0]?.avgJudgeScore) || 0;
         const judgeCount = Math.round(Number(judgeScoreData[0]?.judgeCount)) || 0;
 
-  // Calculate final cumulative score: use remaining tokens (after conversions) + judge score
-  const finalCumulativeScore = remainingTokenScore + totalJudgeScore;
+  // Also fetch original quiz score (rawScore) for tiebreaker and transparency
+        const quizRawData = await db
+          .select({ rawScore: quizSubmissions.rawScore })
+          .from(quizSubmissions)
+          .where(eq(quizSubmissions.teamId, teamId))
+          .limit(1);
+
+        const originalQuizScore = quizRawData.length > 0 ? Number(quizRawData[0].rawScore || 0) : 0;
+
+  // Calculate final cumulative score: judge total + peer total + remaining tokens (votes are only used for tiebreakers)
+  const finalCumulativeScore = totalJudgeScore + peerRatingTotal + remainingTokenScore;
 
         leaderboard.push({
           rank: 0, // Will be set after sorting
@@ -162,12 +176,14 @@ export async function GET(request: NextRequest) {
             remaining: remainingTokenScore,
           },
           voting: {
-            originalVotes: originalVotes,
+            originalVotesNet: originalVotesNet,
+            originalYesVotes: originalYesCount,
+            originalNoVotes: originalNoCount,
             votesFromTokens: votesFromTokens,
             totalVotes: totalVotes,
           },
           peerRating: {
-            average: Math.round(peerRatingAvg * 100) / 100,
+            total: peerRatingTotal,
             count: peerRatingCount,
           },
           judgeScores: {
@@ -175,6 +191,7 @@ export async function GET(request: NextRequest) {
             average: Math.round(avgJudgeScore * 100) / 100,
             count: judgeCount,
           },
+          originalQuizScore,
           finalCumulativeScore: finalCumulativeScore,
           hasQuizSubmission: quizData.length > 0,
         });
@@ -188,7 +205,7 @@ export async function GET(request: NextRequest) {
           college: team.college,
           tokens: { marketing: 0, capital: 0, team: 0, strategy: 0, total: 0 },
           tokenActivity: { earned: 0, spent: 0, remaining: 0 },
-          voting: { originalVotes: 0, votesFromTokens: 0, totalVotes: 0 },
+          voting: { originalVotesNet: 0, originalYesVotes: 0, originalNoVotes: 0, votesFromTokens: 0, totalVotes: 0 },
           peerRating: { average: 0, count: 0 },
           judgeScores: { total: 0, average: 0, count: 0 },
           finalCumulativeScore: 0,
@@ -197,20 +214,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Sort by final cumulative score DESC, then by total votes DESC (tiebreaker)
+    // Sort by final cumulative score DESC. First tiebreaker: original yes votes (count). Final tiebreaker: alphabetical team name.
     leaderboard.sort((a, b) => {
       if (b.finalCumulativeScore !== a.finalCumulativeScore) {
         return b.finalCumulativeScore - a.finalCumulativeScore;
       }
-      // Tiebreaker 1: total votes
-      if (b.voting.totalVotes !== a.voting.totalVotes) {
-        return b.voting.totalVotes - a.voting.totalVotes;
-      }
-      // Tiebreaker 2: judge scores
-      if (b.judgeScores.total !== a.judgeScores.total) {
-        return b.judgeScores.total - a.judgeScores.total;
-      }
-      // Tiebreaker 3: team name (alphabetical for consistency)
+      const aOriginalYes = a.voting?.originalYesVotes || 0;
+      const bOriginalYes = b.voting?.originalYesVotes || 0;
+      if (bOriginalYes !== aOriginalYes) return bOriginalYes - aOriginalYes;
       return a.teamName.localeCompare(b.teamName);
     });
 
@@ -238,10 +249,9 @@ export async function GET(request: NextRequest) {
             let reason = "";
             const nextBestTeam = otherTiedTeams[0];
             
-            if (currentTeam.voting.totalVotes > nextBestTeam.voting.totalVotes) {
-              reason = `higher total votes (${currentTeam.voting.totalVotes} vs ${nextBestTeam.voting.totalVotes})`;
-            } else if (currentTeam.judgeScores.total > nextBestTeam.judgeScores.total) {
-              reason = `higher judge scores (${currentTeam.judgeScores.total} vs ${nextBestTeam.judgeScores.total})`;
+            // Per rules: first tiebreaker is original yes votes (count)
+            if ((currentTeam.voting?.originalYesVotes || 0) > (nextBestTeam.voting?.originalYesVotes || 0)) {
+              reason = `higher original yes votes (${currentTeam.voting.originalYesVotes} vs ${nextBestTeam.voting.originalYesVotes})`;
             } else {
               reason = `alphabetical order of team name`;
             }
@@ -263,7 +273,7 @@ export async function GET(request: NextRequest) {
 
     // Calculate participation statistics
     const totalQuizSubmissions = leaderboard.filter(t => t.hasQuizSubmission).length;
-    const totalVotingParticipation = leaderboard.filter(t => t.voting.originalVotes > 0 || t.voting.votesFromTokens > 0).length;
+  const totalVotingParticipation = leaderboard.filter(t => (t.voting?.totalVotes || 0) > 0).length;
     const totalPeerRatings = leaderboard.reduce((sum, t) => sum + t.peerRating.count, 0);
     const totalTokenSpending = leaderboard.filter(t => t.tokenActivity.spent > 0).length;
 
@@ -275,9 +285,8 @@ export async function GET(request: NextRequest) {
         generatedAt: new Date().toISOString(),
         focus: 'Token-based competition with cumulative scoring from 4 categories plus judge evaluation',
         rankingCriteria: [
-          'Final cumulative score (token score + judge score)',
-          'Total votes received (original + token conversions) as tiebreaker',
-          'Judge scores total as secondary tiebreaker',
+          'Final cumulative score (judge total + peer total + remaining token score)',
+          'Original votes received (net) as first tiebreaker',
           'Team name alphabetical order as final tiebreaker'
         ],
         participation: {
@@ -288,10 +297,11 @@ export async function GET(request: NextRequest) {
         },
         explanation: {
           tokens: 'Cumulative sum of Marketing + Capital + Team + Strategy tokens earned through quiz',
-          voting: 'Original votes received plus additional votes gained from strategic token conversions',
-          judgeScores: 'Total scores awarded by judges during final evaluation round',
-          finalScore: 'Sum of cumulative token score and total judge score',
-          tiebreakers: 'Automatic tiebreaker resolution applied where teams have identical final scores'
+          voting: 'Original votes received (net) are used as the first tiebreaker; votes gained from token conversions are not considered for tiebreaking',
+          judgeScores: 'Total scores awarded by judges during final evaluation round (sum of all judges)',
+          peerScores: 'Sum of all peer ratings received by the team',
+          finalScore: 'Sum of judge total + peer total + remaining token score (after conversions)',
+          tiebreakers: 'If teams have identical final scores, the first tiebreaker is original votes (net); if still tied the alphabetical order of team name is used.'
         }
       }
     });

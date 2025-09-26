@@ -27,12 +27,15 @@ interface LeaderboardTeam {
     remaining: number;
   };
   voting: {
-    originalVotes: number;
-    votesFromTokens: number;
+  // originalYesVotes: count of original audience 'Yes' votes (used as tiebreaker)
+  originalYesVotes?: number;
+  // breakdown for transparency
+    originalNoVotes?: number;
+    votesFromTokens?: number;
     totalVotes: number;
   };
   peerRating: {
-    average: number;
+    total: number;
     count: number;
   };
   judgeScores: {
@@ -42,6 +45,7 @@ interface LeaderboardTeam {
   };
   finalCumulativeScore: number;
   hasQuizSubmission: boolean;
+  originalQuizScore?: number;
 }
 
 interface LeaderboardData {
@@ -408,18 +412,33 @@ export default function ScoreboardPage() {
                           {team.finalCumulativeScore.toFixed(1)}
                         </div>
 
-                        <div className="grid grid-cols-2 gap-3 text-sm">
+                                <div className="grid grid-cols-2 gap-3 text-sm">
                           <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
-                            <div className="font-medium text-primary">Tokens</div>
-                            <div className="text-lg font-bold">{team.tokens?.total || 0}</div>
+                            <div className="font-medium text-primary">Quiz Tokens</div>
+                            <div className="text-sm">
+                              <div className="flex justify-between">
+                                <span className="text-blue-500">Original:</span>
+                                <span className="font-bold">{team.tokenActivity?.earned ?? (team.tokens?.total ?? 0)}</span>
+                              </div>
+                              <div className="flex justify-between mt-1">
+                                <span className="text-green-500">Remaining:</span>
+                                <span className="font-bold">{team.tokenActivity?.remaining ?? team.tokens?.total ?? 0}</span>
+                              </div>
+                            </div>
                           </div>
-                          <div className="p-3 bg-accent/5 rounded-xl border border-accent/10">
-                            <div className="font-medium text-accent">Votes</div>
-                            <div className="text-lg font-bold">{team.voting?.totalVotes || 0}</div>
-                          </div>
+                                  <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
+                                    <div className="font-medium text-primary">Peer (total)</div>
+                                    <div className="text-lg font-bold">{team.peerRating?.total ?? 0}</div>
+                                  </div>
                           <div className="p-3 bg-primary/5 rounded-xl border border-primary/10">
-                            <div className="font-medium text-primary">Peer</div>
-                            <div className="text-lg font-bold">{team.peerRating?.average ? team.peerRating.average.toFixed(1) : '-'}</div>
+                            <div className="font-medium text-primary">Votes</div>
+                            <div className="text-lg font-bold">{team.voting?.originalYesVotes ?? team.voting?.totalVotes ?? 0}</div>
+                            <div className="text-xs text-muted-foreground mt-1">
+                              Yes: {team.voting?.originalYesVotes ?? 0} • No: {team.voting?.originalNoVotes ?? 0}
+                            </div>
+                            <div className="text-xs text-muted-foreground">
+                              Converted: {team.voting?.votesFromTokens ?? 0}
+                            </div>
                           </div>
                           <div className="p-3 bg-accent/5 rounded-xl border border-accent/10">
                             <div className="font-medium text-accent">Judge</div>
@@ -481,23 +500,15 @@ export default function ScoreboardPage() {
                     {/* Performance Metrics */}
                     <div className="grid grid-cols-2 gap-3">
                       <div className="p-4 bg-primary/5 rounded-xl border border-primary/10">
-                        <div className="text-xs text-muted-foreground mb-2">Token Breakdown</div>
+                        <div className="text-xs text-muted-foreground mb-2">Quiz Tokens</div>
                         <div className="space-y-1 text-sm">
                           <div className="flex justify-between">
-                            <span className="text-blue-500">Marketing:</span>
-                            <span className="font-medium">{team.tokens.marketing}</span>
+                            <span className="text-blue-500">Original Tokens:</span>
+                            <span className="font-medium">{team.tokenActivity?.earned ?? (team.tokens?.total ?? 0)}</span>
                           </div>
                           <div className="flex justify-between">
-                            <span className="text-green-500">Capital:</span>
-                            <span className="font-medium">{team.tokens.capital}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-purple-500">Team:</span>
-                            <span className="font-medium">{team.tokens.team}</span>
-                          </div>
-                          <div className="flex justify-between">
-                            <span className="text-orange-500">Strategy:</span>
-                            <span className="font-medium">{team.tokens.strategy}</span>
+                            <span className="text-green-500">Remaining Tokens:</span>
+                            <span className="font-medium">{team.tokenActivity?.remaining ?? team.tokens?.total ?? 0}</span>
                           </div>
                         </div>
                       </div>
@@ -505,20 +516,20 @@ export default function ScoreboardPage() {
                       <div className="p-4 bg-accent/5 rounded-xl border border-accent/10">
                         <div className="text-xs text-muted-foreground mb-2">Performance</div>
                         <div className="space-y-2 text-sm">
-                          <div className="flex justify-between">
-                            <span>Total Votes:</span>
-                            <span className="font-medium">{team.voting.totalVotes}</span>
-                          </div>
+                          {showDetails && (
+                            <div className="flex justify-between">
+                              <span>Votes (total):</span>
+                              <span className="font-medium">{team.voting.totalVotes}</span>
+                            </div>
+                          )}
                           {showDetails && (
                             <div className="text-xs text-muted-foreground">
-                              Original: {team.voting.originalVotes} + Token: {team.voting.votesFromTokens}
+                              Yes: {team.voting.originalYesVotes ?? 0} | No: {team.voting.originalNoVotes ?? 0} | Converted: {team.voting.votesFromTokens ?? 0}
                             </div>
                           )}
                           <div className="flex justify-between">
-                            <span>Peer Rating:</span>
-                            <span className="font-medium">
-                              {team.peerRating?.average && team.peerRating.average > 0 ? team.peerRating.average.toFixed(1) : '-'}
-                            </span>
+                            <span>Peer Rating (total):</span>
+                            <span className="font-medium">{team.peerRating?.total ?? 0}</span>
                           </div>
                           {showDetails && team.peerRating?.count && (
                             <div className="text-xs text-muted-foreground">
@@ -550,13 +561,11 @@ export default function ScoreboardPage() {
                         <th className="text-left p-6 font-bold text-primary">Rank</th>
                         <th className="text-left p-6 font-bold text-primary">Team</th>
                         <th className="text-left p-6 font-bold text-primary">College</th>
-                        <th className="text-center p-6 font-bold text-primary">Marketing</th>
-                        <th className="text-center p-6 font-bold text-primary">Capital</th>
-                        <th className="text-center p-6 font-bold text-primary">Team</th>
-                        <th className="text-center p-6 font-bold text-primary">Strategy</th>
+                        <th className="text-center p-6 font-bold text-primary">Original Quiz Tokens</th>
+                        <th className="text-center p-6 font-bold text-primary">Remaining Quiz Tokens</th>
+                        <th className="text-center p-6 font-bold text-primary">Peer (total)</th>
                         <th className="text-center p-6 font-bold text-primary">Votes</th>
-                        <th className="text-center p-6 font-bold text-primary">Peer</th>
-                        <th className="text-center p-6 font-bold text-primary">Judge</th>
+                        <th className="text-center p-6 font-bold text-primary">Judge (total)</th>
                         <th className="text-center p-6 font-bold text-primary">Final Score</th>
                       </tr>
                     </thead>
@@ -579,39 +588,27 @@ export default function ScoreboardPage() {
                           <td className="p-6 text-muted-foreground">{team.college}</td>
                           <td className="p-6 text-center">
                             <div className="font-semibold text-blue-500 text-lg">
-                              {team.tokens.marketing}
+                              {team.tokenActivity?.earned ?? (team.tokens?.total ?? 0)}
                             </div>
                           </td>
                           <td className="p-6 text-center">
                             <div className="font-semibold text-green-500 text-lg">
-                              {team.tokens.capital}
+                              {team.tokenActivity?.remaining ?? team.tokens?.total ?? 0}
                             </div>
                           </td>
                           <td className="p-6 text-center">
-                            <div className="font-semibold text-purple-500 text-lg">
-                              {team.tokens.team}
-                            </div>
-                          </td>
-                          <td className="p-6 text-center">
-                            <div className="font-semibold text-orange-500 text-lg">
-                              {team.tokens.strategy}
-                            </div>
-                          </td>
-                          <td className="p-6 text-center">
-                            <div className="font-semibold text-lg">{team.voting.totalVotes}</div>
-                            {showDetails && (
+                            <div className="font-semibold text-lg">{team.peerRating?.total ?? 0}</div>
+                            {showDetails && team.peerRating?.count && (
                               <div className="text-xs text-muted-foreground mt-1">
-                                {team.voting.originalVotes}+{team.voting.votesFromTokens}
+                                ({team.peerRating.count} ratings)
                               </div>
                             )}
                           </td>
                           <td className="p-6 text-center">
-                            <div className="font-semibold text-lg">
-                              {team.peerRating?.average && team.peerRating.average > 0 ? team.peerRating.average.toFixed(1) : '-'}
-                            </div>
-                            {showDetails && team.peerRating?.count && (
+                            <div className="font-semibold text-lg">{team.voting.totalVotes ?? 0}</div>
+                            {showDetails && (
                               <div className="text-xs text-muted-foreground mt-1">
-                                ({team.peerRating.count} ratings)
+                                Yes: {team.voting.originalYesVotes ?? 0} • No: {team.voting.originalNoVotes ?? 0} • Converted: {team.voting.votesFromTokens ?? 0}
                               </div>
                             )}
                           </td>
@@ -649,8 +646,8 @@ export default function ScoreboardPage() {
                 </div>
                 <div className="space-y-4 text-sm">
                   <div className="flex justify-between items-center p-3 bg-primary/5 rounded-lg border border-primary/10">
-                    <span className="font-medium">Token Categories</span>
-                    <span className="text-muted-foreground">Marketing + Capital + Team + Strategy</span>
+                    <span className="font-medium">Quiz Tokens</span>
+                    <span className="text-muted-foreground">Original Quiz Tokens & Remaining Tokens after conversions</span>
                   </div>
                   <div className="flex justify-between items-center p-3 bg-accent/5 rounded-lg border border-accent/10">
                     <span className="font-medium">Judge Scores</span>
@@ -658,7 +655,7 @@ export default function ScoreboardPage() {
                   </div>
                   <div className="flex justify-between items-center p-3 bg-primary/5 rounded-lg border border-primary/10">
                     <span className="font-medium">Final Score</span>
-                    <span className="text-muted-foreground">Token Score + Judge Score</span>
+                    <span className="text-muted-foreground">Final = Judge total + Peer total + Remaining quiz tokens (votes excluded from score)</span>
                   </div>
                 </div>
               </div>
@@ -695,8 +692,8 @@ export default function ScoreboardPage() {
           {/* Footer Information */}
           <div className="text-center space-y-6">
             <div className="p-6 bg-card/30 backdrop-blur-sm border border-border/30 rounded-2xl">
-              <p className="text-muted-foreground mb-2">
-                <span className="font-medium">Ranking Criteria:</span> {data.metadata.rankingCriteria?.join(' • ') || 'Cumulative score, then total votes'}
+                <p className="text-muted-foreground mb-2">
+                <span className="font-medium">Ranking Criteria:</span> {data.metadata.rankingCriteria?.join(' • ') || 'Final cumulative score (judge total + peer total + remaining token score) • Original yes votes (audience votes only) as first tiebreaker • Team name alphabetical order as final tiebreaker'}
               </p>
               <p className="text-xs text-muted-foreground">
                 Generated at: {new Date(data.metadata.generatedAt).toLocaleString()}
